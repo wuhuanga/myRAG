@@ -422,6 +422,22 @@ class RAGInstanceManager:
         if config.rag_id in self.instances:
             raise ValueError(f"RAG 实例 '{config.rag_id}' 已存在")
 
+        # ✅ 验证 workspace 唯一性（避免多实例数据冲突）
+        if not config.workspace or config.workspace.strip() == "":
+            raise ValueError(
+                "workspace 不能为空。在多实例环境中，必须为每个实例指定唯一的 workspace 以避免数据冲突。\n"
+                "详情请参考: MULTI_INSTANCE_ANALYSIS.md"
+            )
+
+        # ✅ 检查 workspace 是否已被其他实例使用
+        for existing_id, existing_processor in self.instances.items():
+            if existing_processor.workspace == config.workspace:
+                raise ValueError(
+                    f"workspace '{config.workspace}' 已被实例 '{existing_id}' 使用。\n"
+                    f"同一进程中的多个 lightrag 实例必须使用不同的 workspace，否则会导致数据冲突。\n"
+                    f"详情请参考: MULTI_INSTANCE_ANALYSIS.md"
+                )
+
         logger.info(f"正在创建 RAG 实例: {config.rag_id}")
 
         # 创建 RAG 处理器
