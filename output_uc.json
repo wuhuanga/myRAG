@@ -1,0 +1,507 @@
+{
+  "version": "1.1.0",
+  "generatedAt": "2025-11-02T13:46:49Z",
+  "model": {
+    "elements": [
+      {
+        "code": "satellite",
+        "type": "Subject",
+        "name": "卫星",
+        "ownedUseCases": [
+          "attitude_capture",
+          "attitude_stabilization",
+          "attitude_maneuver",
+          "orbit_control",
+          "autonomous_control"
+        ],
+        "documentation": "卫星作为姿态控制系统的主体，负责在空间环境中执行姿态和轨道控制任务"
+      },
+      {
+        "code": "ground_station",
+        "type": "Actor",
+        "name": "地面测控站",
+        "isHuman": false,
+        "documentation": "地面测控站负责卫星的遥测、遥控和轨道测量，支持星地大回路控制"
+      },
+      {
+        "code": "overall_design_department",
+        "type": "Actor",
+        "name": "总体设计部门",
+        "isHuman": true,
+        "documentation": "总体设计部门负责提出控制系统任务要求和技术指标"
+      },
+      {
+        "code": "attitude_capture",
+        "type": "UseCase",
+        "name": "姿态捕获",
+        "subjectRefCode": "satellite",
+        "preconditions": [
+          "卫星已入轨",
+          "星箭分离完成"
+        ],
+        "postconditions": [
+          "卫星建立初始姿态",
+          "控制系统进入稳定模式"
+        ],
+        "documentation": "卫星从初始状态建立期望姿态的过程，包括自旋稳定或三轴稳定捕获"
+      },
+      {
+        "code": "attitude_stabilization",
+        "type": "UseCase",
+        "name": "姿态稳定与保持",
+        "subjectRefCode": "satellite",
+        "preconditions": [
+          "姿态捕获完成",
+          "控制系统正常工作"
+        ],
+        "postconditions": [
+          "卫星保持对目标定向",
+          "姿态误差在允许范围内"
+        ],
+        "documentation": "克服内外干扰力矩，使卫星姿态保持对参考方位定向的控制任务"
+      },
+      {
+        "code": "attitude_maneuver",
+        "type": "UseCase",
+        "name": "姿态机动",
+        "subjectRefCode": "satellite",
+        "preconditions": [
+          "姿态稳定状态",
+          "控制系统有足够控制能力"
+        ],
+        "postconditions": [
+          "卫星完成姿态调整",
+          "达到新的稳定姿态"
+        ],
+        "documentation": "卫星从当前姿态调整到新姿态的控制过程，包括滚动、俯仰、偏航机动"
+      },
+      {
+        "code": "orbit_control",
+        "type": "UseCase",
+        "name": "轨道控制",
+        "subjectRefCode": "satellite",
+        "preconditions": [
+          "轨道确定完成",
+          "推进系统可用"
+        ],
+        "postconditions": [
+          "卫星轨道参数调整",
+          "达到目标轨道"
+        ],
+        "documentation": "通过发动机点火改变卫星轨道参数，包括轨道捕获、轨道保持和轨道机动"
+      },
+      {
+        "code": "autonomous_control",
+        "type": "UseCase",
+        "name": "自主控制",
+        "subjectRefCode": "satellite",
+        "preconditions": [
+          "星载计算机正常",
+          "敏感器和执行机构可用"
+        ],
+        "postconditions": [
+          "卫星自主完成控制任务",
+          "不依赖地面干预"
+        ],
+        "documentation": "卫星完全依靠星上设备自主完成姿态测量、确定、计算和执行的闭环控制"
+      },
+      {
+        "code": "pointing_control",
+        "type": "UseCase",
+        "name": "指向控制",
+        "subjectRefCode": "satellite",
+        "preconditions": [
+          "卫星本体姿态稳定",
+          "有效载荷可用"
+        ],
+        "postconditions": [
+          "有效载荷精确指向目标",
+          "指向误差在允许范围内"
+        ],
+        "documentation": "对卫星有效载荷（如天线、遥感器）进行局部精确指向控制"
+      },
+      {
+        "code": "fault_diagnosis",
+        "type": "UseCase",
+        "name": "故障诊断与处理",
+        "subjectRefCode": "satellite",
+        "preconditions": [
+          "控制系统运行中",
+          "故障检测机制正常"
+        ],
+        "postconditions": [
+          "故障被识别和处理",
+          "系统恢复正常或进入安全模式"
+        ],
+        "documentation": "控制系统自主检测、诊断故障并采取相应处理措施"
+      },
+      {
+        "code": "system_test",
+        "type": "UseCase",
+        "name": "系统测试",
+        "preconditions": [
+          "控制系统部件就位",
+          "测试设备可用"
+        ],
+        "postconditions": [
+          "系统功能性能验证",
+          "测试报告生成"
+        ],
+        "documentation": "控制系统开路试验和闭路试验，验证系统功能和性能"
+      }
+    ],
+    "references": {
+      "classifiers": [
+        "attitude_determination"
+      ]
+    },
+    "relationships": [
+      {
+        "type": "association",
+        "code": "assoc1",
+        "name": "测控支持",
+        "end1": {
+          "refCode": "ground_station"
+        },
+        "end2": {
+          "refCode": "orbit_control"
+        },
+        "documentation": "地面测控站为轨道控制提供测量和指令支持"
+      },
+      {
+        "type": "association",
+        "code": "assoc2",
+        "name": "任务要求",
+        "end1": {
+          "refCode": "overall_design_department"
+        },
+        "end2": {
+          "refCode": "attitude_capture"
+        },
+        "documentation": "总体设计部门提出姿态捕获的任务要求和技术指标"
+      },
+      {
+        "type": "association",
+        "code": "assoc3",
+        "name": "监控支持",
+        "end1": {
+          "refCode": "ground_station"
+        },
+        "end2": {
+          "refCode": "system_test"
+        },
+        "documentation": "地面测控站参与控制系统测试的监控和数据采集"
+      },
+      {
+        "type": "include",
+        "code": "include1",
+        "addition": {
+          "refCode": "attitude_determination"
+        },
+        "includingCase": {
+          "refCode": "attitude_stabilization"
+        },
+        "documentation": "姿态稳定必须包含姿态确定功能"
+      },
+      {
+        "type": "include",
+        "code": "include2",
+        "addition": {
+          "refCode": "attitude_determination"
+        },
+        "includingCase": {
+          "refCode": "autonomous_control"
+        },
+        "documentation": "自主控制必须包含姿态确定功能"
+      },
+      {
+        "type": "extend",
+        "code": "extend1",
+        "extension": {
+          "refCode": "fault_diagnosis"
+        },
+        "extendedCase": {
+          "refCode": "autonomous_control"
+        },
+        "extensionLocations": [
+          {
+            "refCode": "autonomous_control"
+          }
+        ],
+        "condition": "检测到控制系统异常",
+        "documentation": "在自主控制过程中检测到异常时执行故障诊断"
+      },
+      {
+        "type": "generalization",
+        "code": "gen1",
+        "specific": {
+          "refCode": "pointing_control"
+        },
+        "general": {
+          "refCode": "attitude_stabilization"
+        },
+        "documentation": "指向控制是姿态稳定的特化，针对有效载荷的精确指向"
+      },
+      {
+        "code": "attitude_determination",
+        "type": "UseCase",
+        "name": "姿态确定",
+        "subjectRefCode": "satellite",
+        "preconditions": [
+          "姿态敏感器正常工作",
+          "测量数据可用"
+        ],
+        "postconditions": [
+          "卫星姿态参数确定",
+          "姿态精度满足要求"
+        ],
+        "documentation": "通过姿态敏感器测量和处理数据，确定卫星三轴姿态"
+      }
+    ]
+  },
+  "diagrams": [
+    {
+      "code": "attitude_control_ucd",
+      "name": "姿态控制系统用例图",
+      "type": "UseCaseDiagram",
+      "references": [
+        "satellite",
+        "ground_station",
+        "overall_design_department",
+        "attitude_capture",
+        "attitude_stabilization",
+        "attitude_maneuver",
+        "orbit_control",
+        "autonomous_control",
+        "pointing_control",
+        "fault_diagnosis",
+        "system_test",
+        "attitude_determination"
+      ],
+      "documentation": "卫星姿态控制系统的主要用例图，展示系统功能与外部参与者关系"
+    }
+  ],
+  "layout": {
+    "pages": [
+      {
+        "diagramCode": "attitude_control_ucd",
+        "elements": [
+          {
+            "elementCode": "satellite",
+            "bounds": {
+              "x": 300,
+              "y": 200,
+              "w": 150,
+              "h": 100
+            }
+          },
+          {
+            "elementCode": "ground_station",
+            "bounds": {
+              "x": 100,
+              "y": 100,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "overall_design_department",
+            "bounds": {
+              "x": 100,
+              "y": 300,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "attitude_capture",
+            "bounds": {
+              "x": 500,
+              "y": 100,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "attitude_stabilization",
+            "bounds": {
+              "x": 500,
+              "y": 200,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "attitude_maneuver",
+            "bounds": {
+              "x": 500,
+              "y": 300,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "orbit_control",
+            "bounds": {
+              "x": 500,
+              "y": 400,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "autonomous_control",
+            "bounds": {
+              "x": 700,
+              "y": 200,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "pointing_control",
+            "bounds": {
+              "x": 700,
+              "y": 300,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "fault_diagnosis",
+            "bounds": {
+              "x": 700,
+              "y": 400,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "system_test",
+            "bounds": {
+              "x": 300,
+              "y": 400,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "attitude_determination",
+            "bounds": {
+              "x": 700,
+              "y": 100,
+              "w": 120,
+              "h": 60
+            }
+          }
+        ],
+        "relationships": [
+          {
+            "relationshipCode": "assoc1",
+            "points": [
+              {
+                "x": 220,
+                "y": 130
+              },
+              {
+                "x": 500,
+                "y": 430
+              }
+            ]
+          },
+          {
+            "relationshipCode": "assoc2",
+            "points": [
+              {
+                "x": 220,
+                "y": 330
+              },
+              {
+                "x": 500,
+                "y": 130
+              }
+            ]
+          },
+          {
+            "relationshipCode": "assoc3",
+            "points": [
+              {
+                "x": 220,
+                "y": 130
+              },
+              {
+                "x": 420,
+                "y": 430
+              }
+            ]
+          },
+          {
+            "relationshipCode": "include1",
+            "points": [
+              {
+                "x": 560,
+                "y": 230
+              },
+              {
+                "x": 700,
+                "y": 130
+              }
+            ]
+          },
+          {
+            "relationshipCode": "include2",
+            "points": [
+              {
+                "x": 760,
+                "y": 230
+              },
+              {
+                "x": 760,
+                "y": 130
+              }
+            ]
+          },
+          {
+            "relationshipCode": "extend1",
+            "points": [
+              {
+                "x": 820,
+                "y": 260
+              },
+              {
+                "x": 820,
+                "y": 430
+              }
+            ]
+          },
+          {
+            "relationshipCode": "gen1",
+            "points": [
+              {
+                "x": 560,
+                "y": 230
+              },
+              {
+                "x": 700,
+                "y": 330
+              }
+            ]
+          },
+          {
+            "relationshipCode": "attitude_determination",
+            "points": [
+              {
+                "x": 120,
+                "y": 288
+              },
+              {
+                "x": 360,
+                "y": 312
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

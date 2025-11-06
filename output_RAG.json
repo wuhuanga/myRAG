@@ -1,0 +1,600 @@
+{
+  "version": "1.1.0",
+  "generatedAt": "2025-04-03T09:33:01Z",
+  "model": {
+    "elements": [
+      {
+        "code": "subject_attitude_control_system",
+        "type": "Subject",
+        "name": "姿态控制系统",
+        "ownedUseCases": [
+          "uc_attitude_stabilization",
+          "uc_attitude_maneuver",
+          "uc_fault_detection",
+          "uc_mode_switching"
+        ],
+        "documentation": "姿态控制系统负责航天器或飞行器的姿态稳定、机动控制、故障检测和模式切换等核心功能"
+      },
+      {
+        "code": "actor_ground_operator",
+        "type": "Actor",
+        "name": "地面操作员",
+        "isHuman": true,
+        "documentation": "地面控制中心的操作人员，负责监控系统状态、发送控制指令和进行故障处理"
+      },
+      {
+        "code": "actor_onboard_computer",
+        "type": "Actor",
+        "name": "星载计算机",
+        "isHuman": false,
+        "stereotypes": [
+          "SystemActor"
+        ],
+        "documentation": "飞行器上的主控计算机，执行姿态控制算法和自主决策"
+      },
+      {
+        "code": "actor_sensor_system",
+        "type": "Actor",
+        "name": "传感器系统",
+        "isHuman": false,
+        "stereotypes": [
+          "SystemActor"
+        ],
+        "documentation": "包括陀螺仪、星敏感器、太阳敏感器等，提供姿态测量数据"
+      },
+      {
+        "code": "actor_actuator_system",
+        "type": "Actor",
+        "name": "执行器系统",
+        "isHuman": false,
+        "stereotypes": [
+          "SystemActor"
+        ],
+        "documentation": "包括反作用轮、推力器、磁力矩器等，执行姿态控制指令"
+      },
+      {
+        "code": "uc_attitude_stabilization",
+        "type": "UseCase",
+        "name": "姿态稳定控制",
+        "subjectRefCode": "subject_attitude_control_system",
+        "extensionPoints": [
+          {
+            "code": "ep_stabilization_enhancement",
+            "name": "稳定增强扩展点"
+          }
+        ],
+        "preconditions": [
+          "传感器系统正常工作",
+          "执行器系统可用"
+        ],
+        "postconditions": [
+          "姿态角稳定在目标范围内",
+          "角速度满足稳定要求"
+        ],
+        "documentation": "维持飞行器在目标姿态的稳定控制，包括三轴姿态稳定和角速度阻尼"
+      },
+      {
+        "code": "uc_attitude_maneuver",
+        "type": "UseCase",
+        "name": "姿态机动控制",
+        "subjectRefCode": "subject_attitude_control_system",
+        "preconditions": [
+          "姿态稳定控制正常",
+          "机动路径规划完成"
+        ],
+        "postconditions": [
+          "完成指定姿态机动",
+          "重新进入稳定状态"
+        ],
+        "documentation": "执行姿态大角度机动，包括对日定向、对地定向等任务相关的姿态调整"
+      },
+      {
+        "code": "uc_fault_detection",
+        "type": "UseCase",
+        "name": "故障检测与诊断",
+        "subjectRefCode": "subject_attitude_control_system",
+        "extensionPoints": [
+          {
+            "code": "ep_fault_isolation",
+            "name": "故障隔离扩展点"
+          }
+        ],
+        "preconditions": [
+          "系统监控功能正常",
+          "故障检测算法加载"
+        ],
+        "postconditions": [
+          "故障被检测并定位",
+          "故障信息上报"
+        ],
+        "documentation": "检测传感器、执行器或控制算法的异常状态，进行故障诊断和定位"
+      },
+      {
+        "code": "uc_mode_switching",
+        "type": "UseCase",
+        "name": "控制模式切换",
+        "subjectRefCode": "subject_attitude_control_system",
+        "preconditions": [
+          "系统处于正常工作状态",
+          "模式切换指令有效"
+        ],
+        "postconditions": [
+          "控制模式成功切换",
+          "新控制模式正常运行"
+        ],
+        "documentation": "在不同控制模式间切换，如从稳定模式切换到机动模式，或从正常模式切换到安全模式"
+      },
+      {
+        "code": "uc_enhanced_stabilization",
+        "type": "UseCase",
+        "name": "增强稳定控制",
+        "subjectRefCode": "subject_attitude_control_system",
+        "preconditions": [
+          "姿态稳定控制正在执行",
+          "外部扰动较大"
+        ],
+        "postconditions": [
+          "姿态稳定精度提高",
+          "抗扰动能力增强"
+        ],
+        "documentation": "在强扰动环境下提供更高精度的姿态稳定控制"
+      },
+      {
+        "code": "uc_fault_isolation",
+        "type": "UseCase",
+        "name": "故障隔离处理",
+        "subjectRefCode": "subject_attitude_control_system",
+        "preconditions": [
+          "故障已被检测",
+          "系统具备冗余能力"
+        ],
+        "postconditions": [
+          "故障组件被隔离",
+          "系统切换到备份模式"
+        ],
+        "documentation": "在检测到故障后，隔离故障组件并切换到备份系统"
+      }
+    ],
+    "relationships": [
+      {
+        "type": "association",
+        "code": "assoc_operator_stabilization",
+        "name": "监控稳定控制",
+        "end1": {
+          "refCode": "actor_ground_operator"
+        },
+        "end2": {
+          "refCode": "uc_attitude_stabilization"
+        },
+        "documentation": "地面操作员监控姿态稳定控制过程"
+      },
+      {
+        "type": "association",
+        "code": "assoc_operator_maneuver",
+        "name": "指令机动控制",
+        "end1": {
+          "refCode": "actor_ground_operator"
+        },
+        "end2": {
+          "refCode": "uc_attitude_maneuver"
+        },
+        "documentation": "地面操作员发送姿态机动指令"
+      },
+      {
+        "type": "association",
+        "code": "assoc_computer_stabilization",
+        "name": "执行稳定算法",
+        "end1": {
+          "refCode": "actor_onboard_computer"
+        },
+        "end2": {
+          "refCode": "uc_attitude_stabilization"
+        },
+        "documentation": "星载计算机执行姿态稳定控制算法"
+      },
+      {
+        "type": "association",
+        "code": "assoc_computer_maneuver",
+        "name": "执行机动算法",
+        "end1": {
+          "refCode": "actor_onboard_computer"
+        },
+        "end2": {
+          "refCode": "uc_attitude_maneuver"
+        },
+        "documentation": "星载计算机执行姿态机动控制算法"
+      },
+      {
+        "type": "association",
+        "code": "assoc_sensor_stabilization",
+        "name": "提供测量数据",
+        "end1": {
+          "refCode": "actor_sensor_system"
+        },
+        "end2": {
+          "refCode": "uc_attitude_stabilization"
+        },
+        "documentation": "传感器系统为姿态稳定控制提供测量数据"
+      },
+      {
+        "type": "association",
+        "code": "assoc_actuator_stabilization",
+        "name": "执行控制力矩",
+        "end1": {
+          "refCode": "actor_actuator_system"
+        },
+        "end2": {
+          "refCode": "uc_attitude_stabilization"
+        },
+        "documentation": "执行器系统执行姿态稳定控制力矩"
+      },
+      {
+        "type": "association",
+        "code": "assoc_sensor_fault",
+        "name": "监测传感器状态",
+        "end1": {
+          "refCode": "actor_sensor_system"
+        },
+        "end2": {
+          "refCode": "uc_fault_detection"
+        },
+        "documentation": "故障检测系统监测传感器系统状态"
+      },
+      {
+        "type": "association",
+        "code": "assoc_actuator_fault",
+        "name": "监测执行器状态",
+        "end1": {
+          "refCode": "actor_actuator_system"
+        },
+        "end2": {
+          "refCode": "uc_fault_detection"
+        },
+        "documentation": "故障检测系统监测执行器系统状态"
+      },
+      {
+        "type": "include",
+        "code": "include_maneuver_stabilization",
+        "addition": {
+          "refCode": "uc_attitude_stabilization"
+        },
+        "includingCase": {
+          "refCode": "uc_attitude_maneuver"
+        },
+        "documentation": "姿态机动控制完成后必须包含姿态稳定控制来维持新姿态"
+      },
+      {
+        "type": "extend",
+        "code": "extend_enhanced_stabilization",
+        "extension": {
+          "refCode": "uc_enhanced_stabilization"
+        },
+        "extendedCase": {
+          "refCode": "uc_attitude_stabilization"
+        },
+        "extensionLocations": [
+          {
+            "refCode": "ep_stabilization_enhancement"
+          }
+        ],
+        "condition": "当外部扰动超过阈值时",
+        "documentation": "在强扰动条件下扩展基本稳定控制为增强稳定控制"
+      },
+      {
+        "type": "extend",
+        "code": "extend_fault_isolation",
+        "extension": {
+          "refCode": "uc_fault_isolation"
+        },
+        "extendedCase": {
+          "refCode": "uc_fault_detection"
+        },
+        "extensionLocations": [
+          {
+            "refCode": "ep_fault_isolation"
+          }
+        ],
+        "condition": "当检测到可隔离的故障时",
+        "documentation": "在检测到故障后扩展故障隔离处理功能"
+      },
+      {
+        "type": "dependency",
+        "code": "dep_mode_fault",
+        "client": {
+          "refCode": "uc_mode_switching"
+        },
+        "supplier": {
+          "refCode": "uc_fault_detection"
+        },
+        "documentation": "控制模式切换依赖故障检测结果来决定切换策略"
+      }
+    ]
+  },
+  "diagrams": [
+    {
+      "code": "diagram_attitude_control_uc",
+      "name": "姿态控制系统用例图",
+      "type": "UseCaseDiagram",
+      "references": [
+        "subject_attitude_control_system",
+        "actor_ground_operator",
+        "actor_onboard_computer",
+        "actor_sensor_system",
+        "actor_actuator_system",
+        "uc_attitude_stabilization",
+        "uc_attitude_maneuver",
+        "uc_fault_detection",
+        "uc_mode_switching",
+        "uc_enhanced_stabilization",
+        "uc_fault_isolation"
+      ],
+      "documentation": "姿态控制系统的完整用例图，展示了系统的主要功能、参与者及其相互关系"
+    }
+  ],
+  "layout": {
+    "pages": [
+      {
+        "diagramCode": "diagram_attitude_control_uc",
+        "elements": [
+          {
+            "elementCode": "subject_attitude_control_system",
+            "bounds": {
+              "x": 300,
+              "y": 200,
+              "w": 400,
+              "h": 300
+            }
+          },
+          {
+            "elementCode": "actor_ground_operator",
+            "bounds": {
+              "x": 100,
+              "y": 150,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "actor_onboard_computer",
+            "bounds": {
+              "x": 100,
+              "y": 250,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "actor_sensor_system",
+            "bounds": {
+              "x": 100,
+              "y": 350,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "actor_actuator_system",
+            "bounds": {
+              "x": 100,
+              "y": 450,
+              "w": 120,
+              "h": 60
+            }
+          },
+          {
+            "elementCode": "uc_attitude_stabilization",
+            "bounds": {
+              "x": 350,
+              "y": 250,
+              "w": 140,
+              "h": 50
+            }
+          },
+          {
+            "elementCode": "uc_attitude_maneuver",
+            "bounds": {
+              "x": 350,
+              "y": 320,
+              "w": 140,
+              "h": 50
+            }
+          },
+          {
+            "elementCode": "uc_fault_detection",
+            "bounds": {
+              "x": 350,
+              "y": 390,
+              "w": 140,
+              "h": 50
+            }
+          },
+          {
+            "elementCode": "uc_mode_switching",
+            "bounds": {
+              "x": 350,
+              "y": 460,
+              "w": 140,
+              "h": 50
+            }
+          },
+          {
+            "elementCode": "uc_enhanced_stabilization",
+            "bounds": {
+              "x": 520,
+              "y": 220,
+              "w": 140,
+              "h": 50
+            }
+          },
+          {
+            "elementCode": "uc_fault_isolation",
+            "bounds": {
+              "x": 520,
+              "y": 380,
+              "w": 140,
+              "h": 50
+            }
+          }
+        ],
+        "relationships": [
+          {
+            "relationshipCode": "assoc_operator_stabilization",
+            "points": [
+              {
+                "x": 220,
+                "y": 180
+              },
+              {
+                "x": 350,
+                "y": 250
+              }
+            ]
+          },
+          {
+            "relationshipCode": "assoc_operator_maneuver",
+            "points": [
+              {
+                "x": 220,
+                "y": 180
+              },
+              {
+                "x": 350,
+                "y": 320
+              }
+            ]
+          },
+          {
+            "relationshipCode": "assoc_computer_stabilization",
+            "points": [
+              {
+                "x": 220,
+                "y": 280
+              },
+              {
+                "x": 350,
+                "y": 250
+              }
+            ]
+          },
+          {
+            "relationshipCode": "assoc_computer_maneuver",
+            "points": [
+              {
+                "x": 220,
+                "y": 280
+              },
+              {
+                "x": 350,
+                "y": 320
+              }
+            ]
+          },
+          {
+            "relationshipCode": "assoc_sensor_stabilization",
+            "points": [
+              {
+                "x": 220,
+                "y": 380
+              },
+              {
+                "x": 350,
+                "y": 250
+              }
+            ]
+          },
+          {
+            "relationshipCode": "assoc_actuator_stabilization",
+            "points": [
+              {
+                "x": 220,
+                "y": 480
+              },
+              {
+                "x": 350,
+                "y": 250
+              }
+            ]
+          },
+          {
+            "relationshipCode": "assoc_sensor_fault",
+            "points": [
+              {
+                "x": 220,
+                "y": 380
+              },
+              {
+                "x": 350,
+                "y": 390
+              }
+            ]
+          },
+          {
+            "relationshipCode": "assoc_actuator_fault",
+            "points": [
+              {
+                "x": 220,
+                "y": 480
+              },
+              {
+                "x": 350,
+                "y": 390
+              }
+            ]
+          },
+          {
+            "relationshipCode": "include_maneuver_stabilization",
+            "points": [
+              {
+                "x": 420,
+                "y": 320
+              },
+              {
+                "x": 420,
+                "y": 250
+              }
+            ]
+          },
+          {
+            "relationshipCode": "extend_enhanced_stabilization",
+            "points": [
+              {
+                "x": 490,
+                "y": 250
+              },
+              {
+                "x": 520,
+                "y": 220
+              }
+            ]
+          },
+          {
+            "relationshipCode": "extend_fault_isolation",
+            "points": [
+              {
+                "x": 490,
+                "y": 390
+              },
+              {
+                "x": 520,
+                "y": 380
+              }
+            ]
+          },
+          {
+            "relationshipCode": "dep_mode_fault",
+            "points": [
+              {
+                "x": 420,
+                "y": 390
+              },
+              {
+                "x": 420,
+                "y": 460
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
