@@ -1,0 +1,96 @@
+# Python-related files
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.tgz
+*.tar.gz
+*.ini
+
+# Virtual Environment
+.venv/
+env/
+venv/
+*.env*
+.env_example
+.env
+
+# Build / Distribution
+dist/
+build/
+site/
+
+# Logs / Reports
+*.log
+*.log.*
+*.logfire
+*.coverage/
+log/
+
+# Caches
+.cache/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.gradio/
+.history/
+temp/
+
+# IDE / Editor Files
+.idea/
+.vscode/
+.vscode/settings.json
+
+# Framework-specific files
+local_neo4jWorkDir/
+neo4jWorkDir/
+
+# Data & Storage
+inputs/
+rag_storage/
+examples/input/
+examples/output/
+output*/
+data/
+
+# Miscellaneous
+.DS_Store
+TODO.md
+ignore_this.txt
+*.ignore.*
+
+# Project-specific files
+dickens*/
+book.txt
+lightrag.pdf
+download_models_hf.py
+lightrag-dev/
+gui/
+
+# unit-test files
+test_*
+
+# Cline files
+memory-bank
+memory-bank/
+.clinerules
+
+
+index_default/__pycache__/
+*.pyc
+__pycache__/
+*.pyc
+.env
+index_default/
+RAG_BS/
+hadoop/
+*.index
+lightrag-frontend/node_modules/
+lightrag-frontend/server-package/node_modules/
+flask_offline/
+offline/
+temp_uploads/
+*.zip
+llm_result.txt
+output*.txt
+测试日志/
