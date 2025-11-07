@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException
 import aiofiles
 
 from ..dependencies import get_rag_manager
@@ -31,9 +31,9 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 @router.post("/upload")
 async def upload_document(
-    rag_id: str,
+    rag_id: str = Form(...),
     file: UploadFile = File(...),
-    custom_id: Optional[str] = None
+    custom_id: Optional[str] = Form(None)
 ):
     """上传并处理文档"""
     manager = get_rag_manager()
