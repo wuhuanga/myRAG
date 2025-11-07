@@ -143,8 +143,8 @@ async function checkApiStatus() {
 
 async function loadInstances() {
     try {
-        const data = await apiRequest('/admin/rag_instances');
-        currentInstances = data.instances || [];
+        const data = await apiRequest('/admin/rag_instances/list');
+        currentInstances = data || [];
 
         // 更新实例列表显示
         const container = document.getElementById('instancesList');
@@ -347,7 +347,7 @@ async function performQuery(ragId, question, options) {
 // ============================================
 
 async function createEntity(ragId, entityName, entityType, description) {
-    return await apiRequest('/entities/create', {
+    return await apiRequest('/graph/entities/create', {
         method: 'POST',
         body: JSON.stringify({
             rag_id: ragId,
@@ -361,7 +361,7 @@ async function createEntity(ragId, entityName, entityType, description) {
 }
 
 async function getEntity(ragId, entityName) {
-    return await apiRequest('/entities/info', {
+    return await apiRequest('/graph/entities/info', {
         method: 'POST',
         body: JSON.stringify({
             rag_id: ragId,
@@ -371,12 +371,12 @@ async function getEntity(ragId, entityName) {
 }
 
 async function createRelation(ragId, srcEntity, tgtEntity, description) {
-    return await apiRequest('/relations/create', {
+    return await apiRequest('/graph/relations/create', {
         method: 'POST',
         body: JSON.stringify({
             rag_id: ragId,
-            src_entity: srcEntity,
-            tgt_entity: tgtEntity,
+            source_entity: srcEntity,
+            target_entity: tgtEntity,
             description: description || '',
             source_id: 'manual_creation',
         }),
@@ -384,12 +384,12 @@ async function createRelation(ragId, srcEntity, tgtEntity, description) {
 }
 
 async function getRelation(ragId, srcEntity, tgtEntity) {
-    return await apiRequest('/relations/info', {
+    return await apiRequest('/graph/relations/info', {
         method: 'POST',
         body: JSON.stringify({
             rag_id: ragId,
-            src_entity: srcEntity,
-            tgt_entity: tgtEntity,
+            source_entity: srcEntity,
+            target_entity: tgtEntity,
         }),
     });
 }
@@ -402,29 +402,20 @@ async function exportData(format) {
     }
 
     try {
-        showLoading(true);
-        const url = `${getApiUrl()}/export/${ragId}?format=${format}`;
-        const response = await fetch(url);
+        const outputPath = `./exports/${ragId}_export.${format}`;
+        const result = await apiRequest('/graph/export', {
+            method: 'POST',
+            body: JSON.stringify({
+                rag_id: ragId,
+                output_path: outputPath,
+                file_format: format,
+                include_vector_data: false,
+            }),
+        });
 
-        if (!response.ok) {
-            throw new Error('导出失败');
-        }
-
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = `${ragId}_export.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(downloadUrl);
-
-        showNotification(`导出成功: ${ragId}_export.${format}`, 'success');
+        showNotification(`导出成功: ${result.output_path}`, 'success');
     } catch (error) {
         showNotification(`导出失败: ${error.message}`, 'error');
-    } finally {
-        showLoading(false);
     }
 }
 
@@ -446,7 +437,7 @@ document.getElementById('createInstanceForm')?.addEventListener('submit', async 
     }
 
     try {
-        await apiRequest('/admin/rag_instances', {
+        await apiRequest('/admin/rag_instances/create', {
             method: 'POST',
             body: JSON.stringify({
                 rag_id: ragId,
