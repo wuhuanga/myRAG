@@ -1,7 +1,7 @@
 """
 优化版 JsonKVStorage - 使用 Keyed Lock 替代全局锁
 
-这个文件展示了如何优化 lightrag 的 JsonKVStorage，从全局锁改为细粒度的 keyed lock。
+这个文件展示了如何优化 xwrag 的 JsonKVStorage，从全局锁改为细粒度的 keyed lock。
 
 性能提升：
 - 不同 namespace 的操作可以并行执行
@@ -9,8 +9,8 @@
 - 多实例场景下性能提升可达 10 倍以上
 
 使用方法：
-1. 备份原文件: cp lightrag/kg/json_kv_impl.py lightrag/kg/json_kv_impl.py.bak
-2. 替换优化版: cp json_kv_impl_optimized.py lightrag/kg/json_kv_impl.py
+1. 备份原文件: cp xwrag/kg/json_kv_impl.py xwrag/kg/json_kv_impl.py.bak
+2. 替换优化版: cp json_kv_impl_optimized.py xwrag/kg/json_kv_impl.py
 3. 测试验证
 """
 
@@ -18,15 +18,15 @@ import os
 from dataclasses import dataclass
 from typing import Any, final
 
-from lightrag.base import (
+from xwrag.base import (
     BaseKVStorage,
 )
-from lightrag.utils import (
+from xwrag.utils import (
     load_json,
     logger,
     write_json,
 )
-from lightrag.exceptions import StorageNotInitializedError
+from xwrag.exceptions import StorageNotInitializedError
 
 # ✅ 导入 keyed lock（细粒度锁）
 from .shared_storage import (
@@ -303,7 +303,7 @@ async def benchmark_comparison():
 
     async def old_version_insert(instance_id):
         """模拟旧版的全局锁"""
-        from lightrag.kg.shared_storage import get_storage_lock
+        from xwrag.kg.shared_storage import get_storage_lock
 
         start = time.time()
         storage_lock = get_storage_lock()
@@ -371,7 +371,7 @@ if __name__ == "__main__":
 
 使用说明：
 1. 备份原文件
-2. 替换 lightrag/kg/json_kv_impl.py
+2. 替换 xwrag/kg/json_kv_impl.py
 3. 运行测试验证
 
 注意事项：

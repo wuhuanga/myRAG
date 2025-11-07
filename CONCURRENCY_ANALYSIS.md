@@ -25,7 +25,7 @@ rag_manager = RAGInstanceManager()
 ```python
 class ConcurrentRAGInstanceManager:
     def __init__(self):
-        self.instances: Dict[str, lightragProcessor] = {}
+        self.instances: Dict[str, xwragProcessor] = {}
         self._lock = asyncio.Lock()  # 进程内的异步锁
 ```
 
@@ -51,12 +51,12 @@ class ConcurrentRAGInstanceManager:
    - ✅ 实例的创建、删除、列表操作
 
    锁**不保护**:
-   - ❌ lightrag 实例内部的操作（insert、query 等）
+   - ❌ xwrag 实例内部的操作（insert、query 等）
    - ❌ 不同 RAG 实例之间的操作
 
 #### 1.3 同进程多实例的并发情况
 
-**场景**: 同一进程创建两个 lightrag 实例
+**场景**: 同一进程创建两个 xwrag 实例
 
 ```python
 # 创建两个不同的 RAG 实例
@@ -76,7 +76,7 @@ await asyncio.gather(
 |---------|-----------|-----------|------|
 | **Manager 层** | ✅ 共享 | ✅ 安全 | `manager._lock` 保护 instances 字典 |
 | **不同 RAG 实例** | ❌ 不共享 | ✅ 安全 | 每个实例独立，无共享状态 |
-| **同一 RAG 实例内部** | ❓ 取决于 lightrag | ⚠️ 需检查 | 取决于 lightrag 库的实现 |
+| **同一 RAG 实例内部** | ❓ 取决于 xwrag | ⚠️ 需检查 | 取决于 xwrag 库的实现 |
 
 ### 🎯 结论：问题一
 
@@ -102,12 +102,12 @@ await asyncio.gather(
 
 #### ⚠️ 需要注意的场景
 
-**同一个 lightrag 实例的并发写操作**
+**同一个 xwrag 实例的并发写操作**
 
 ```python
 instance = manager.get_instance("kb1")
 
-# ⚠️ 需要检查 lightrag 库是否支持
+# ⚠️ 需要检查 xwrag 库是否支持
 await asyncio.gather(
     instance.rag.insert("文档A"),  # 并发写入
     instance.rag.insert("文档B"),  # 并发写入
@@ -116,8 +116,8 @@ await asyncio.gather(
 ```
 
 **潜在问题**:
-- lightrag 内部可能有共享状态（如文件句柄、数据库连接）
-- 需要检查 lightrag 源码确认是否线程安全/协程安全
+- xwrag 内部可能有共享状态（如文件句柄、数据库连接）
+- 需要检查 xwrag 源码确认是否线程安全/协程安全
 
 **建议**:
 1. **查询操作**: 通常是只读的，并发安全 ✅
@@ -770,7 +770,7 @@ if __name__ == "__main__":
 
 1. **同进程内**:
    - ✅ 不同 RAG 实例的操作是安全的（实例隔离）
-   - ⚠️ 同一 RAG 实例的并发写入需要注意（取决于 lightrag 实现）
+   - ⚠️ 同一 RAG 实例的并发写入需要注意（取决于 xwrag 实现）
    - ✅ Manager 的管理操作是安全的（锁保护）
 
 2. **多进程部署**:

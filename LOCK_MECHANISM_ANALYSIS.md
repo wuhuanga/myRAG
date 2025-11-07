@@ -1,4 +1,4 @@
-# lightrag 锁机制深度分析
+# xwrag 锁机制深度分析
 
 ## 🔍 核心问题
 
@@ -8,11 +8,11 @@
 3. Neo4j 本身是原子操作，还需要额外的锁吗？
 4. 能不能把这个同步锁去掉？
 
-## 📊 lightrag 的锁体系
+## 📊 xwrag 的锁体系
 
 ### 1. 锁的分类
 
-lightrag 实际上有**两套锁机制**：
+xwrag 实际上有**两套锁机制**：
 
 | 锁类型 | 作用范围 | 粒度 | 使用场景 |
 |--------|---------|------|----------|
@@ -21,7 +21,7 @@ lightrag 实际上有**两套锁机制**：
 
 ### 2. 全局锁（问题所在）
 
-**位置**：`lightrag/kg/shared_storage.py`
+**位置**：`xwrag/kg/shared_storage.py`
 
 ```python
 # 全局变量
@@ -30,7 +30,7 @@ _internal_lock = None     # ← 所有内部操作共享
 _graph_db_lock = None     # ← 所有图数据库操作共享
 ```
 
-**使用场景**：`lightrag/kg/json_kv_impl.py`
+**使用场景**：`xwrag/kg/json_kv_impl.py`
 
 ```python
 class JsonKVStorage:
@@ -46,7 +46,7 @@ class JsonKVStorage:
 
 ### 3. Keyed Lock（正确的方式）
 
-**位置**：`lightrag/operate.py`
+**位置**：`xwrag/operate.py`
 
 ```python
 # 实体操作使用 keyed lock
@@ -290,7 +290,7 @@ class JsonKVStorage:
 - ✅ 性能大幅提升（真正的并行）
 
 **缺点**：
-- ⚠️ 需要修改 lightrag 源码
+- ⚠️ 需要修改 xwrag 源码
 - ⚠️ 需要充分测试
 
 #### 方案 B：去掉锁，直接操作数据库（激进）⭐
@@ -320,7 +320,7 @@ class DirectDBStorage:
 
 #### 方案 C：多进程架构（实用）⭐⭐
 
-**不修改 lightrag，使用多进程隔离**：
+**不修改 xwrag，使用多进程隔离**：
 
 ```bash
 # 每个进程有独立的全局变量
@@ -353,13 +353,13 @@ gunicorn app.main:app --workers 4
 ### 中期方案（需要测试）
 
 1. **修改 JsonKVStorage 使用 Keyed Lock**（方案 A）
-   - Fork lightrag 仓库
+   - Fork xwrag 仓库
    - 修改 `json_kv_impl.py`
    - 充分测试
 
 ### 长期方案（提交 PR）
 
-1. **向 lightrag 官方提交 PR**
+1. **向 xwrag 官方提交 PR**
    - 说明性能问题
    - 提供优化方案
    - 帮助改进项目
@@ -368,7 +368,7 @@ gunicorn app.main:app --workers 4
 
 ## 📝 代码示例：如何优化
 
-### 当前代码（lightrag/kg/json_kv_impl.py）
+### 当前代码（xwrag/kg/json_kv_impl.py）
 
 ```python
 async def upsert(self, data: dict[str, dict[str, Any]]) -> None:
@@ -383,7 +383,7 @@ async def upsert(self, data: dict[str, dict[str, Any]]) -> None:
 ```python
 async def upsert(self, data: dict[str, dict[str, Any]]) -> None:
     # ✅ 使用 keyed lock（按 namespace）
-    from lightrag.kg.shared_storage import get_storage_keyed_lock
+    from xwrag.kg.shared_storage import get_storage_keyed_lock
 
     async with get_storage_keyed_lock(
         keys=[self.namespace],          # 按 namespace 加锁
@@ -431,5 +431,5 @@ async def upsert(self, data: dict[str, dict[str, Any]]) -> None:
 
 **建议**：
 1. **立即**：使用多进程架构（无需改代码）
-2. **短期**：考虑 fork lightrag 并优化锁机制
+2. **短期**：考虑 fork xwrag 并优化锁机制
 3. **长期**：向官方提交 PR，帮助改进项目

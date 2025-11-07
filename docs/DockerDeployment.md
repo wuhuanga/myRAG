@@ -1,4 +1,4 @@
-# lightrag
+# xwrag
 
 A lightweight Knowledge Graph Retrieval-Augmented Generation system with multiple LLM backend support.
 
@@ -14,13 +14,13 @@ A lightweight Knowledge Graph Retrieval-Augmented Generation system with multipl
 1. Clone the repository:
 ```bash
 # Linux/MacOS
-git clone https://github.com/HKUDS/lightrag.git
-cd lightrag
+git clone https://github.com/HKUDS/xwrag.git
+cd xwrag
 ```
 ```powershell
 # Windows PowerShell
-git clone https://github.com/HKUDS/lightrag.git
-cd lightrag
+git clone https://github.com/HKUDS/xwrag.git
+cd xwrag
 ```
 
 2. Configure your environment:
@@ -64,7 +64,7 @@ docker-compose up -d
 
 ### Configuration Options
 
-lightrag can be configured using environment variables in the `.env` file:
+xwrag can be configured using environment variables in the `.env` file:
 
 #### Server Configuration
 - `HOST`: Server host (default: 0.0.0.0)
@@ -86,7 +86,7 @@ lightrag can be configured using environment variables in the `.env` file:
 - `EMBEDDING_DIM`: Embedding dimensions
 
 #### Security
-- `lightrag_API_KEY`: API key for authentication
+- `xwrag_API_KEY`: API key for authentication
 
 ### Data Storage Paths
 

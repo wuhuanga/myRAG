@@ -12,13 +12,13 @@ from datetime import datetime
 from dotenv import load_dotenv
 import nest_asyncio
 import textract
-from lightrag import lightrag, QueryParam
-from lightrag.llm.llama_index_impl import llama_index_complete_if_cache
-from lightrag.llm.hf import hf_embed
+from xwrag import xwrag, QueryParam
+from xwrag.llm.llama_index_impl import llama_index_complete_if_cache
+from xwrag.llm.hf import hf_embed
 from transformers import AutoModel, AutoTokenizer
-from lightrag.utils import EmbeddingFunc
+from xwrag.utils import EmbeddingFunc
 from llama_index.llms.litellm import LiteLLM
-from lightrag.kg.shared_storage import initialize_pipeline_status
+from xwrag.kg.shared_storage import initialize_pipeline_status
 
 from .models import RAGInstanceCreate, RAGInstanceInfo
 
@@ -28,8 +28,8 @@ nest_asyncio.apply()
 logger = logging.getLogger(__name__)
 
 
-# ==================== lightrag 处理器实现（与原版相同）====================
-# ... (lightragProcessor 类的代码与原版完全相同，此处省略)
+# ==================== xwrag 处理器实现（与原版相同）====================
+# ... (xwragProcessor 类的代码与原版完全相同，此处省略)
 
 
 # ==================== 并发安全的 RAG 实例管理器 ====================
@@ -42,11 +42,11 @@ class ConcurrentRAGInstanceManager:
     """
 
     def __init__(self):
-        self.instances: Dict[str, lightragProcessor] = {}
+        self.instances: Dict[str, xwragProcessor] = {}
         self._lock = asyncio.Lock()  # 用于保护 instances 字典的锁
         logger.info("并发安全的 RAG 实例管理器已初始化")
 
-    async def create_instance(self, config: RAGInstanceCreate) -> lightragProcessor:
+    async def create_instance(self, config: RAGInstanceCreate) -> xwragProcessor:
         """
         创建一个新的 RAG 实例（线程安全）
 
@@ -54,7 +54,7 @@ class ConcurrentRAGInstanceManager:
             config: RAG 实例配置
 
         Returns:
-            lightragProcessor 实例
+            xwragProcessor 实例
         """
         async with self._lock:  # 加锁保护
             if config.rag_id in self.instances:
@@ -72,14 +72,14 @@ class ConcurrentRAGInstanceManager:
                 if existing_processor.workspace == config.workspace:
                     raise ValueError(
                         f"workspace '{config.workspace}' 已被实例 '{existing_id}' 使用。\n"
-                        f"同一进程中的多个 lightrag 实例必须使用不同的 workspace，否则会导致数据冲突。\n"
+                        f"同一进程中的多个 xwrag 实例必须使用不同的 workspace，否则会导致数据冲突。\n"
                         f"详情请参考: MULTI_INSTANCE_ANALYSIS.md"
                     )
 
             logger.info(f"正在创建 RAG 实例: {config.rag_id}")
 
             # 创建 RAG 处理器（LLM 和 Embedding 配置从环境变量读取）
-            processor = lightragProcessor(
+            processor = xwragProcessor(
                 working_dir=config.working_dir,
                 workspace=config.workspace,
                 top_k=config.top_k,
@@ -104,7 +104,7 @@ class ConcurrentRAGInstanceManager:
             logger.info(f"RAG 实例创建成功: {config.rag_id}")
             return processor
 
-    def get_instance(self, rag_id: str) -> lightragProcessor:
+    def get_instance(self, rag_id: str) -> xwragProcessor:
         """
         获取指定的 RAG 实例（读操作，无需加锁）
 
@@ -112,7 +112,7 @@ class ConcurrentRAGInstanceManager:
             rag_id: RAG 实例 ID
 
         Returns:
-            lightragProcessor 实例
+            xwragProcessor 实例
 
         Raises:
             ValueError: 如果实例不存在

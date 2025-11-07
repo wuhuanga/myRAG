@@ -32,7 +32,7 @@
 
 ### 步骤1：存储层接口扩展
 
-**改动文件**：`lightrag/kg/base.py`
+**改动文件**：`xwrag/kg/base.py`
 
 **关键思路**：
 - 在BaseDocStatusStorage抽象类中添加分页查询方法
@@ -49,10 +49,10 @@ get_all_status_counts() -> Dict[str, int]
 ### 步骤2：各存储后端实现
 
 **改动文件**：
-- `lightrag/kg/postgres_impl.py`
-- `lightrag/kg/mongo_impl.py`
-- `lightrag/kg/redis_impl.py`
-- `lightrag/kg/json_doc_status_impl.py`
+- `xwrag/kg/postgres_impl.py`
+- `xwrag/kg/mongo_impl.py`
+- `xwrag/kg/redis_impl.py`
+- `xwrag/kg/json_doc_status_impl.py`
 
 **PostgreSQL实现要点**：
 - 使用LIMIT和OFFSET实现分页
@@ -77,7 +77,7 @@ get_all_status_counts() -> Dict[str, int]
 
 ### 步骤3：API路由层改造
 
-**改动文件**：`lightrag/api/routers/document_routes.py`
+**改动文件**：`xwrag/api/routers/document_routes.py`
 
 **新增接口**：
 1. `POST /documents/paginated` - 分页查询文档
@@ -110,7 +110,7 @@ get_all_status_counts() -> Dict[str, int]
 
 ### 步骤1：API客户端扩展
 
-**改动文件**：`lightrag_webui/src/api/lightrag.ts`
+**改动文件**：`xwrag_webui/src/api/xwrag.ts`
 
 **新增函数**：
 - `getDocumentsPaginated()` - 分页查询文档
@@ -122,7 +122,7 @@ get_all_status_counts() -> Dict[str, int]
 
 ### 步骤2：分页控制组件开发
 
-**新增文件**：`lightrag_webui/src/components/ui/PaginationControls.tsx`
+**新增文件**：`xwrag_webui/src/components/ui/PaginationControls.tsx`
 
 **组件功能**：
 - 支持紧凑模式和完整模式
@@ -150,7 +150,7 @@ get_all_status_counts() -> Dict[str, int]
 
 ### 步骤4：主组件DocumentManager改造
 
-**改动文件**：`lightrag_webui/src/features/DocumentManager.tsx`
+**改动文件**：`xwrag_webui/src/features/DocumentManager.tsx`
 
 **核心改动**：
 

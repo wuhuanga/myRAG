@@ -11,13 +11,13 @@ from datetime import datetime
 from dotenv import load_dotenv
 import nest_asyncio
 import textract
-from lightrag import lightrag, QueryParam
-from lightrag.llm.llama_index_impl import llama_index_complete_if_cache
-from lightrag.llm.hf import hf_embed
+from xwrag import xwrag, QueryParam
+from xwrag.llm.llama_index_impl import llama_index_complete_if_cache
+from xwrag.llm.hf import hf_embed
 from transformers import AutoModel, AutoTokenizer
-from lightrag.utils import EmbeddingFunc
+from xwrag.utils import EmbeddingFunc
 from llama_index.llms.litellm import LiteLLM
-from lightrag.kg.shared_storage import initialize_pipeline_status
+from xwrag.kg.shared_storage import initialize_pipeline_status
 
 from .models import RAGInstanceCreate, RAGInstanceInfo
 
@@ -27,10 +27,10 @@ nest_asyncio.apply()
 logger = logging.getLogger(__name__)
 
 
-# ==================== lightrag 处理器实现 ====================
+# ==================== xwrag 处理器实现 ====================
 
-class lightragProcessor:
-    """lightrag 处理器,用于构建和查询知识图谱"""
+class xwragProcessor:
+    """xwrag 处理器,用于构建和查询知识图谱"""
 
     def __init__(
         self,
@@ -50,9 +50,9 @@ class lightragProcessor:
         enable_llm_cache_for_entity_extract: bool = True,
     ):
         """
-        初始化 lightrag 处理器
+        初始化 xwrag 处理器
 
-        LLM 和 Embedding 配置从环境变量读取（与 lightrag_cli.py 一致）：
+        LLM 和 Embedding 配置从环境变量读取（与 xwrag_cli.py 一致）：
         - LLM_MODEL: LLM 模型名称（默认 gpt-4）
         - EMBEDDING_MODEL: Embedding 模型路径（默认 sentence-transformers/all-MiniLM-L6-v2）
         - EMBEDDING_DIM: Embedding 维度（默认 384）
@@ -82,7 +82,7 @@ class lightragProcessor:
         self.working_dir = Path(working_dir)
         self.workspace = workspace
 
-        # 从环境变量获取 LLM 和 Embedding 配置（与 lightrag_cli.py 一致）
+        # 从环境变量获取 LLM 和 Embedding 配置（与 xwrag_cli.py 一致）
         self.llm_model = os.environ.get("LLM_MODEL", "gpt-4")
         self.embedding_model = os.environ.get(
             "EMBEDDING_MODEL",
@@ -155,7 +155,7 @@ class lightragProcessor:
 
     async def initialize_rag(self):
         """初始化 RAG 系统"""
-        logger.info("正在初始化 lightrag 系统...")
+        logger.info("正在初始化 xwrag 系统...")
 
         # 加载 Embedding 模型
         logger.info(f"正在加载 Embedding 模型: {self.embedding_model}")
@@ -168,7 +168,7 @@ class lightragProcessor:
             logger.info(f"请确保 EMBEDDING_MODEL 环境变量或 --embedding_model 参数配置正确")
             raise
 
-        # 构建 lightrag 初始化参数
+        # 构建 xwrag 初始化参数
         rag_kwargs = {
             "working_dir": str(self.working_dir),
             "llm_model_func": self.llm_model_func,
@@ -183,7 +183,7 @@ class lightragProcessor:
             ),
         }
 
-        # 固定使用 Neo4j 和 Faiss（与 lightrag_cli.py 一致）
+        # 固定使用 Neo4j 和 Faiss（与 xwrag_cli.py 一致）
         rag_kwargs["graph_storage"] = "Neo4JStorage"
         rag_kwargs["vector_storage"] = "FaissVectorDBStorage"
 
@@ -197,13 +197,13 @@ class lightragProcessor:
         rag_kwargs["chunk_overlap_token_size"] = self.chunk_overlap_token_size
 
         # 初始化 RAG
-        self.rag = lightrag(**rag_kwargs)
+        self.rag = xwrag(**rag_kwargs)
 
         # 初始化存储
         await self.rag.initialize_storages()
         await initialize_pipeline_status()
 
-        logger.info("lightrag 系统初始化完成")
+        logger.info("xwrag 系统初始化完成")
 
     def insert_document(self, document_path: str, custom_id: Optional[str] = None):
         """
@@ -314,7 +314,7 @@ class lightragProcessor:
             查询结果
         """
         if self.rag is None:
-            raise ValueError("lightrag 系统未初始化")
+            raise ValueError("xwrag 系统未初始化")
 
         logger.info(f"查询模式: {mode}")
         logger.info(f"查询问题: {question}")
@@ -372,10 +372,10 @@ class RAGInstanceManager:
     """RAG 实例管理器,用于管理多个 RAG 实例"""
 
     def __init__(self):
-        self.instances: Dict[str, lightragProcessor] = {}
+        self.instances: Dict[str, xwragProcessor] = {}
         logger.info("RAG 实例管理器已初始化")
 
-    async def create_instance(self, config: RAGInstanceCreate) -> lightragProcessor:
+    async def create_instance(self, config: RAGInstanceCreate) -> xwragProcessor:
         """
         创建一个新的 RAG 实例
 
@@ -383,7 +383,7 @@ class RAGInstanceManager:
             config: RAG 实例配置
 
         Returns:
-            lightragProcessor 实例
+            xwragProcessor 实例
         """
         if config.rag_id in self.instances:
             raise ValueError(f"RAG 实例 '{config.rag_id}' 已存在")
@@ -400,14 +400,14 @@ class RAGInstanceManager:
             if existing_processor.workspace == config.workspace:
                 raise ValueError(
                     f"workspace '{config.workspace}' 已被实例 '{existing_id}' 使用。\n"
-                    f"同一进程中的多个 lightrag 实例必须使用不同的 workspace，否则会导致数据冲突。\n"
+                    f"同一进程中的多个 xwrag 实例必须使用不同的 workspace，否则会导致数据冲突。\n"
                     f"详情请参考: MULTI_INSTANCE_ANALYSIS.md"
                 )
 
         logger.info(f"正在创建 RAG 实例: {config.rag_id}")
 
         # 创建 RAG 处理器（LLM 和 Embedding 配置从环境变量读取）
-        processor = lightragProcessor(
+        processor = xwragProcessor(
             working_dir=config.working_dir,
             workspace=config.workspace,
             top_k=config.top_k,
@@ -432,7 +432,7 @@ class RAGInstanceManager:
         logger.info(f"RAG 实例创建成功: {config.rag_id}")
         return processor
 
-    def get_instance(self, rag_id: str) -> lightragProcessor:
+    def get_instance(self, rag_id: str) -> xwragProcessor:
         """
         获取指定的 RAG 实例
 
@@ -440,7 +440,7 @@ class RAGInstanceManager:
             rag_id: RAG 实例 ID
 
         Returns:
-            lightragProcessor 实例
+            xwragProcessor 实例
 
         Raises:
             ValueError: 如果实例不存在

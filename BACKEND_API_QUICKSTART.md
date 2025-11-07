@@ -13,7 +13,7 @@
 ```bash
 # 安装依赖
 pip install fastapi uvicorn python-multipart aiofiles
-pip install lightrag transformers llama-index-llms-litellm
+pip install xwrag transformers llama-index-llms-litellm
 pip install textract python-dotenv nest-asyncio
 
 # 启动服务（开发模式）

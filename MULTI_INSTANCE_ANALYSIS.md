@@ -1,6 +1,6 @@
-# lightrag 多实例问题深度分析
+# xwrag 多实例问题深度分析
 
-> **核心结论**：在同一进程中创建多个 lightrag 实例会导致**性能问题**（串行化），但只要 workspace 不同就**不会数据干扰**。
+> **核心结论**：在同一进程中创建多个 xwrag 实例会导致**性能问题**（串行化），但只要 workspace 不同就**不会数据干扰**。
 
 ---
 
@@ -12,8 +12,8 @@
 
 ```python
 # 同一进程中的两个实例
-instance1 = lightrag(workspace="project_a", working_dir="./rag")
-instance2 = lightrag(workspace="project_b", working_dir="./rag")
+instance1 = xwrag(workspace="project_a", working_dir="./rag")
+instance2 = xwrag(workspace="project_b", working_dir="./rag")
 
 # 并发插入文档
 instance1.insert("document 1")  # ← 获取全局锁
@@ -32,10 +32,10 @@ instance2.insert("document 2")  # ← 等待锁释放，被阻塞！⏸️
 
 ```python
 # workspace 不同 = namespace 不同 = 数据隔离
-instance1 = lightrag(workspace="project_a")
+instance1 = xwrag(workspace="project_a")
 # └─> namespace = "project_a_kv_store_full_docs"
 
-instance2 = lightrag(workspace="project_b")
+instance2 = xwrag(workspace="project_b")
 # └─> namespace = "project_b_kv_store_full_docs"
 
 # 全局共享字典中的数据
@@ -52,7 +52,7 @@ _shared_dicts = {
 
 ### 1. 全局锁共享机制
 
-#### 源码分析（`lightrag/kg/shared_storage.py`）
+#### 源码分析（`xwrag/kg/shared_storage.py`）
 
 ```python
 # 模块级全局变量
@@ -81,18 +81,18 @@ def initialize_share_data(workers: int = 1):
 
 ```python
 # 第一个实例
-rag1 = lightrag(workspace="a")
+rag1 = xwrag(workspace="a")
 # └─> __post_init__()
 #     └─> initialize_share_data()  # 创建锁，_initialized = True
 
 # 第二个实例
-rag2 = lightrag(workspace="b")
+rag2 = xwrag(workspace="b")
 # └─> __post_init__()
 #     └─> initialize_share_data()  # 发现 _initialized = True，直接返回
 #     └─> 使用相同的 _storage_lock ⚠️
 ```
 
-#### 锁的使用（`lightrag/kg/json_kv_impl.py`）
+#### 锁的使用（`xwrag/kg/json_kv_impl.py`）
 
 ```python
 class JsonKVStorage:
@@ -108,7 +108,7 @@ class JsonKVStorage:
 
 ### 2. 数据隔离机制
 
-#### namespace 构建（`lightrag/kg/json_kv_impl.py`）
+#### namespace 构建（`xwrag/kg/json_kv_impl.py`）
 
 ```python
 class JsonKVStorage:
@@ -153,8 +153,8 @@ _shared_dicts = {
 ### 场景 1：不同 workspace（推荐✅）
 
 ```python
-instance1 = lightrag(workspace="unique_workspace_1", working_dir="./rag")
-instance2 = lightrag(workspace="unique_workspace_2", working_dir="./rag")
+instance1 = xwrag(workspace="unique_workspace_1", working_dir="./rag")
+instance2 = xwrag(workspace="unique_workspace_2", working_dir="./rag")
 ```
 
 | 维度 | 结果 | 说明 |
@@ -181,8 +181,8 @@ instance2 = lightrag(workspace="unique_workspace_2", working_dir="./rag")
 ### 场景 2：相同 workspace（危险❌）
 
 ```python
-instance1 = lightrag(workspace="shared", working_dir="./rag")
-instance2 = lightrag(workspace="shared", working_dir="./rag")  # ⚠️ 相同！
+instance1 = xwrag(workspace="shared", working_dir="./rag")
+instance2 = xwrag(workspace="shared", working_dir="./rag")  # ⚠️ 相同！
 ```
 
 | 维度 | 结果 | 说明 |
@@ -207,8 +207,8 @@ _shared_dicts["shared_kv_store_full_docs"] = {
 ### 场景 3：空 workspace（高风险❌）
 
 ```python
-instance1 = lightrag(workspace="", working_dir="./rag")
-instance2 = lightrag(workspace="", working_dir="./rag")  # ⚠️ 都是空
+instance1 = xwrag(workspace="", working_dir="./rag")
+instance2 = xwrag(workspace="", working_dir="./rag")  # ⚠️ 都是空
 ```
 
 | 维度 | 结果 | 说明 |
@@ -442,12 +442,12 @@ server {
 1. **每个实例必须有唯一的 workspace**
    ```python
    # ✅ 正确
-   instance1 = lightrag(workspace="tenant_001")
-   instance2 = lightrag(workspace="tenant_002")
+   instance1 = xwrag(workspace="tenant_001")
+   instance2 = xwrag(workspace="tenant_002")
 
    # ❌ 错误
-   instance1 = lightrag(workspace="shared")
-   instance2 = lightrag(workspace="shared")  # 数据冲突！
+   instance1 = xwrag(workspace="shared")
+   instance2 = xwrag(workspace="shared")  # 数据冲突！
    ```
 
 2. **生产环境使用多进程架构**
@@ -526,7 +526,7 @@ server {
 
 ## 🔗 参考资源
 
-- lightrag GitHub: https://github.com/HKUDS/lightrag
+- xwrag GitHub: https://github.com/HKUDS/xwrag
 - FastAPI 文档: https://fastapi.tiangolo.com/
 - Gunicorn 文档: https://docs.gunicorn.org/
 

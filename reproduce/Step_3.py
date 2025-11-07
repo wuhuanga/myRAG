@@ -1,7 +1,7 @@
 import re
 import json
-from lightrag import lightrag, QueryParam
-from lightrag.utils import always_get_an_event_loop
+from xwrag import xwrag, QueryParam
+from xwrag.utils import always_get_an_event_loop
 
 
 def extract_queries(file_path):
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     mode = "hybrid"
     WORKING_DIR = f"../{cls}"
 
-    rag = lightrag(working_dir=WORKING_DIR)
+    rag = xwrag(working_dir=WORKING_DIR)
     query_param = QueryParam(mode=mode)
 
     queries = extract_queries(f"../datasets/questions/{cls}_questions.txt")

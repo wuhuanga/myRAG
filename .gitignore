@@ -62,9 +62,9 @@ ignore_this.txt
 # Project-specific files
 dickens*/
 book.txt
-lightrag.pdf
+xwrag.pdf
 download_models_hf.py
-lightrag-dev/
+xwrag-dev/
 gui/
 
 # unit-test files
@@ -85,8 +85,8 @@ index_default/
 RAG_BS/
 hadoop/
 *.index
-lightrag-frontend/node_modules/
-lightrag-frontend/server-package/node_modules/
+xwrag-frontend/node_modules/
+xwrag-frontend/server-package/node_modules/
 flask_offline/
 offline/
 temp_uploads/
