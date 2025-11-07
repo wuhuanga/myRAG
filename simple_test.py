@@ -10,7 +10,7 @@ API_BASE = "http://localhost:8000"
 
 def test_api():
     print("=" * 60)
-    print("lightrag API 简单测试")
+    print("xwrag API 简单测试")
     print("=" * 60)
     print()
     

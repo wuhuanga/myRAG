@@ -1,13 +1,13 @@
 <div align="center">
 
 <div style="margin: 20px 0;">
-  <img src="./assets/logo.png" width="120" height="120" alt="lightrag Logo" style="border-radius: 20px; box-shadow: 0 8px 32px rgba(0, 217, 255, 0.3);">
+  <img src="./assets/logo.png" width="120" height="120" alt="xwrag Logo" style="border-radius: 20px; box-shadow: 0 8px 32px rgba(0, 217, 255, 0.3);">
 </div>
 
-# 🚀 lightrag: Simple and Fast Retrieval-Augmented Generation
+# 🚀 xwrag: Simple and Fast Retrieval-Augmented Generation
 
 <div align="center">
-    <a href="https://trendshift.io/repositories/13043" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13043" alt="HKUDS%2Flightrag | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+    <a href="https://trendshift.io/repositories/13043" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13043" alt="HKUDS%2Fxwrag | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </div>
 
 <div align="center">
@@ -17,24 +17,24 @@
 <div align="center">
   <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; padding: 25px; text-align: center;">
     <p>
-      <a href='https://github.com/HKUDS/lightrag'><img src='https://img.shields.io/badge/🔥Project-Page-00d9ff?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e'></a>
+      <a href='https://github.com/HKUDS/xwrag'><img src='https://img.shields.io/badge/🔥Project-Page-00d9ff?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e'></a>
       <a href='https://arxiv.org/abs/2410.05779'><img src='https://img.shields.io/badge/📄arXiv-2410.05779-ff6b6b?style=for-the-badge&logo=arxiv&logoColor=white&labelColor=1a1a2e'></a>
-      <a href="https://github.com/HKUDS/lightrag/stargazers"><img src='https://img.shields.io/github/stars/HKUDS/lightrag?color=00d9ff&style=for-the-badge&logo=star&logoColor=white&labelColor=1a1a2e' /></a>
+      <a href="https://github.com/HKUDS/xwrag/stargazers"><img src='https://img.shields.io/github/stars/HKUDS/xwrag?color=00d9ff&style=for-the-badge&logo=star&logoColor=white&labelColor=1a1a2e' /></a>
     </p>
     <p>
       <img src="https://img.shields.io/badge/🐍Python-3.10-4ecdc4?style=for-the-badge&logo=python&logoColor=white&labelColor=1a1a2e">
-      <a href="https://pypi.org/project/lightrag-hku/"><img src="https://img.shields.io/pypi/v/lightrag-hku.svg?style=for-the-badge&logo=pypi&logoColor=white&labelColor=1a1a2e&color=ff6b6b"></a>
+      <a href="https://pypi.org/project/xwrag-hku/"><img src="https://img.shields.io/pypi/v/xwrag-hku.svg?style=for-the-badge&logo=pypi&logoColor=white&labelColor=1a1a2e&color=ff6b6b"></a>
     </p>
     <p>
       <a href="https://discord.gg/yF2MmDJyGJ"><img src="https://img.shields.io/badge/💬Discord-Community-7289da?style=for-the-badge&logo=discord&logoColor=white&labelColor=1a1a2e"></a>
-      <a href="https://github.com/HKUDS/lightrag/issues/285"><img src="https://img.shields.io/badge/💬WeChat-Group-07c160?style=for-the-badge&logo=wechat&logoColor=white&labelColor=1a1a2e"></a>
+      <a href="https://github.com/HKUDS/xwrag/issues/285"><img src="https://img.shields.io/badge/💬WeChat-Group-07c160?style=for-the-badge&logo=wechat&logoColor=white&labelColor=1a1a2e"></a>
     </p>
     <p>
       <a href="README-zh.md"><img src="https://img.shields.io/badge/🇨🇳中文版-1a1a2e?style=for-the-badge"></a>
       <a href="README.md"><img src="https://img.shields.io/badge/🇺🇸English-1a1a2e?style=for-the-badge"></a>
     </p>
     <p>
-      <a href="https://pepy.tech/projects/lightrag-hku"><img src="https://static.pepy.tech/personalized-badge/lightrag-hku?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads"></a>
+      <a href="https://pepy.tech/projects/xwrag-hku"><img src="https://static.pepy.tech/personalized-badge/xwrag-hku?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads"></a>
     </p>
   </div>
 </div>
@@ -46,100 +46,100 @@
 </div>
 
 <div align="center" style="margin: 30px 0;">
-    <img src="./README.assets/b2aaf634151b4706892693ffb43d9093.png" width="800" alt="lightrag Diagram">
+    <img src="./README.assets/b2aaf634151b4706892693ffb43d9093.png" width="800" alt="xwrag Diagram">
 </div>
 
 ---
 ## 🎉 News
 - [X] [2025.06.16]🎯📢Our team has released [RAG-Anything](https://github.com/HKUDS/RAG-Anything) an All-in-One Multimodal RAG System for seamless text, image, table, and equation processing.
-- [X] [2025.06.05]🎯📢lightrag now supports comprehensive multimodal data handling through [RAG-Anything](https://github.com/HKUDS/RAG-Anything) integration, enabling seamless document parsing and RAG capabilities across diverse formats including PDFs, images, Office documents, tables, and formulas. Please refer to the new [multimodal section](https://github.com/HKUDS/lightrag/?tab=readme-ov-file#multimodal-document-processing-rag-anything-integration) for details.
-- [X] [2025.03.18]🎯📢lightrag now supports citation functionality, enabling proper source attribution.
+- [X] [2025.06.05]🎯📢xwrag now supports comprehensive multimodal data handling through [RAG-Anything](https://github.com/HKUDS/RAG-Anything) integration, enabling seamless document parsing and RAG capabilities across diverse formats including PDFs, images, Office documents, tables, and formulas. Please refer to the new [multimodal section](https://github.com/HKUDS/xwrag/?tab=readme-ov-file#multimodal-document-processing-rag-anything-integration) for details.
+- [X] [2025.03.18]🎯📢xwrag now supports citation functionality, enabling proper source attribution.
 - [X] [2025.02.05]🎯📢Our team has released [VideoRAG](https://github.com/HKUDS/VideoRAG) understanding extremely long-context videos.
 - [X] [2025.01.13]🎯📢Our team has released [MiniRAG](https://github.com/HKUDS/MiniRAG) making RAG simpler with small models.
 - [X] [2025.01.06]🎯📢You can now [use PostgreSQL for Storage](#using-postgresql-for-storage).
-- [X] [2024.12.31]🎯📢lightrag now supports [deletion by document ID](https://github.com/HKUDS/lightrag?tab=readme-ov-file#delete).
-- [X] [2024.11.25]🎯📢lightrag now supports seamless integration of [custom knowledge graphs](https://github.com/HKUDS/lightrag?tab=readme-ov-file#insert-custom-kg), empowering users to enhance the system with their own domain expertise.
-- [X] [2024.11.19]🎯📢A comprehensive guide to lightrag is now available on [LearnOpenCV](https://learnopencv.com/lightrag). Many thanks to the blog author.
-- [X] [2024.11.11]🎯📢lightrag now supports [deleting entities by their names](https://github.com/HKUDS/lightrag?tab=readme-ov-file#delete).
-- [X] [2024.11.09]🎯📢Introducing the [lightrag Gui](https://lightrag-gui.streamlit.app), which allows you to insert, query, visualize, and download lightrag knowledge.
-- [X] [2024.11.04]🎯📢You can now [use Neo4J for Storage](https://github.com/HKUDS/lightrag?tab=readme-ov-file#using-neo4j-for-storage).
-- [X] [2024.10.29]🎯📢lightrag now supports multiple file types, including PDF, DOC, PPT, and CSV via `textract`.
-- [X] [2024.10.20]🎯📢We've added a new feature to lightrag: Graph Visualization.
-- [X] [2024.10.18]🎯📢We've added a link to a [lightrag Introduction Video](https://youtu.be/oageL-1I0GE). Thanks to the author!
+- [X] [2024.12.31]🎯📢xwrag now supports [deletion by document ID](https://github.com/HKUDS/xwrag?tab=readme-ov-file#delete).
+- [X] [2024.11.25]🎯📢xwrag now supports seamless integration of [custom knowledge graphs](https://github.com/HKUDS/xwrag?tab=readme-ov-file#insert-custom-kg), empowering users to enhance the system with their own domain expertise.
+- [X] [2024.11.19]🎯📢A comprehensive guide to xwrag is now available on [LearnOpenCV](https://learnopencv.com/xwrag). Many thanks to the blog author.
+- [X] [2024.11.11]🎯📢xwrag now supports [deleting entities by their names](https://github.com/HKUDS/xwrag?tab=readme-ov-file#delete).
+- [X] [2024.11.09]🎯📢Introducing the [xwrag Gui](https://xwrag-gui.streamlit.app), which allows you to insert, query, visualize, and download xwrag knowledge.
+- [X] [2024.11.04]🎯📢You can now [use Neo4J for Storage](https://github.com/HKUDS/xwrag?tab=readme-ov-file#using-neo4j-for-storage).
+- [X] [2024.10.29]🎯📢xwrag now supports multiple file types, including PDF, DOC, PPT, and CSV via `textract`.
+- [X] [2024.10.20]🎯📢We've added a new feature to xwrag: Graph Visualization.
+- [X] [2024.10.18]🎯📢We've added a link to a [xwrag Introduction Video](https://youtu.be/oageL-1I0GE). Thanks to the author!
 - [X] [2024.10.17]🎯📢We have created a [Discord channel](https://discord.gg/yF2MmDJyGJ)! Welcome to join for sharing and discussions! 🎉🎉
-- [X] [2024.10.16]🎯📢lightrag now supports [Ollama models](https://github.com/HKUDS/lightrag?tab=readme-ov-file#quick-start)!
-- [X] [2024.10.15]🎯📢lightrag now supports [Hugging Face models](https://github.com/HKUDS/lightrag?tab=readme-ov-file#quick-start)!
+- [X] [2024.10.16]🎯📢xwrag now supports [Ollama models](https://github.com/HKUDS/xwrag?tab=readme-ov-file#quick-start)!
+- [X] [2024.10.15]🎯📢xwrag now supports [Hugging Face models](https://github.com/HKUDS/xwrag?tab=readme-ov-file#quick-start)!
 
 <details>
   <summary style="font-size: 1.4em; font-weight: bold; cursor: pointer; display: list-item;">
     Algorithm Flowchart
   </summary>
 
-![lightrag Indexing Flowchart](https://learnopencv.com/wp-content/uploads/2024/11/lightrag-VectorDB-Json-KV-Store-Indexing-Flowchart-scaled.jpg)
-*Figure 1: lightrag Indexing Flowchart - Img Caption : [Source](https://learnopencv.com/lightrag/)*
-![lightrag Retrieval and Querying Flowchart](https://learnopencv.com/wp-content/uploads/2024/11/lightrag-Querying-Flowchart-Dual-Level-Retrieval-Generation-Knowledge-Graphs-scaled.jpg)
-*Figure 2: lightrag Retrieval and Querying Flowchart - Img Caption : [Source](https://learnopencv.com/lightrag/)*
+![xwrag Indexing Flowchart](https://learnopencv.com/wp-content/uploads/2024/11/xwrag-VectorDB-Json-KV-Store-Indexing-Flowchart-scaled.jpg)
+*Figure 1: xwrag Indexing Flowchart - Img Caption : [Source](https://learnopencv.com/xwrag/)*
+![xwrag Retrieval and Querying Flowchart](https://learnopencv.com/wp-content/uploads/2024/11/xwrag-Querying-Flowchart-Dual-Level-Retrieval-Generation-Knowledge-Graphs-scaled.jpg)
+*Figure 2: xwrag Retrieval and Querying Flowchart - Img Caption : [Source](https://learnopencv.com/xwrag/)*
 
 </details>
 
 ## Installation
 
-### Install lightrag Server
+### Install xwrag Server
 
-The lightrag Server is designed to provide Web UI and API support. The Web UI facilitates document indexing, knowledge graph exploration, and a simple RAG query interface. lightrag Server also provide an Ollama compatible interfaces, aiming to emulate lightrag as an Ollama chat model. This allows AI chat bot, such as Open WebUI, to access lightrag easily.
+The xwrag Server is designed to provide Web UI and API support. The Web UI facilitates document indexing, knowledge graph exploration, and a simple RAG query interface. xwrag Server also provide an Ollama compatible interfaces, aiming to emulate xwrag as an Ollama chat model. This allows AI chat bot, such as Open WebUI, to access xwrag easily.
 
 * Install from PyPI
 
 ```bash
-pip install "lightrag-hku[api]"
+pip install "xwrag-hku[api]"
 cp env.example .env
-lightrag-server
+xwrag-server
 ```
 
 * Installation from Source
 
 ```bash
-git clone https://github.com/HKUDS/lightrag.git
-cd lightrag
+git clone https://github.com/HKUDS/xwrag.git
+cd xwrag
 # create a Python virtual enviroment if neccesary
 # Install in editable mode with API support
 pip install -e ".[api]"
 cp env.example .env
-lightrag-server
+xwrag-server
 ```
 
-* Launching the lightrag Server with Docker Compose
+* Launching the xwrag Server with Docker Compose
 
 ```
-git clone https://github.com/HKUDS/lightrag.git
-cd lightrag
+git clone https://github.com/HKUDS/xwrag.git
+cd xwrag
 cp env.example .env
 # modify LLM and Embedding settings in .env
 docker compose up
 ```
 
-> Historical versions of lightrag docker images can be found here: [lightrag Docker Images]( https://github.com/HKUDS/lightrag/pkgs/container/lightrag)
+> Historical versions of xwrag docker images can be found here: [xwrag Docker Images]( https://github.com/HKUDS/xwrag/pkgs/container/xwrag)
 
-### Install  lightrag Core
+### Install  xwrag Core
 
 * Install from source (Recommend)
 
 ```bash
-cd lightrag
+cd xwrag
 pip install -e .
 ```
 
 * Install from PyPI
 
 ```bash
-pip install lightrag-hku
+pip install xwrag-hku
 ```
 
 ## Quick Start
 
-### LLM and Technology Stack Requirements for lightrag
+### LLM and Technology Stack Requirements for xwrag
 
-lightrag's demands on the capabilities of Large Language Models (LLMs) are significantly higher than those of traditional RAG, as it requires the LLM to perform entity-relationship extraction tasks from documents. Configuring appropriate Embedding and Reranker models is also crucial for improving query performance.
+xwrag's demands on the capabilities of Large Language Models (LLMs) are significantly higher than those of traditional RAG, as it requires the LLM to perform entity-relationship extraction tasks from documents. Configuring appropriate Embedding and Reranker models is also crucial for improving query performance.
 
 - **LLM Selection**:
   - It is recommended to use an LLM with at least 32 billion parameters.
@@ -149,68 +149,68 @@ lightrag's demands on the capabilities of Large Language Models (LLMs) are signi
 - **Embedding Model**:
   - A high-performance Embedding model is essential for RAG.
   - We recommend using mainstream multilingual Embedding models, such as: `BAAI/bge-m3` and `text-embedding-3-large`.
-  - **Important Note**: The Embedding model must be determined before document indexing, and the same model must be used during the document query phase. For certain storage solutions (e.g., PostgreSQL), the vector dimension must be defined upon initial table creation. Therefore, when changing embedding models, it is necessary to delete the existing vector-related tables and allow lightrag to recreate them with the new dimensions.
+  - **Important Note**: The Embedding model must be determined before document indexing, and the same model must be used during the document query phase. For certain storage solutions (e.g., PostgreSQL), the vector dimension must be defined upon initial table creation. Therefore, when changing embedding models, it is necessary to delete the existing vector-related tables and allow xwrag to recreate them with the new dimensions.
 - **Reranker Model Configuration**:
-  - Configuring a Reranker model can significantly enhance lightrag's retrieval performance.
+  - Configuring a Reranker model can significantly enhance xwrag's retrieval performance.
   - When a Reranker model is enabled, it is recommended to set the "mix mode" as the default query mode.
   - We recommend using mainstream Reranker models, such as: `BAAI/bge-reranker-v2-m3` or models provided by services like Jina.
 
-### Quick Start for lightrag Server
+### Quick Start for xwrag Server
 
-* For more information about lightrag Server, please refer to [lightrag Server](./lightrag/api/README.md).
+* For more information about xwrag Server, please refer to [xwrag Server](./xwrag/api/README.md).
 
-### Quick Start for lightrag core
+### Quick Start for xwrag core
 
-To get started with lightrag core, refer to the sample codes available in the `examples` folder. Additionally, a [video demo](https://www.youtube.com/watch?v=g21royNJ4fw) demonstration is provided to guide you through the local setup process. If you already possess an OpenAI API key, you can run the demo right away:
+To get started with xwrag core, refer to the sample codes available in the `examples` folder. Additionally, a [video demo](https://www.youtube.com/watch?v=g21royNJ4fw) demonstration is provided to guide you through the local setup process. If you already possess an OpenAI API key, you can run the demo right away:
 
 ```bash
 ### you should run the demo code with project folder
-cd lightrag
+cd xwrag
 ### provide your API-KEY for OpenAI
 export OPENAI_API_KEY="sk-...your_opeai_key..."
 ### download the demo document of "A Christmas Carol" by Charles Dickens
 curl https://raw.githubusercontent.com/gusye1234/nano-graphrag/main/tests/mock_data.txt > ./book.txt
 ### run the demo code
-python examples/lightrag_openai_demo.py
+python examples/xwrag_openai_demo.py
 ```
 
-For a streaming response implementation example, please see `examples/lightrag_openai_compatible_demo.py`. Prior to execution, ensure you modify the sample code's LLM and embedding configurations accordingly.
+For a streaming response implementation example, please see `examples/xwrag_openai_compatible_demo.py`. Prior to execution, ensure you modify the sample code's LLM and embedding configurations accordingly.
 
 **Note 1**: When running the demo program, please be aware that different test scripts may use different embedding models. If you switch to a different embedding model, you must clear the data directory (`./dickens`); otherwise, the program may encounter errors. If you wish to retain the LLM cache, you can preserve the `kv_store_llm_response_cache.json` file while clearing the data directory.
 
-**Note 2**: Only `lightrag_openai_demo.py` and `lightrag_openai_compatible_demo.py` are officially supported sample codes. Other sample files are community contributions that haven't undergone full testing and optimization.
+**Note 2**: Only `xwrag_openai_demo.py` and `xwrag_openai_compatible_demo.py` are officially supported sample codes. Other sample files are community contributions that haven't undergone full testing and optimization.
 
-## Programing with lightrag Core
+## Programing with xwrag Core
 
-> ⚠️ **If you would like to integrate lightrag into your project, we recommend utilizing the REST API provided by the lightrag Server**. lightrag Core is typically intended for embedded applications or for researchers who wish to conduct studies and evaluations.
+> ⚠️ **If you would like to integrate xwrag into your project, we recommend utilizing the REST API provided by the xwrag Server**. xwrag Core is typically intended for embedded applications or for researchers who wish to conduct studies and evaluations.
 
 ### ⚠️ Important: Initialization Requirements
 
-**lightrag requires explicit initialization before use.** You must call both `await rag.initialize_storages()` and `await initialize_pipeline_status()` after creating a lightrag instance, otherwise you will encounter errors like:
+**xwrag requires explicit initialization before use.** You must call both `await rag.initialize_storages()` and `await initialize_pipeline_status()` after creating a xwrag instance, otherwise you will encounter errors like:
 
 - `AttributeError: __aenter__` - if storages are not initialized
 - `KeyError: 'history_messages'` - if pipeline status is not initialized
 
 ### A Simple Program
 
-Use the below Python snippet to initialize lightrag, insert text to it, and perform queries:
+Use the below Python snippet to initialize xwrag, insert text to it, and perform queries:
 
 ```python
 import os
 import asyncio
-from lightrag import lightrag, QueryParam
-from lightrag.llm.openai import gpt_4o_mini_complete, gpt_4o_complete, openai_embed
-from lightrag.kg.shared_storage import initialize_pipeline_status
-from lightrag.utils import setup_logger
+from xwrag import xwrag, QueryParam
+from xwrag.llm.openai import gpt_4o_mini_complete, gpt_4o_complete, openai_embed
+from xwrag.kg.shared_storage import initialize_pipeline_status
+from xwrag.utils import setup_logger
 
-setup_logger("lightrag", level="INFO")
+setup_logger("xwrag", level="INFO")
 
 WORKING_DIR = "./rag_storage"
 if not os.path.exists(WORKING_DIR):
     os.mkdir(WORKING_DIR)
 
 async def initialize_rag():
-    rag = lightrag(
+    rag = xwrag(
         working_dir=WORKING_DIR,
         embedding_func=openai_embed,
         llm_model_func=gpt_4o_mini_complete,
@@ -248,20 +248,20 @@ if __name__ == "__main__":
 Important notes for the above snippet:
 
 - Export your OPENAI_API_KEY environment variable before running the script.
-- This program uses the default storage settings for lightrag, so all data will be persisted to WORKING_DIR/rag_storage.
-- This program demonstrates only the simplest way to initialize a lightrag object: Injecting the embedding and LLM functions, and initializing storage and pipeline status after creating the lightrag object.
+- This program uses the default storage settings for xwrag, so all data will be persisted to WORKING_DIR/rag_storage.
+- This program demonstrates only the simplest way to initialize a xwrag object: Injecting the embedding and LLM functions, and initializing storage and pipeline status after creating the xwrag object.
 
-### lightrag init parameters
+### xwrag init parameters
 
-A full list of lightrag init parameters:
+A full list of xwrag init parameters:
 
 <details>
 <summary> Parameters </summary>
 
 | **Parameter** | **Type** | **Explanation** | **Default** |
 |--------------|----------|-----------------|-------------|
-| **working_dir** | `str` | Directory where the cache will be stored | `lightrag_cache+timestamp` |
-| **workspace** | str | Workspace name for data isolation between different lightrag Instances |  |
+| **working_dir** | `str` | Directory where the cache will be stored | `xwrag_cache+timestamp` |
+| **workspace** | str | Workspace name for data isolation between different xwrag Instances |  |
 | **kv_storage** | `str` | Storage type for documents and text chunks. Supported types: `JsonKVStorage`,`PGKVStorage`,`RedisKVStorage`,`MongoKVStorage` | `JsonKVStorage` |
 | **vector_storage** | `str` | Storage type for embedding vectors. Supported types: `NanoVectorDBStorage`,`PGVectorStorage`,`MilvusVectorDBStorage`,`ChromaVectorDBStorage`,`FaissVectorDBStorage`,`MongoVectorDBStorage`,`QdrantVectorDBStorage` | `NanoVectorDBStorage` |
 | **graph_storage** | `str` | Storage type for graph edges and nodes. Supported types: `NetworkXStorage`,`Neo4JStorage`,`PGGraphStorage`,`AGEStorage` | `NetworkXStorage` |
@@ -296,7 +296,7 @@ Use QueryParam to control the behavior your query:
 
 ```python
 class QueryParam:
-    """Configuration parameters for query execution in lightrag."""
+    """Configuration parameters for query execution in xwrag."""
 
     mode: Literal["local", "global", "hybrid", "naive", "mix", "bypass"] = "global"
     """Specifies the retrieval mode:
@@ -367,12 +367,12 @@ class QueryParam:
 
 ### LLM and Embedding Injection
 
-lightrag requires the utilization of LLM and Embedding models to accomplish document indexing and querying tasks. During the initialization phase, it is necessary to inject the invocation methods of the relevant models into lightrag：
+xwrag requires the utilization of LLM and Embedding models to accomplish document indexing and querying tasks. During the initialization phase, it is necessary to inject the invocation methods of the relevant models into xwrag：
 
 <details>
 <summary> <b>Using Open AI-like APIs</b> </summary>
 
-* lightrag also supports Open AI-like chat/embeddings APIs:
+* xwrag also supports Open AI-like chat/embeddings APIs:
 
 ```python
 async def llm_model_func(
@@ -397,7 +397,7 @@ async def embedding_func(texts: list[str]) -> np.ndarray:
     )
 
 async def initialize_rag():
-    rag = lightrag(
+    rag = xwrag(
         working_dir=WORKING_DIR,
         llm_model_func=llm_model_func,
         embedding_func=EmbeddingFunc(
@@ -417,13 +417,13 @@ async def initialize_rag():
 <details>
 <summary> <b>Using Hugging Face Models</b> </summary>
 
-* If you want to use Hugging Face models, you only need to set lightrag as follows:
+* If you want to use Hugging Face models, you only need to set xwrag as follows:
 
-See `lightrag_hf_demo.py`
+See `xwrag_hf_demo.py`
 
 ```python
-# Initialize lightrag with Hugging Face model
-rag = lightrag(
+# Initialize xwrag with Hugging Face model
+rag = xwrag(
     working_dir=WORKING_DIR,
     llm_model_func=hf_model_complete,  # Use Hugging Face model for text generation
     llm_model_name='meta-llama/Llama-3.1-8B-Instruct',  # Model name from Hugging Face
@@ -447,11 +447,11 @@ rag = lightrag(
 
 If you want to use Ollama models, you need to pull model you plan to use and embedding model, for example `nomic-embed-text`.
 
-Then you only need to set lightrag as follows:
+Then you only need to set xwrag as follows:
 
 ```python
-# Initialize lightrag with Ollama model
-rag = lightrag(
+# Initialize xwrag with Ollama model
+rag = xwrag(
     working_dir=WORKING_DIR,
     llm_model_func=ollama_model_complete,  # Use Ollama model for text generation
     llm_model_name='your_model_name', # Your model name
@@ -468,7 +468,7 @@ rag = lightrag(
 
 * **Increasing context size**
 
-In order for lightrag to work context should be at least 32k tokens. By default Ollama models have context size of 8k. You can achieve this using one of two ways:
+In order for xwrag to work context should be at least 32k tokens. By default Ollama models have context size of 8k. You can achieve this using one of two ways:
 
 * **Increasing the `num_ctx` parameter in Modelfile**
 
@@ -501,7 +501,7 @@ ollama create -f Modelfile qwen2m
 Tiy can use `llm_model_kwargs` param to configure ollama:
 
 ```python
-rag = lightrag(
+rag = xwrag(
     working_dir=WORKING_DIR,
     llm_model_func=ollama_model_complete,  # Use Ollama model for text generation
     llm_model_name='your_model_name', # Your model name
@@ -525,28 +525,28 @@ In order to run this experiment on low RAM GPU you should select small model and
 <details>
 <summary> <b>LlamaIndex</b> </summary>
 
-lightrag supports integration with LlamaIndex (`llm/llama_index_impl.py`):
+xwrag supports integration with LlamaIndex (`llm/llama_index_impl.py`):
 
 - Integrates with OpenAI and other providers through LlamaIndex
-- See [LlamaIndex Documentation](lightrag/llm/Readme.md) for detailed setup and examples
+- See [LlamaIndex Documentation](xwrag/llm/Readme.md) for detailed setup and examples
 
 **Example Usage**
 
 ```python
 # Using LlamaIndex with direct OpenAI access
 import asyncio
-from lightrag import lightrag
-from lightrag.llm.llama_index_impl import llama_index_complete_if_cache, llama_index_embed
+from xwrag import xwrag
+from xwrag.llm.llama_index_impl import llama_index_complete_if_cache, llama_index_embed
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
-from lightrag.kg.shared_storage import initialize_pipeline_status
-from lightrag.utils import setup_logger
+from xwrag.kg.shared_storage import initialize_pipeline_status
+from xwrag.utils import setup_logger
 
-# Setup log handler for lightrag
-setup_logger("lightrag", level="INFO")
+# Setup log handler for xwrag
+setup_logger("xwrag", level="INFO")
 
 async def initialize_rag():
-    rag = lightrag(
+    rag = xwrag(
         working_dir="your/path",
         llm_model_func=llama_index_complete_if_cache,  # LlamaIndex-compatible completion function
         embedding_func=EmbeddingFunc(    # LlamaIndex-compatible embedding function
@@ -593,9 +593,9 @@ if __name__ == "__main__":
 
 **For detailed documentation and examples, see:**
 
-- [LlamaIndex Documentation](lightrag/llm/Readme.md)
-- [Direct OpenAI Example](examples/lightrag_llamaindex_direct_demo.py)
-- [LiteLLM Proxy Example](examples/lightrag_llamaindex_litellm_demo.py)
+- [LlamaIndex Documentation](xwrag/llm/Readme.md)
+- [Direct OpenAI Example](examples/xwrag_llamaindex_direct_demo.py)
+- [LiteLLM Proxy Example](examples/xwrag_llamaindex_litellm_demo.py)
 
 </details>
 
@@ -607,11 +607,11 @@ To enhance retrieval quality, documents can be re-ranked based on a more effecti
 * **Jina AI**: `jina_rerank`
 * **Aliyun**: `ali_rerank`
 
-You can inject one of these functions into the `rerank_model_func` attribute of the lightrag object. This will enable lightrag's query function to re-order retrieved text blocks using the injected function. For detailed usage, please refer to the `examples/rerank_example.py` file.
+You can inject one of these functions into the `rerank_model_func` attribute of the xwrag object. This will enable xwrag's query function to re-order retrieved text blocks using the injected function. For detailed usage, please refer to the `examples/rerank_example.py` file.
 
 ### User Prompt vs. Query
 
-When using lightrag for content queries, avoid combining the search process with unrelated output processing, as this significantly impacts query effectiveness. The `user_prompt` parameter in Query Param is specifically designed to address this issue — it does not participate in the RAG retrieval phase, but rather guides the LLM on how to process the retrieved results after the query is completed. Here's how to use it:
+When using xwrag for content queries, avoid combining the search process with unrelated output processing, as this significantly impacts query effectiveness. The `user_prompt` parameter in Query Param is specifically designed to address this issue — it does not participate in the RAG retrieval phase, but rather guides the LLM on how to process the retrieved results after the query is completed. Here's how to use it:
 
 ```python
 # Create query parameters
@@ -648,7 +648,7 @@ rag.insert("Text")
 rag.insert(["TEXT1", "TEXT2",...])
 
 # Batch Insert with custom batch size configuration
-rag = lightrag(
+rag = xwrag(
     ...
     working_dir=WORKING_DIR,
     max_parallel_insert = 4
@@ -686,7 +686,7 @@ This is useful for scenarios where you want to process documents in the backgrou
 And using a routine to process new documents.
 
 ```python
-rag = lightrag(..)
+rag = xwrag(..)
 
 await rag.apipeline_enqueue_documents(input)
 # Your routine in loop
@@ -729,7 +729,7 @@ rag.insert(documents, file_paths=file_paths)
 
 ### Storage
 
-lightrag uses 4 types of storage for different purposes:
+xwrag uses 4 types of storage for different purposes:
 
 * KV_STORAGE: llm response cache, text chunks, document information
 * VECTOR_STORAGE: entities vectors, relation vectors, chunks vectors
@@ -777,7 +777,7 @@ PGDocStatusStorage          Postgres
 MongoDocStatusStorage       MongoDB
 ```
 
-Example connection configurations for each storage type can be found in the `env.example` file. The database instance in the connection string needs to be created by you on the database server beforehand. lightrag is only responsible for creating tables within the database instance, not for creating the database instance itself. If using Redis as storage, remember to configure automatic data persistence rules for Redis, otherwise data will be lost after the Redis service restarts. If using PostgreSQL, it is recommended to use version 16.6 or above.
+Example connection configurations for each storage type can be found in the `env.example` file. The database instance in the connection string needs to be created by you on the database server beforehand. xwrag is only responsible for creating tables within the database instance, not for creating the database instance itself. If using Redis as storage, remember to configure automatic data persistence rules for Redis, otherwise data will be lost after the Redis service restarts. If using PostgreSQL, it is recommended to use version 16.6 or above.
 
 <details>
 <summary> <b>Using Neo4J Storage</b> </summary>
@@ -791,16 +791,16 @@ export NEO4J_URI="neo4j://localhost:7687"
 export NEO4J_USERNAME="neo4j"
 export NEO4J_PASSWORD="password"
 
-# Setup logger for lightrag
-setup_logger("lightrag", level="INFO")
+# Setup logger for xwrag
+setup_logger("xwrag", level="INFO")
 
 # When you launch the project be sure to override the default KG: NetworkX
 # by specifying kg="Neo4JStorage".
 
 # Note: Default settings use NetworkX
-# Initialize lightrag with Neo4J implementation.
+# Initialize xwrag with Neo4J implementation.
 async def initialize_rag():
-    rag = lightrag(
+    rag = xwrag(
         working_dir=WORKING_DIR,
         llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
         graph_storage="Neo4JStorage", #<-----------override KG default
@@ -825,7 +825,7 @@ For production level scenarios you will most likely want to leverage an enterpri
 
 * PostgreSQL is lightweight,the whole binary distribution including all necessary plugins can be zipped to 40MB: Ref to [Windows Release](https://github.com/ShanGor/apache-age-windows/releases/tag/PG17%2Fv1.5.0-rc0) as it is easy to install for Linux/Mac.
 * If you prefer docker, please start with this image if you are a beginner to avoid hiccups (DO read the overview): https://hub.docker.com/r/shangor/postgres-for-rag
-* How to start? Ref to: [examples/lightrag_zhipu_postgres_demo.py](https://github.com/HKUDS/lightrag/blob/main/examples/lightrag_zhipu_postgres_demo.py)
+* How to start? Ref to: [examples/xwrag_zhipu_postgres_demo.py](https://github.com/HKUDS/xwrag/blob/main/examples/xwrag_zhipu_postgres_demo.py)
 * For high-performance graph database requirements, Neo4j is recommended as Apache AGE's performance is not as competitive.
 
 </details>
@@ -850,8 +850,8 @@ async def embedding_func(texts: list[str]) -> np.ndarray:
     embeddings = model.encode(texts, convert_to_numpy=True)
     return embeddings
 
-# Initialize lightrag with the LLM model function and embedding function
-rag = lightrag(
+# Initialize xwrag with the LLM model function and embedding function
+rag = xwrag(
     working_dir=WORKING_DIR,
     llm_model_func=llm_model_func,
     embedding_func=EmbeddingFunc(
@@ -877,16 +877,16 @@ rag = lightrag(
 ```python
 export MEMGRAPH_URI="bolt://localhost:7687"
 
-# Setup logger for lightrag
-setup_logger("lightrag", level="INFO")
+# Setup logger for xwrag
+setup_logger("xwrag", level="INFO")
 
 # When you launch the project, override the default KG: NetworkX
 # by specifying kg="MemgraphStorage".
 
 # Note: Default settings use NetworkX
-# Initialize lightrag with Memgraph implementation.
+# Initialize xwrag with Memgraph implementation.
 async def initialize_rag():
-    rag = lightrag(
+    rag = xwrag(
         working_dir=WORKING_DIR,
         llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
         graph_storage="MemgraphStorage", #<-----------override KG default
@@ -905,14 +905,14 @@ async def initialize_rag():
 <details>
 <summary> <b>Using MongoDB Storage</b> </summary>
 
-MongoDB provides a one-stop storage solution for lightrag. MongoDB offers native KV storage and vector storage. lightrag uses MongoDB collections to implement a simple graph storage. MongoDB's official vector search functionality (`$vectorSearch`) currently requires their official cloud service MongoDB Atlas. This functionality cannot be used on self-hosted MongoDB Community/Enterprise versions.
+MongoDB provides a one-stop storage solution for xwrag. MongoDB offers native KV storage and vector storage. xwrag uses MongoDB collections to implement a simple graph storage. MongoDB's official vector search functionality (`$vectorSearch`) currently requires their official cloud service MongoDB Atlas. This functionality cannot be used on self-hosted MongoDB Community/Enterprise versions.
 
 </details>
 
 <details>
 <summary> <b>Using Redis Storage</b> </summary>
 
-lightrag supports using Redis as KV storage. When using Redis storage, attention should be paid to persistence configuration and memory usage configuration. The following is the recommended Redis configuration:
+xwrag supports using Redis as KV storage. When using Redis storage, attention should be paid to persistence configuration and memory usage configuration. The following is the recommended Redis configuration:
 
 ```
 save 900 1
@@ -926,9 +926,9 @@ maxclients 500
 
 </details>
 
-### Data Isolation Between lightrag Instances
+### Data Isolation Between xwrag Instances
 
-The `workspace` parameter ensures data isolation between different lightrag instances. Once initialized, the `workspace` is immutable and cannot be changed.Here is how workspaces are implemented for different types of storage:
+The `workspace` parameter ensures data isolation between different xwrag instances. Once initialized, the `workspace` is immutable and cannot be changed.Here is how workspaces are implemented for different types of storage:
 
 - **For local file-based databases, data isolation is achieved through workspace subdirectories:** `JsonKVStorage`, `JsonDocStatusStorage`, `NetworkXStorage`, `NanoVectorDBStorage`, `FaissVectorDBStorage`.
 - **For databases that store data in collections, it's done by adding a workspace prefix to the collection name:** `RedisKVStorage`, `RedisDocStatusStorage`, `MilvusVectorDBStorage`, `QdrantVectorDBStorage`, `MongoKVStorage`, `MongoDocStatusStorage`, `MongoVectorDBStorage`, `MongoGraphStorage`, `PGGraphStorage`.
@@ -939,7 +939,7 @@ To maintain compatibility with legacy data, the default workspace for PostgreSQL
 
 ## Edit Entities and Relations
 
-lightrag now supports comprehensive knowledge graph management capabilities, allowing you to create, edit, and delete entities and relationships within your knowledge graph.
+xwrag now supports comprehensive knowledge graph management capabilities, allowing you to create, edit, and delete entities and relationships within your knowledge graph.
 
 <details>
   <summary> <b> Create Entities and Relations </b></summary>
@@ -1082,7 +1082,7 @@ These operations maintain data consistency across both the graph database and ve
 
 ## Delete Functions
 
-lightrag provides comprehensive deletion capabilities, allowing you to delete documents, entities, and relationships.
+xwrag provides comprehensive deletion capabilities, allowing you to delete documents, entities, and relationships.
 
 <details>
 <summary> <b>Delete Entities</b> </summary>
@@ -1168,7 +1168,7 @@ Note: Deletion by document ID is an asynchronous operation as it involves comple
 <details>
 <summary> <b>Merge Entities and Their Relationships</b> </summary>
 
-lightrag now supports merging multiple entities into a single entity, automatically handling all relationships:
+xwrag now supports merging multiple entities into a single entity, automatically handling all relationships:
 
 ```python
 # Basic entity merging
@@ -1236,7 +1236,7 @@ When merging entities:
 
 ## Multimodal Document Processing (RAG-Anything Integration)
 
-lightrag now seamlessly integrates with [RAG-Anything](https://github.com/HKUDS/RAG-Anything), a comprehensive **All-in-One Multimodal Document Processing RAG system** built specifically for lightrag. RAG-Anything enables advanced parsing and retrieval-augmented generation (RAG) capabilities, allowing you to handle multimodal documents seamlessly and extract structured content—including text, images, tables, and formulas—from various document formats for integration into your RAG pipeline.
+xwrag now seamlessly integrates with [RAG-Anything](https://github.com/HKUDS/RAG-Anything), a comprehensive **All-in-One Multimodal Document Processing RAG system** built specifically for xwrag. RAG-Anything enables advanced parsing and retrieval-augmented generation (RAG) capabilities, allowing you to handle multimodal documents seamlessly and extract structured content—including text, images, tables, and formulas—from various document formats for integration into your RAG pipeline.
 
 **Key Features:**
 - **End-to-End Multimodal Pipeline**: Complete workflow from document ingestion and parsing to intelligent multimodal query answering
@@ -1257,24 +1257,24 @@ lightrag now seamlessly integrates with [RAG-Anything](https://github.com/HKUDS/
     ```python
         import asyncio
         from raganything import RAGAnything
-        from lightrag import lightrag
-        from lightrag.llm.openai import openai_complete_if_cache, openai_embed
-        from lightrag.utils import EmbeddingFunc
+        from xwrag import xwrag
+        from xwrag.llm.openai import openai_complete_if_cache, openai_embed
+        from xwrag.utils import EmbeddingFunc
         import os
 
-        async def load_existing_lightrag():
-            # First, create or load an existing lightrag instance
-            lightrag_working_dir = "./existing_lightrag_storage"
+        async def load_existing_xwrag():
+            # First, create or load an existing xwrag instance
+            xwrag_working_dir = "./existing_xwrag_storage"
 
-            # Check if previous lightrag instance exists
-            if os.path.exists(lightrag_working_dir) and os.listdir(lightrag_working_dir):
-                print("✅ Found existing lightrag instance, loading...")
+            # Check if previous xwrag instance exists
+            if os.path.exists(xwrag_working_dir) and os.listdir(xwrag_working_dir):
+                print("✅ Found existing xwrag instance, loading...")
             else:
-                print("❌ No existing lightrag instance found, will create new one")
+                print("❌ No existing xwrag instance found, will create new one")
 
-            # Create/Load lightrag instance with your configurations
-            lightrag_instance = lightrag(
-                working_dir=lightrag_working_dir,
+            # Create/Load xwrag instance with your configurations
+            xwrag_instance = xwrag(
+                working_dir=xwrag_working_dir,
                 llm_model_func=lambda prompt, system_prompt=None, history_messages=[], **kwargs: openai_complete_if_cache(
                     "gpt-4o-mini",
                     prompt,
@@ -1295,11 +1295,11 @@ lightrag now seamlessly integrates with [RAG-Anything](https://github.com/HKUDS/
             )
 
             # Initialize storage (this will load existing data if available)
-            await lightrag_instance.initialize_storages()
+            await xwrag_instance.initialize_storages()
 
-            # Now initialize RAGAnything with the existing lightrag instance
+            # Now initialize RAGAnything with the existing xwrag instance
             rag = RAGAnything(
-                lightrag=lightrag_instance,  # Pass the existing lightrag instance
+                xwrag=xwrag_instance,  # Pass the existing xwrag instance
                 # Only need vision model for multimodal processing
                 vision_model_func=lambda prompt, system_prompt=None, history_messages=[], image_data=None, **kwargs: openai_complete_if_cache(
                     "gpt-4o",
@@ -1323,24 +1323,24 @@ lightrag now seamlessly integrates with [RAG-Anything](https://github.com/HKUDS/
                     api_key="your-api-key",
                     **kwargs,
                 )
-                # Note: working_dir, llm_model_func, embedding_func, etc. are inherited from lightrag_instance
+                # Note: working_dir, llm_model_func, embedding_func, etc. are inherited from xwrag_instance
             )
 
             # Query the existing knowledge base
             result = await rag.query_with_multimodal(
-                "What data has been processed in this lightrag instance?",
+                "What data has been processed in this xwrag instance?",
                 mode="hybrid"
             )
             print("Query result:", result)
 
-            # Add new multimodal documents to the existing lightrag instance
+            # Add new multimodal documents to the existing xwrag instance
             await rag.process_document_complete(
                 file_path="path/to/new/multimodal_document.pdf",
                 output_dir="./output"
             )
 
         if __name__ == "__main__":
-            asyncio.run(load_existing_lightrag())
+            asyncio.run(load_existing_xwrag())
     ```
     </details>
 
@@ -1351,12 +1351,12 @@ For detailed documentation and advanced usage, please refer to the [RAG-Anything
 <details>
 <summary> <b>Overview and Usage</b> </summary>
 
-lightrag provides a TokenTracker tool to monitor and manage token consumption by large language models. This feature is particularly useful for controlling API costs and optimizing performance.
+xwrag provides a TokenTracker tool to monitor and manage token consumption by large language models. This feature is particularly useful for controlling API costs and optimizing performance.
 
 ### Usage
 
 ```python
-from lightrag.utils import TokenTracker
+from xwrag.utils import TokenTracker
 
 # Create TokenTracker instance
 token_tracker = TokenTracker()
@@ -1388,8 +1388,8 @@ print("Token usage:", token_tracker.get_usage())
 
 ### Practical Examples
 You can refer to these examples for implementing token tracking:
-- `examples/lightrag_gemini_track_token_demo.py`: Token tracking example using Google Gemini model
-- `examples/lightrag_siliconcloud_track_token_demo.py`: Token tracking example using SiliconCloud model
+- `examples/xwrag_gemini_track_token_demo.py`: Token tracking example using Google Gemini model
+- `examples/xwrag_siliconcloud_track_token_demo.py`: Token tracking example using SiliconCloud model
 
 These examples demonstrate how to effectively use the TokenTracker feature with different models and scenarios.
 
@@ -1399,7 +1399,7 @@ These examples demonstrate how to effectively use the TokenTracker feature with 
 
 ### Overview
 
-lightrag allows you to export your knowledge graph data in various formats for analysis, sharing, and backup purposes. The system supports exporting entities, relations, and relationship data.
+xwrag allows you to export your knowledge graph data in various formats for analysis, sharing, and backup purposes. The system supports exporting entities, relations, and relationship data.
 
 ### Export Functions
 
@@ -1491,11 +1491,11 @@ Valid modes are:
 
 ### Common Initialization Errors
 
-If you encounter these errors when using lightrag:
+If you encounter these errors when using xwrag:
 
 1. **`AttributeError: __aenter__`**
    - **Cause**: Storage backends not initialized
-   - **Solution**: Call `await rag.initialize_storages()` after creating the lightrag instance
+   - **Solution**: Call `await rag.initialize_storages()` after creating the xwrag instance
 
 2. **`KeyError: 'history_messages'`**
    - **Cause**: Pipeline status not initialized
@@ -1505,7 +1505,7 @@ If you encounter these errors when using lightrag:
    - **Cause**: Neither initialization method was called
    - **Solution**: Always follow this pattern:
    ```python
-   rag = lightrag(...)
+   rag = xwrag(...)
    await rag.initialize_storages()
    await initialize_pipeline_status()
    ```
@@ -1514,13 +1514,13 @@ If you encounter these errors when using lightrag:
 
 When switching between different embedding models, you must clear the data directory to avoid errors. The only file you may want to preserve is `kv_store_llm_response_cache.json` if you wish to retain the LLM cache.
 
-## lightrag API
+## xwrag API
 
-The lightrag Server is designed to provide Web UI and API support.  **For more information about lightrag Server, please refer to [lightrag Server](./lightrag/api/README.md).**
+The xwrag Server is designed to provide Web UI and API support.  **For more information about xwrag Server, please refer to [xwrag Server](./xwrag/api/README.md).**
 
 ## Graph Visualization
 
-The lightrag Server offers a comprehensive knowledge graph visualization feature. It supports various gravity layouts, node queries, subgraph filtering, and more. **For more information about lightrag Server, please refer to [lightrag Server](./lightrag/api/README.md).**
+The xwrag Server offers a comprehensive knowledge graph visualization feature. It supports various gravity layouts, node queries, subgraph filtering, and more. **For more information about xwrag Server, please refer to [xwrag Server](./xwrag/api/README.md).**
 
 ![iShot_2025-03-23_12.40.08](./README.assets/iShot_2025-03-23_12.40.08.png)
 
@@ -1528,11 +1528,11 @@ The lightrag Server offers a comprehensive knowledge graph visualization feature
 
 ### Dataset
 
-The dataset used in lightrag can be downloaded from [TommyChien/UltraDomain](https://huggingface.co/datasets/TommyChien/UltraDomain).
+The dataset used in xwrag can be downloaded from [TommyChien/UltraDomain](https://huggingface.co/datasets/TommyChien/UltraDomain).
 
 ### Generate Query
 
-lightrag uses the following prompt to generate high-level queries, with the corresponding code in `example/generate_query.py`.
+xwrag uses the following prompt to generate high-level queries, with the corresponding code in `example/generate_query.py`.
 
 <details>
 <summary> Prompt </summary>
@@ -1565,7 +1565,7 @@ Output the results in the following structure:
 
 ### Batch Eval
 
-To evaluate the performance of two RAG systems on high-level queries, lightrag uses the following prompt, with the specific code available in `reproduce/batch_eval.py`.
+To evaluate the performance of two RAG systems on high-level queries, xwrag uses the following prompt, with the specific code available in `reproduce/batch_eval.py`.
 
 <details>
 <summary> Prompt </summary>
@@ -1619,22 +1619,22 @@ Output your evaluation in the following JSON format:
 
 |                      |**Agriculture**|            |**CS**|            |**Legal**|            |**Mix**|            |
 |----------------------|---------------|------------|------|------------|---------|------------|-------|------------|
-|                      |NaiveRAG|**lightrag**|NaiveRAG|**lightrag**|NaiveRAG|**lightrag**|NaiveRAG|**lightrag**|
+|                      |NaiveRAG|**xwrag**|NaiveRAG|**xwrag**|NaiveRAG|**xwrag**|NaiveRAG|**xwrag**|
 |**Comprehensiveness**|32.4%|**67.6%**|38.4%|**61.6%**|16.4%|**83.6%**|38.8%|**61.2%**|
 |**Diversity**|23.6%|**76.4%**|38.0%|**62.0%**|13.6%|**86.4%**|32.4%|**67.6%**|
 |**Empowerment**|32.4%|**67.6%**|38.8%|**61.2%**|16.4%|**83.6%**|42.8%|**57.2%**|
 |**Overall**|32.4%|**67.6%**|38.8%|**61.2%**|15.2%|**84.8%**|40.0%|**60.0%**|
-|                      |RQ-RAG|**lightrag**|RQ-RAG|**lightrag**|RQ-RAG|**lightrag**|RQ-RAG|**lightrag**|
+|                      |RQ-RAG|**xwrag**|RQ-RAG|**xwrag**|RQ-RAG|**xwrag**|RQ-RAG|**xwrag**|
 |**Comprehensiveness**|31.6%|**68.4%**|38.8%|**61.2%**|15.2%|**84.8%**|39.2%|**60.8%**|
 |**Diversity**|29.2%|**70.8%**|39.2%|**60.8%**|11.6%|**88.4%**|30.8%|**69.2%**|
 |**Empowerment**|31.6%|**68.4%**|36.4%|**63.6%**|15.2%|**84.8%**|42.4%|**57.6%**|
 |**Overall**|32.4%|**67.6%**|38.0%|**62.0%**|14.4%|**85.6%**|40.0%|**60.0%**|
-|                      |HyDE|**lightrag**|HyDE|**lightrag**|HyDE|**lightrag**|HyDE|**lightrag**|
+|                      |HyDE|**xwrag**|HyDE|**xwrag**|HyDE|**xwrag**|HyDE|**xwrag**|
 |**Comprehensiveness**|26.0%|**74.0%**|41.6%|**58.4%**|26.8%|**73.2%**|40.4%|**59.6%**|
 |**Diversity**|24.0%|**76.0%**|38.8%|**61.2%**|20.0%|**80.0%**|32.4%|**67.6%**|
 |**Empowerment**|25.2%|**74.8%**|40.8%|**59.2%**|26.0%|**74.0%**|46.0%|**54.0%**|
 |**Overall**|24.8%|**75.2%**|41.6%|**58.4%**|26.4%|**73.6%**|42.4%|**57.6%**|
-|                      |GraphRAG|**lightrag**|GraphRAG|**lightrag**|GraphRAG|**lightrag**|GraphRAG|**lightrag**|
+|                      |GraphRAG|**xwrag**|GraphRAG|**xwrag**|GraphRAG|**xwrag**|GraphRAG|**xwrag**|
 |**Comprehensiveness**|45.6%|**54.4%**|48.4%|**51.6%**|48.4%|**51.6%**|**50.4%**|49.6%|
 |**Diversity**|22.8%|**77.2%**|40.8%|**59.2%**|26.4%|**73.6%**|36.0%|**64.0%**|
 |**Empowerment**|41.2%|**58.8%**|45.2%|**54.8%**|43.6%|**56.4%**|**50.8%**|49.2%|
@@ -1707,7 +1707,7 @@ def extract_unique_contexts(input_directory, output_directory):
 
 ### Step-1 Insert Contexts
 
-For the extracted contexts, we insert them into the lightrag system.
+For the extracted contexts, we insert them into the xwrag system.
 
 <details>
 <summary> Code </summary>
@@ -1760,7 +1760,7 @@ def get_summary(context, tot_tokens=2000):
 
 ### Step-3 Query
 
-For the queries generated in Step-2, we will extract them and query lightrag.
+For the queries generated in Step-2, we will extract them and query xwrag.
 
 <details>
 <summary> Code </summary>
@@ -1821,11 +1821,11 @@ def extract_queries(file_path):
 
 ## ⭐ Star History
 
-<a href="https://star-history.com/#HKUDS/lightrag&Date">
+<a href="https://star-history.com/#HKUDS/xwrag&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/lightrag&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/lightrag&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/lightrag&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/xwrag&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/xwrag&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/xwrag&type=Date" />
  </picture>
 </a>
 
@@ -1836,8 +1836,8 @@ def extract_queries(file_path):
 </div>
 
 <div align="center">
-  <a href="https://github.com/HKUDS/lightrag/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=HKUDS/lightrag" style="border-radius: 15px; box-shadow: 0 0 20px rgba(0, 217, 255, 0.3);" />
+  <a href="https://github.com/HKUDS/xwrag/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=HKUDS/xwrag" style="border-radius: 15px; box-shadow: 0 0 20px rgba(0, 217, 255, 0.3);" />
   </a>
 </div>
 
@@ -1847,8 +1847,8 @@ def extract_queries(file_path):
 ## 📖 Citation
 
 ```python
-@article{guo2024lightrag,
-title={lightrag: Simple and Fast Retrieval-Augmented Generation},
+@article{guo2024xwrag,
+title={xwrag: Simple and Fast Retrieval-Augmented Generation},
 author={Zirui Guo and Lianghao Xia and Yanhua Yu and Tu Ao and Chao Huang},
 year={2024},
 eprint={2410.05779},
@@ -1864,13 +1864,13 @@ primaryClass={cs.IR}
     <img src="https://user-images.githubusercontent.com/74038190/212284100-561aa473-3905-4a80-b561-0d28506553ee.gif" width="500">
   </div>
   <div style="margin-top: 20px;">
-    <a href="https://github.com/HKUDS/lightrag" style="text-decoration: none;">
+    <a href="https://github.com/HKUDS/xwrag" style="text-decoration: none;">
       <img src="https://img.shields.io/badge/⭐%20Star%20us%20on%20GitHub-1a1a2e?style=for-the-badge&logo=github&logoColor=white">
     </a>
-    <a href="https://github.com/HKUDS/lightrag/issues" style="text-decoration: none;">
+    <a href="https://github.com/HKUDS/xwrag/issues" style="text-decoration: none;">
       <img src="https://img.shields.io/badge/🐛%20Report%20Issues-ff6b6b?style=for-the-badge&logo=github&logoColor=white">
     </a>
-    <a href="https://github.com/HKUDS/lightrag/discussions" style="text-decoration: none;">
+    <a href="https://github.com/HKUDS/xwrag/discussions" style="text-decoration: none;">
       <img src="https://img.shields.io/badge/💬%20Discussions-4ecdc4?style=for-the-badge&logo=github&logoColor=white">
     </a>
   </div>
@@ -1880,7 +1880,7 @@ primaryClass={cs.IR}
   <div style="width: 100%; max-width: 600px; margin: 20px auto; padding: 20px; background: linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(0, 217, 255, 0.05) 100%); border-radius: 15px; border: 1px solid rgba(0, 217, 255, 0.2);">
     <div style="display: flex; justify-content: center; align-items: center; gap: 15px;">
       <span style="font-size: 24px;">⭐</span>
-      <span style="color: #00d9ff; font-size: 18px;">Thank you for visiting lightrag!</span>
+      <span style="color: #00d9ff; font-size: 18px;">Thank you for visiting xwrag!</span>
       <span style="font-size: 24px;">⭐</span>
     </div>
   </div>

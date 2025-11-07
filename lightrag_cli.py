@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-基于 lightrag 和 LiteLLM 的 RAG 系统命令行工具
+基于 xwrag 和 LiteLLM 的 RAG 系统命令行工具
 
 支持的文档格式：PDF、DOCX、DOC、TXT、RTF 等（通过 textract 支持）
 
@@ -13,7 +13,7 @@ LITELLM_URL: LiteLLM 服务地址，默认 "http://localhost:4000"
 LITELLM_KEY: LiteLLM API 密钥，默认 "sk-1234"
 
 命令行参数描述（可选，会覆盖环境变量）：
---working_dir: lightrag 工作目录（必需）
+--working_dir: xwrag 工作目录（必需）
 --document_path: 输入文档路径，支持 PDF/DOCX/TXT 等格式（可选）
 --llm_model: LLM 模型名称
 --embedding_model: Embedding 模型路径或名称
@@ -31,16 +31,16 @@ export LLM_MODEL=gpt-4
 export EMBEDDING_MODEL=/path/to/model
 export LITELLM_URL=http://localhost:4000
 export LITELLM_KEY=sk-1234
-python lightrag_cli.py --working_dir ./index_default --document_path ./document.pdf
+python xwrag_cli.py --working_dir ./index_default --document_path ./document.pdf
 
 # 使用 DOCX 文档
-python lightrag_cli.py \
+python xwrag_cli.py \
   --working_dir ./index_default \
   --document_path ./document.docx \
   --llm_model deepseek-chat
 
 # 使用 TXT 文档
-python lightrag_cli.py \
+python xwrag_cli.py \
   --working_dir ./index_default \
   --document_path ./document.txt
 """
@@ -58,17 +58,17 @@ load_dotenv()  # 这会自动加载当前目录的 .env 文件
 
 import nest_asyncio
 import textract
-from lightrag import lightrag, QueryParam
-from lightrag.llm.llama_index_impl import (
+from xwrag import xwrag, QueryParam
+from xwrag.llm.llama_index_impl import (
     llama_index_complete_if_cache,
     llama_index_embed,
 )
-from lightrag.llm.hf import hf_model_complete, hf_embed
+from xwrag.llm.hf import hf_model_complete, hf_embed
 from transformers import AutoModel, AutoTokenizer
-from lightrag.utils import EmbeddingFunc
+from xwrag.utils import EmbeddingFunc
 from llama_index.llms.litellm import LiteLLM
 from llama_index.embeddings.litellm import LiteLLMEmbedding
-from lightrag.kg.shared_storage import initialize_pipeline_status
+from xwrag.kg.shared_storage import initialize_pipeline_status
 
 nest_asyncio.apply()
 
@@ -80,8 +80,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class lightragProcessor:
-    """lightrag 处理器，用于构建和查询知识图谱"""
+class xwragProcessor:
+    """xwrag 处理器，用于构建和查询知识图谱"""
 
     def __init__(
         self,
@@ -94,7 +94,7 @@ class lightragProcessor:
         litellm_key: Optional[str] = None
     ):
         """
-        初始化 lightrag 处理器
+        初始化 xwrag 处理器
 
         Args:
             working_dir: 工作目录
@@ -172,7 +172,7 @@ class lightragProcessor:
 
     async def initialize_rag(self):
         """初始化 RAG 系统"""
-        logger.info("正在初始化 lightrag 系统...")
+        logger.info("正在初始化 xwrag 系统...")
 
         # 加载 Embedding 模型
         logger.info(f"正在加载 Embedding 模型: {self.embedding_model}")
@@ -185,7 +185,7 @@ class lightragProcessor:
             logger.info(f"请确保 EMBEDDING_MODEL 环境变量或 --embedding_model 参数配置正确")
             raise
 
-        self.rag = lightrag(
+        self.rag = xwrag(
             working_dir=str(self.working_dir),
             llm_model_func=self.llm_model_func,
             embedding_func=EmbeddingFunc(
@@ -207,7 +207,7 @@ class lightragProcessor:
         await self.rag.initialize_storages()
         await initialize_pipeline_status()
 
-        logger.info("lightrag 系统初始化完成")
+        logger.info("xwrag 系统初始化完成")
 
     def insert_document(self, document_path: str):
         """
@@ -293,7 +293,7 @@ def main():
     """命令行接口入口"""
 
     parser = argparse.ArgumentParser(
-        description="lightrag 知识图谱构建和查询工具",
+        description="xwrag 知识图谱构建和查询工具",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
@@ -301,7 +301,7 @@ def main():
         "--working_dir",
         type=str,
         required=True,
-        help="lightrag 工作目录"
+        help="xwrag 工作目录"
     )
     parser.add_argument(
         "--document_path",
@@ -349,7 +349,7 @@ def main():
     args = parser.parse_args()
 
     # 创建处理器
-    processor = lightragProcessor(
+    processor = xwragProcessor(
         working_dir=args.working_dir,
         llm_model=args.llm_model,
         embedding_model=args.embedding_model,
@@ -368,7 +368,7 @@ def main():
             processor.insert_document(args.document_path)
 
         # 进入交互式查询模式
-        print("\n=== lightrag 系统就绪 ===")
+        print("\n=== xwrag 系统就绪 ===")
         print("支持的查询模式: naive, local, global, hybrid")
         print("输入 'quit' 或 'exit' 退出\n")
 

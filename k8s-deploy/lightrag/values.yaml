@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/hkuds/lightrag
+  repository: ghcr.io/hkuds/xwrag
   tag: latest
 
 service:
@@ -36,12 +36,12 @@ env:
   EMBEDDING_MODEL: text-embedding-ada-002
   EMBEDDING_DIM: 1536
   EMBEDDING_BINDING_API_KEY:
-  lightrag_KV_STORAGE: PGKVStorage
-  lightrag_VECTOR_STORAGE: PGVectorStorage
-#  lightrag_KV_STORAGE: RedisKVStorage
-#  lightrag_VECTOR_STORAGE: QdrantVectorDBStorage
-  lightrag_GRAPH_STORAGE: Neo4JStorage
-  lightrag_DOC_STATUS_STORAGE: PGDocStatusStorage
+  xwrag_KV_STORAGE: PGKVStorage
+  xwrag_VECTOR_STORAGE: PGVectorStorage
+#  xwrag_KV_STORAGE: RedisKVStorage
+#  xwrag_VECTOR_STORAGE: QdrantVectorDBStorage
+  xwrag_GRAPH_STORAGE: Neo4JStorage
+  xwrag_DOC_STATUS_STORAGE: PGDocStatusStorage
   # Replace with your POSTGRES credentials
   POSTGRES_HOST: pg-cluster-postgresql-postgresql
   POSTGRES_PORT: 5432

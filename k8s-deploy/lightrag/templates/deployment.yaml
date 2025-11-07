@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "lightrag.fullname" . }}
+  name: {{ include "xwrag.fullname" . }}
   labels:
-    {{- include "lightrag.labels" . | nindent 4 }}
+    {{- include "xwrag.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "lightrag.selectorLabels" . | nindent 6 }}
+      {{- include "xwrag.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
-        checksum/config: {{ include "lightrag.envContent" . | sha256sum }}
+        checksum/config: {{ include "xwrag.envContent" . | sha256sum }}
       labels:
-        {{- include "lightrag.selectorLabels" . | nindent 8 }}
+        {{- include "xwrag.selectorLabels" . | nindent 8 }}
     spec:
       containers:
         - name: {{ .Chart.Name }}
@@ -46,14 +46,14 @@ spec:
       volumes:
         - name: env-file
           secret:
-            secretName: {{ include "lightrag.fullname" . }}-env
+            secretName: {{ include "xwrag.fullname" . }}-env
         {{- if .Values.persistence.enabled }}
         - name: rag-storage
           persistentVolumeClaim:
-            claimName: {{ include "lightrag.fullname" . }}-rag-storage
+            claimName: {{ include "xwrag.fullname" . }}-rag-storage
         - name: inputs
           persistentVolumeClaim:
-            claimName: {{ include "lightrag.fullname" . }}-inputs
+            claimName: {{ include "xwrag.fullname" . }}-inputs
         {{- else }}
         - name: rag-storage
           emptyDir: {}

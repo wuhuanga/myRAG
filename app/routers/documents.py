@@ -227,7 +227,7 @@ async def get_documents_by_status(rag_id: str, status: str):
         )
 
     try:
-        from lightrag.base import DocStatus
+        from xwrag.base import DocStatus
 
         logger.info(f"获取状态为 {status_upper} 的文档列表...")
 

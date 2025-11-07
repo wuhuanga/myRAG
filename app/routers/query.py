@@ -127,12 +127,12 @@ async def clear_cache(request: ClearCacheRequest):
         if request.cache_type == "llm_cache":
             # 清除 LLM 缓存
             logger.info(f"正在清除 RAG 实例 {request.rag_id} 的 LLM 缓存...")
-            # 调用 lightrag 的缓存清除函数
+            # 调用 xwrag 的缓存清除函数
             if hasattr(processor.rag, 'clear_llm_cache'):
                 await processor.rag.clear_llm_cache()
             else:
                 # 如果没有专门的清除缓存方法,尝试调用通用方法
-                from lightrag.llm.llama_index_impl import clear_cache
+                from xwrag.llm.llama_index_impl import clear_cache
                 clear_cache()
 
             return {
@@ -149,7 +149,7 @@ async def clear_cache(request: ClearCacheRequest):
             if hasattr(processor.rag, 'clear_llm_cache'):
                 await processor.rag.clear_llm_cache()
             else:
-                from lightrag.llm.llama_index_impl import clear_cache
+                from xwrag.llm.llama_index_impl import clear_cache
                 clear_cache()
 
             # 可以在这里添加其他缓存清除逻辑

@@ -51,12 +51,12 @@ if ! kubectl get namespace rag &> /dev/null; then
   kubectl create namespace rag
 fi
 
-helm upgrade --install lightrag-dev $SCRIPT_DIR/lightrag \
+helm upgrade --install xwrag-dev $SCRIPT_DIR/xwrag \
   --namespace rag \
-  --set-string env.lightrag_KV_STORAGE=JsonKVStorage \
-  --set-string env.lightrag_VECTOR_STORAGE=NanoVectorDBStorage \
-  --set-string env.lightrag_GRAPH_STORAGE=NetworkXStorage \
-  --set-string env.lightrag_DOC_STATUS_STORAGE=JsonDocStatusStorage \
+  --set-string env.xwrag_KV_STORAGE=JsonKVStorage \
+  --set-string env.xwrag_VECTOR_STORAGE=NanoVectorDBStorage \
+  --set-string env.xwrag_GRAPH_STORAGE=NetworkXStorage \
+  --set-string env.xwrag_DOC_STATUS_STORAGE=JsonDocStatusStorage \
   --set-string env.LLM_BINDING=openai \
   --set-string env.LLM_MODEL=gpt-4o-mini \
   --set-string env.LLM_BINDING_HOST=$OPENAI_API_BASE \
@@ -66,16 +66,16 @@ helm upgrade --install lightrag-dev $SCRIPT_DIR/lightrag \
   --set-string env.EMBEDDING_DIM=1536 \
   --set-string env.EMBEDDING_BINDING_API_KEY=$OPENAI_API_KEY
 
-# Wait for lightrag pod to be ready
+# Wait for xwrag pod to be ready
 echo ""
-echo "Waiting for lightrag-dev pod to be ready..."
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=lightrag-dev --timeout=300s -n rag
-echo "lightrag-dev pod is ready"
+echo "Waiting for xwrag-dev pod to be ready..."
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=xwrag-dev --timeout=300s -n rag
+echo "xwrag-dev pod is ready"
 echo ""
 echo "Running Port-Forward:"
-echo "    kubectl --namespace rag port-forward svc/lightrag-dev 9621:9621"
+echo "    kubectl --namespace rag port-forward svc/xwrag-dev 9621:9621"
 echo "==========================================="
 echo ""
-echo "✅ You can visit lightrag at: http://localhost:9621"
+echo "✅ You can visit xwrag at: http://localhost:9621"
 echo ""
-kubectl --namespace rag port-forward svc/lightrag-dev 9621:9621
+kubectl --namespace rag port-forward svc/xwrag-dev 9621:9621

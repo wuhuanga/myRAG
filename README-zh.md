@@ -1,13 +1,13 @@
 <div align="center">
 
 <div style="margin: 20px 0;">
-  <img src="./assets/logo.png" width="120" height="120" alt="lightrag Logo" style="border-radius: 20px; box-shadow: 0 8px 32px rgba(0, 217, 255, 0.3);">
+  <img src="./assets/logo.png" width="120" height="120" alt="xwrag Logo" style="border-radius: 20px; box-shadow: 0 8px 32px rgba(0, 217, 255, 0.3);">
 </div>
 
-# 🚀 lightrag: Simple and Fast Retrieval-Augmented Generation
+# 🚀 xwrag: Simple and Fast Retrieval-Augmented Generation
 
 <div align="center">
-    <a href="https://trendshift.io/repositories/13043" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13043" alt="HKUDS%2Flightrag | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+    <a href="https://trendshift.io/repositories/13043" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13043" alt="HKUDS%2Fxwrag | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </div>
 
 <div align="center">
@@ -17,24 +17,24 @@
 <div align="center">
   <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; padding: 25px; text-align: center;">
     <p>
-      <a href='https://github.com/HKUDS/lightrag'><img src='https://img.shields.io/badge/🔥项目-主页-00d9ff?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e'></a>
+      <a href='https://github.com/HKUDS/xwrag'><img src='https://img.shields.io/badge/🔥项目-主页-00d9ff?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e'></a>
       <a href='https://arxiv.org/abs/2410.05779'><img src='https://img.shields.io/badge/📄arXiv-2410.05779-ff6b6b?style=for-the-badge&logo=arxiv&logoColor=white&labelColor=1a1a2e'></a>
-      <a href="https://github.com/HKUDS/lightrag/stargazers"><img src='https://img.shields.io/github/stars/HKUDS/lightrag?color=00d9ff&style=for-the-badge&logo=star&logoColor=white&labelColor=1a1a2e' /></a>
+      <a href="https://github.com/HKUDS/xwrag/stargazers"><img src='https://img.shields.io/github/stars/HKUDS/xwrag?color=00d9ff&style=for-the-badge&logo=star&logoColor=white&labelColor=1a1a2e' /></a>
     </p>
     <p>
       <img src="https://img.shields.io/badge/🐍Python-3.10-4ecdc4?style=for-the-badge&logo=python&logoColor=white&labelColor=1a1a2e">
-      <a href="https://pypi.org/project/lightrag-hku/"><img src="https://img.shields.io/pypi/v/lightrag-hku.svg?style=for-the-badge&logo=pypi&logoColor=white&labelColor=1a1a2e&color=ff6b6b"></a>
+      <a href="https://pypi.org/project/xwrag-hku/"><img src="https://img.shields.io/pypi/v/xwrag-hku.svg?style=for-the-badge&logo=pypi&logoColor=white&labelColor=1a1a2e&color=ff6b6b"></a>
     </p>
     <p>
       <a href="https://discord.gg/yF2MmDJyGJ"><img src="https://img.shields.io/badge/💬Discord-社区-7289da?style=for-the-badge&logo=discord&logoColor=white&labelColor=1a1a2e"></a>
-      <a href="https://github.com/HKUDS/lightrag/issues/285"><img src="https://img.shields.io/badge/💬微信群-交流-07c160?style=for-the-badge&logo=wechat&logoColor=white&labelColor=1a1a2e"></a>
+      <a href="https://github.com/HKUDS/xwrag/issues/285"><img src="https://img.shields.io/badge/💬微信群-交流-07c160?style=for-the-badge&logo=wechat&logoColor=white&labelColor=1a1a2e"></a>
     </p>
     <p>
       <a href="README-zh.md"><img src="https://img.shields.io/badge/🇨🇳中文版-1a1a2e?style=for-the-badge"></a>
       <a href="README.md"><img src="https://img.shields.io/badge/🇺🇸English-1a1a2e?style=for-the-badge"></a>
     </p>
     <p>
-      <a href="https://pepy.tech/projects/lightrag-hku"><img src="https://static.pepy.tech/personalized-badge/lightrag-hku?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads"></a>
+      <a href="https://pepy.tech/projects/xwrag-hku"><img src="https://static.pepy.tech/personalized-badge/xwrag-hku?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads"></a>
     </p>
   </div>
 </div>
@@ -46,7 +46,7 @@
 </div>
 
 <div align="center" style="margin: 30px 0;">
-    <img src="./README.assets/b2aaf634151b4706892693ffb43d9093.png" width="800" alt="lightrag Diagram">
+    <img src="./README.assets/b2aaf634151b4706892693ffb43d9093.png" width="800" alt="xwrag Diagram">
 </div>
 
 ---
@@ -54,94 +54,94 @@
 ## 🎉 新闻
 
 - [X] [2025.06.16]🎯📢我们的团队发布了[RAG-Anything](https://github.com/HKUDS/RAG-Anything)，一个用于无缝处理文本、图像、表格和方程式的全功能多模态 RAG 系统。
-- [X] [2025.06.05]🎯📢lightrag现已集成[RAG-Anything](https://github.com/HKUDS/RAG-Anything)，支持全面的多模态文档解析与RAG能力（PDF、图片、Office文档、表格、公式等）。详见下方[多模态处理模块](https://github.com/HKUDS/lightrag?tab=readme-ov-file#多模态文档处理rag-anything集成)。
-- [X] [2025.03.18]🎯📢lightrag现已支持引文功能。
+- [X] [2025.06.05]🎯📢xwrag现已集成[RAG-Anything](https://github.com/HKUDS/RAG-Anything)，支持全面的多模态文档解析与RAG能力（PDF、图片、Office文档、表格、公式等）。详见下方[多模态处理模块](https://github.com/HKUDS/xwrag?tab=readme-ov-file#多模态文档处理rag-anything集成)。
+- [X] [2025.03.18]🎯📢xwrag现已支持引文功能。
 - [X] [2025.02.05]🎯📢我们团队发布了[VideoRAG](https://github.com/HKUDS/VideoRAG)，用于理解超长上下文视频。
 - [X] [2025.01.13]🎯📢我们团队发布了[MiniRAG](https://github.com/HKUDS/MiniRAG)，使用小型模型简化RAG。
 - [X] [2025.01.06]🎯📢现在您可以[使用PostgreSQL进行存储](#using-postgresql-for-storage)。
-- [X] [2024.12.31]🎯📢lightrag现在支持[通过文档ID删除](https://github.com/HKUDS/lightrag?tab=readme-ov-file#delete)。
-- [X] [2024.11.25]🎯📢lightrag现在支持无缝集成[自定义知识图谱](https://github.com/HKUDS/lightrag?tab=readme-ov-file#insert-custom-kg)，使用户能够用自己的领域专业知识增强系统。
-- [X] [2024.11.19]🎯📢lightrag的综合指南现已在[LearnOpenCV](https://learnopencv.com/lightrag)上发布。非常感谢博客作者。
-- [X] [2024.11.11]🎯📢lightrag现在支持[通过实体名称删除实体](https://github.com/HKUDS/lightrag?tab=readme-ov-file#delete)。
-- [X] [2024.11.09]🎯📢推出[lightrag Gui](https://lightrag-gui.streamlit.app)，允许您插入、查询、可视化和下载lightrag知识。
-- [X] [2024.11.04]🎯📢现在您可以[使用Neo4J进行存储](https://github.com/HKUDS/lightrag?tab=readme-ov-file#using-neo4j-for-storage)。
-- [X] [2024.10.29]🎯📢lightrag现在通过`textract`支持多种文件类型，包括PDF、DOC、PPT和CSV。
-- [X] [2024.10.20]🎯📢我们为lightrag添加了一个新功能：图形可视化。
-- [X] [2024.10.18]🎯📢我们添加了[lightrag介绍视频](https://youtu.be/oageL-1I0GE)的链接。感谢作者！
+- [X] [2024.12.31]🎯📢xwrag现在支持[通过文档ID删除](https://github.com/HKUDS/xwrag?tab=readme-ov-file#delete)。
+- [X] [2024.11.25]🎯📢xwrag现在支持无缝集成[自定义知识图谱](https://github.com/HKUDS/xwrag?tab=readme-ov-file#insert-custom-kg)，使用户能够用自己的领域专业知识增强系统。
+- [X] [2024.11.19]🎯📢xwrag的综合指南现已在[LearnOpenCV](https://learnopencv.com/xwrag)上发布。非常感谢博客作者。
+- [X] [2024.11.11]🎯📢xwrag现在支持[通过实体名称删除实体](https://github.com/HKUDS/xwrag?tab=readme-ov-file#delete)。
+- [X] [2024.11.09]🎯📢推出[xwrag Gui](https://xwrag-gui.streamlit.app)，允许您插入、查询、可视化和下载xwrag知识。
+- [X] [2024.11.04]🎯📢现在您可以[使用Neo4J进行存储](https://github.com/HKUDS/xwrag?tab=readme-ov-file#using-neo4j-for-storage)。
+- [X] [2024.10.29]🎯📢xwrag现在通过`textract`支持多种文件类型，包括PDF、DOC、PPT和CSV。
+- [X] [2024.10.20]🎯📢我们为xwrag添加了一个新功能：图形可视化。
+- [X] [2024.10.18]🎯📢我们添加了[xwrag介绍视频](https://youtu.be/oageL-1I0GE)的链接。感谢作者！
 - [X] [2024.10.17]🎯📢我们创建了一个[Discord频道](https://discord.gg/yF2MmDJyGJ)！欢迎加入分享和讨论！🎉🎉
-- [X] [2024.10.16]🎯📢lightrag现在支持[Ollama模型](https://github.com/HKUDS/lightrag?tab=readme-ov-file#quick-start)！
-- [X] [2024.10.15]🎯📢lightrag现在支持[Hugging Face模型](https://github.com/HKUDS/lightrag?tab=readme-ov-file#quick-start)！
+- [X] [2024.10.16]🎯📢xwrag现在支持[Ollama模型](https://github.com/HKUDS/xwrag?tab=readme-ov-file#quick-start)！
+- [X] [2024.10.15]🎯📢xwrag现在支持[Hugging Face模型](https://github.com/HKUDS/xwrag?tab=readme-ov-file#quick-start)！
 
 <details>
   <summary style="font-size: 1.4em; font-weight: bold; cursor: pointer; display: list-item;">
     算法流程图
   </summary>
 
-![lightrag索引流程图](https://learnopencv.com/wp-content/uploads/2024/11/lightrag-VectorDB-Json-KV-Store-Indexing-Flowchart-scaled.jpg)
-*图1：lightrag索引流程图 - 图片来源：[Source](https://learnopencv.com/lightrag/)*
-![lightrag检索和查询流程图](https://learnopencv.com/wp-content/uploads/2024/11/lightrag-Querying-Flowchart-Dual-Level-Retrieval-Generation-Knowledge-Graphs-scaled.jpg)
-*图2：lightrag检索和查询流程图 - 图片来源：[Source](https://learnopencv.com/lightrag/)*
+![xwrag索引流程图](https://learnopencv.com/wp-content/uploads/2024/11/xwrag-VectorDB-Json-KV-Store-Indexing-Flowchart-scaled.jpg)
+*图1：xwrag索引流程图 - 图片来源：[Source](https://learnopencv.com/xwrag/)*
+![xwrag检索和查询流程图](https://learnopencv.com/wp-content/uploads/2024/11/xwrag-Querying-Flowchart-Dual-Level-Retrieval-Generation-Knowledge-Graphs-scaled.jpg)
+*图2：xwrag检索和查询流程图 - 图片来源：[Source](https://learnopencv.com/xwrag/)*
 
 </details>
 
 ## 安装
 
-### 安装lightrag服务器
+### 安装xwrag服务器
 
-lightrag服务器旨在提供Web UI和API支持。Web UI便于文档索引、知识图谱探索和简单的RAG查询界面。lightrag服务器还提供兼容Ollama的接口，旨在将lightrag模拟为Ollama聊天模型。这使得AI聊天机器人（如Open WebUI）可以轻松访问lightrag。
+xwrag服务器旨在提供Web UI和API支持。Web UI便于文档索引、知识图谱探索和简单的RAG查询界面。xwrag服务器还提供兼容Ollama的接口，旨在将xwrag模拟为Ollama聊天模型。这使得AI聊天机器人（如Open WebUI）可以轻松访问xwrag。
 
 * 从PyPI安装
 
 ```bash
-pip install "lightrag-hku[api]"
+pip install "xwrag-hku[api]"
 cp env.example .env
-lightrag-server
+xwrag-server
 ```
 
 * 从源代码安装
 
 ```bash
-git clone https://github.com/HKUDS/lightrag.git
-cd lightrag
+git clone https://github.com/HKUDS/xwrag.git
+cd xwrag
 # 如有必要，创建Python虚拟环境
 # 以可编辑模式安装并支持API
 pip install -e ".[api]"
 cp env.example .env
-lightrag-server
+xwrag-server
 ```
 
-* 使用 Docker Compose 启动 lightrag 服务器
+* 使用 Docker Compose 启动 xwrag 服务器
 
 ```
-git clone https://github.com/HKUDS/lightrag.git
-cd lightrag
+git clone https://github.com/HKUDS/xwrag.git
+cd xwrag
 cp env.example .env
 # modify LLM and Embedding settings in .env
 docker compose up
 ```
 
-> 在此获取lightrag docker镜像历史版本: [lightrag Docker Images]( https://github.com/HKUDS/lightrag/pkgs/container/lightrag)
+> 在此获取xwrag docker镜像历史版本: [xwrag Docker Images]( https://github.com/HKUDS/xwrag/pkgs/container/xwrag)
 
-### 安装lightrag Core
+### 安装xwrag Core
 
 * 从源代码安装（推荐）
 
 ```bash
-cd lightrag
+cd xwrag
 pip install -e .
 ```
 
 * 从PyPI安装
 
 ```bash
-pip install lightrag-hku
+pip install xwrag-hku
 ```
 
 ## 快速开始
 
-### lightrag的LLM及配套技术栈要求
+### xwrag的LLM及配套技术栈要求
 
-lightrag对大型语言模型（LLM）的能力要求远高于传统RAG，因为它需要LLM执行文档中的实体关系抽取任务。配置合适的Embedding和Reranker模型对提高查询表现也至关重要。
+xwrag对大型语言模型（LLM）的能力要求远高于传统RAG，因为它需要LLM执行文档中的实体关系抽取任务。配置合适的Embedding和Reranker模型对提高查询表现也至关重要。
 
 - **LLM选型**：
   - 推荐选用参数量至少为32B的LLM。
@@ -151,61 +151,61 @@ lightrag对大型语言模型（LLM）的能力要求远高于传统RAG，因为
 - **Embedding模型**：
   - 高性能的Embedding模型对RAG至关重要。
   - 推荐使用主流的多语言Embedding模型，例如：BAAI/bge-m3 和 text-embedding-3-large。
-  - **重要提示**：在文档索引前必须确定使用的Embedding模型，且在文档查询阶段必须沿用与索引阶段相同的模型。有些存储（例如PostgreSQL）在首次建立数表的时候需要确定向量维度，因此更换Embedding模型后需要删除向量相关库表，以便让lightrag重建新的库表。
+  - **重要提示**：在文档索引前必须确定使用的Embedding模型，且在文档查询阶段必须沿用与索引阶段相同的模型。有些存储（例如PostgreSQL）在首次建立数表的时候需要确定向量维度，因此更换Embedding模型后需要删除向量相关库表，以便让xwrag重建新的库表。
 - **Reranker模型配置**：
-  - 配置Reranker模型能够显著提升lightrag的检索效果。
+  - 配置Reranker模型能够显著提升xwrag的检索效果。
   - 启用Reranker模型后，推荐将“mix模式”设为默认查询模式。
   - 推荐选用主流的Reranker模型，例如：BAAI/bge-reranker-v2-m3 或 Jina 等服务商提供的模型。
 
-### 使用lightrag服务器
+### 使用xwrag服务器
 
-**有关lightrag服务器的更多信息，请参阅[lightrag服务器](./lightrag/api/README.md)。**
+**有关xwrag服务器的更多信息，请参阅[xwrag服务器](./xwrag/api/README.md)。**
 
-### 使用lightrag Core
+### 使用xwrag Core
 
-lightrag核心功能的示例代码请参见`examples`目录。您还可参照[视频](https://www.youtube.com/watch?v=g21royNJ4fw)视频完成环境配置。若已持有OpenAI API密钥，可以通过以下命令运行演示代码：
+xwrag核心功能的示例代码请参见`examples`目录。您还可参照[视频](https://www.youtube.com/watch?v=g21royNJ4fw)视频完成环境配置。若已持有OpenAI API密钥，可以通过以下命令运行演示代码：
 
 ```bash
 ### you should run the demo code with project folder
-cd lightrag
+cd xwrag
 ### provide your API-KEY for OpenAI
 export OPENAI_API_KEY="sk-...your_opeai_key..."
 ### download the demo document of "A Christmas Carol" by Charles Dickens
 curl https://raw.githubusercontent.com/gusye1234/nano-graphrag/main/tests/mock_data.txt > ./book.txt
 ### run the demo code
-python examples/lightrag_openai_demo.py
+python examples/xwrag_openai_demo.py
 ```
 
-如需流式响应示例的实现代码，请参阅 `examples/lightrag_openai_compatible_demo.py`。运行前，请确保根据需求修改示例代码中的LLM及嵌入模型配置。
+如需流式响应示例的实现代码，请参阅 `examples/xwrag_openai_compatible_demo.py`。运行前，请确保根据需求修改示例代码中的LLM及嵌入模型配置。
 
 **注意1**：在运行demo程序的时候需要注意，不同的测试程序可能使用的是不同的embedding模型，更换不同的embeding模型的时候需要把清空数据目录（`./dickens`），否则层序执行会出错。如果你想保留LLM缓存，可以在清除数据目录时保留`kv_store_llm_response_cache.json`文件。
 
-**注意2**：官方支持的示例代码仅为 `lightrag_openai_demo.py` 和 `lightrag_openai_compatible_demo.py` 两个文件。其他示例文件均为社区贡献内容，尚未经过完整测试与优化。
+**注意2**：官方支持的示例代码仅为 `xwrag_openai_demo.py` 和 `xwrag_openai_compatible_demo.py` 两个文件。其他示例文件均为社区贡献内容，尚未经过完整测试与优化。
 
-## 使用lightrag Core进行编程
+## 使用xwrag Core进行编程
 
-> ⚠️ **如果您希望将lightrag集成到您的项目中，建议您使用lightrag Server提供的REST API**。lightrag Core通常用于嵌入式应用，或供希望进行研究与评估的学者使用。
+> ⚠️ **如果您希望将xwrag集成到您的项目中，建议您使用xwrag Server提供的REST API**。xwrag Core通常用于嵌入式应用，或供希望进行研究与评估的学者使用。
 
 ### 一个简单程序
 
-以下Python代码片段演示了如何初始化lightrag、插入文本并进行查询：
+以下Python代码片段演示了如何初始化xwrag、插入文本并进行查询：
 
 ```python
 import os
 import asyncio
-from lightrag import lightrag, QueryParam
-from lightrag.llm.openai import gpt_4o_mini_complete, gpt_4o_complete, openai_embed
-from lightrag.kg.shared_storage import initialize_pipeline_status
-from lightrag.utils import setup_logger
+from xwrag import xwrag, QueryParam
+from xwrag.llm.openai import gpt_4o_mini_complete, gpt_4o_complete, openai_embed
+from xwrag.kg.shared_storage import initialize_pipeline_status
+from xwrag.utils import setup_logger
 
-setup_logger("lightrag", level="INFO")
+setup_logger("xwrag", level="INFO")
 
 WORKING_DIR = "./rag_storage"
 if not os.path.exists(WORKING_DIR):
     os.mkdir(WORKING_DIR)
 
 async def initialize_rag():
-    rag = lightrag(
+    rag = xwrag(
         working_dir=WORKING_DIR,
         embedding_func=openai_embed,
         llm_model_func=gpt_4o_mini_complete,
@@ -242,19 +242,19 @@ if __name__ == "__main__":
 
 重要说明：
 - 运行脚本前请先导出你的OPENAI_API_KEY环境变量。
-- 该程序使用lightrag的默认存储设置，所有数据将持久化在WORKING_DIR/rag_storage目录下。
-- 该示例仅展示了初始化lightrag对象的最简单方式：注入embedding和LLM函数，并在创建lightrag对象后初始化存储和管道状态。
+- 该程序使用xwrag的默认存储设置，所有数据将持久化在WORKING_DIR/rag_storage目录下。
+- 该示例仅展示了初始化xwrag对象的最简单方式：注入embedding和LLM函数，并在创建xwrag对象后初始化存储和管道状态。
 
-### lightrag初始化参数
+### xwrag初始化参数
 
-以下是完整的lightrag对象初始化参数清单：
+以下是完整的xwrag对象初始化参数清单：
 
 <details>
 <summary> 参数 </summary>
 
 | **参数** | **类型** | **说明** | **默认值** |
 |--------------|----------|-----------------|-------------|
-| **working_dir** | `str` | 存储缓存的目录 | `lightrag_cache+timestamp` |
+| **working_dir** | `str` | 存储缓存的目录 | `xwrag_cache+timestamp` |
 | **kv_storage** | `str` | Storage type for documents and text chunks. Supported types: `JsonKVStorage`,`PGKVStorage`,`RedisKVStorage`,`MongoKVStorage` | `JsonKVStorage` |
 | **vector_storage** | `str` | Storage type for embedding vectors. Supported types: `NanoVectorDBStorage`,`PGVectorStorage`,`MilvusVectorDBStorage`,`ChromaVectorDBStorage`,`FaissVectorDBStorage`,`MongoVectorDBStorage`,`QdrantVectorDBStorage` | `NanoVectorDBStorage` |
 | **graph_storage** | `str` | Storage type for graph edges and nodes. Supported types: `NetworkXStorage`,`Neo4JStorage`,`PGGraphStorage`,`AGEStorage` | `NetworkXStorage` |
@@ -289,7 +289,7 @@ if __name__ == "__main__":
 
 ```python
 class QueryParam:
-    """Configuration parameters for query execution in lightrag."""
+    """Configuration parameters for query execution in xwrag."""
 
     mode: Literal["local", "global", "hybrid", "naive", "mix", "bypass"] = "global"
     """Specifies the retrieval mode:
@@ -366,12 +366,12 @@ class QueryParam:
 
 ### LLM and Embedding注入
 
-lightrag 需要利用LLM和Embeding模型来完成文档索引和知识库查询工作。在初始化lightrag的时候需要把阶段，需要把LLM和Embedding的操作函数注入到对象中：
+xwrag 需要利用LLM和Embeding模型来完成文档索引和知识库查询工作。在初始化xwrag的时候需要把阶段，需要把LLM和Embedding的操作函数注入到对象中：
 
 <details>
 <summary> <b>使用类OpenAI的API</b> </summary>
 
-* lightrag还支持类OpenAI的聊天/嵌入API：
+* xwrag还支持类OpenAI的聊天/嵌入API：
 
 ```python
 async def llm_model_func(
@@ -396,7 +396,7 @@ async def embedding_func(texts: list[str]) -> np.ndarray:
     )
 
 async def initialize_rag():
-    rag = lightrag(
+    rag = xwrag(
         working_dir=WORKING_DIR,
         llm_model_func=llm_model_func,
         embedding_func=EmbeddingFunc(
@@ -416,13 +416,13 @@ async def initialize_rag():
 <details>
 <summary> <b>使用Hugging Face模型</b> </summary>
 
-* 如果您想使用Hugging Face模型，只需要按如下方式设置lightrag：
+* 如果您想使用Hugging Face模型，只需要按如下方式设置xwrag：
 
-参见`lightrag_hf_demo.py`
+参见`xwrag_hf_demo.py`
 
 ```python
-# 使用Hugging Face模型初始化lightrag
-rag = lightrag(
+# 使用Hugging Face模型初始化xwrag
+rag = xwrag(
     working_dir=WORKING_DIR,
     llm_model_func=hf_model_complete,  # 使用Hugging Face模型进行文本生成
     llm_model_name='meta-llama/Llama-3.1-8B-Instruct',  # Hugging Face的模型名称
@@ -444,11 +444,11 @@ rag = lightrag(
 <summary> <b>使用Ollama模型</b> </summary>
 如果您想使用Ollama模型，您需要拉取计划使用的模型和嵌入模型，例如`nomic-embed-text`。
 
-然后您只需要按如下方式设置lightrag：
+然后您只需要按如下方式设置xwrag：
 
 ```python
-# 使用Ollama模型初始化lightrag
-rag = lightrag(
+# 使用Ollama模型初始化xwrag
+rag = xwrag(
     working_dir=WORKING_DIR,
     llm_model_func=ollama_model_complete,  # 使用Ollama模型进行文本生成
     llm_model_name='your_model_name', # 您的模型名称
@@ -465,7 +465,7 @@ rag = lightrag(
 
 * **增加上下文大小**
 
-为了使lightrag正常工作，上下文应至少为32k令牌。默认情况下，Ollama模型的上下文大小为8k。您可以通过以下两种方式之一实现这一点：
+为了使xwrag正常工作，上下文应至少为32k令牌。默认情况下，Ollama模型的上下文大小为8k。您可以通过以下两种方式之一实现这一点：
 
 * **在Modelfile中增加`num_ctx`参数**
 
@@ -498,7 +498,7 @@ ollama create -f Modelfile qwen2m
 您可以使用`llm_model_kwargs`参数配置ollama：
 
 ```python
-rag = lightrag(
+rag = xwrag(
     working_dir=WORKING_DIR,
     llm_model_func=ollama_model_complete,  # 使用Ollama模型进行文本生成
     llm_model_name='your_model_name', # 您的模型名称
@@ -522,28 +522,28 @@ rag = lightrag(
 <details>
 <summary> <b>LlamaIndex</b> </summary>
 
-lightrag支持与LlamaIndex集成 (`llm/llama_index_impl.py`):
+xwrag支持与LlamaIndex集成 (`llm/llama_index_impl.py`):
 
 - 通过LlamaIndex与OpenAI和其他提供商集成
-- 详细设置和示例请参见[LlamaIndex文档](lightrag/llm/Readme.md)
+- 详细设置和示例请参见[LlamaIndex文档](xwrag/llm/Readme.md)
 
 **使用示例：**
 
 ```python
 # 使用LlamaIndex直接访问OpenAI
 import asyncio
-from lightrag import lightrag
-from lightrag.llm.llama_index_impl import llama_index_complete_if_cache, llama_index_embed
+from xwrag import xwrag
+from xwrag.llm.llama_index_impl import llama_index_complete_if_cache, llama_index_embed
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
-from lightrag.kg.shared_storage import initialize_pipeline_status
-from lightrag.utils import setup_logger
+from xwrag.kg.shared_storage import initialize_pipeline_status
+from xwrag.utils import setup_logger
 
-# 为lightrag设置日志处理程序
-setup_logger("lightrag", level="INFO")
+# 为xwrag设置日志处理程序
+setup_logger("xwrag", level="INFO")
 
 async def initialize_rag():
-    rag = lightrag(
+    rag = xwrag(
         working_dir="your/path",
         llm_model_func=llama_index_complete_if_cache,  # LlamaIndex兼容的完成函数
         embedding_func=EmbeddingFunc(    # LlamaIndex兼容的嵌入函数
@@ -590,9 +590,9 @@ if __name__ == "__main__":
 
 **详细文档和示例，请参见：**
 
-- [LlamaIndex文档](lightrag/llm/Readme.md)
-- [直接OpenAI示例](examples/lightrag_llamaindex_direct_demo.py)
-- [LiteLLM代理示例](examples/lightrag_llamaindex_litellm_demo.py)
+- [LlamaIndex文档](xwrag/llm/Readme.md)
+- [直接OpenAI示例](examples/xwrag_llamaindex_direct_demo.py)
+- [LiteLLM代理示例](examples/xwrag_llamaindex_litellm_demo.py)
 
 </details>
 
@@ -604,11 +604,11 @@ if __name__ == "__main__":
 * **Jina AI**: `jina_rerank`
 * **Aliyun阿里云**: `ali_rerank`
 
-您可以将这些函数之一注入到lightrag对象的`rerank_model_func`属性中。这将使lightrag的查询功能能够使用注入的函数对检索到的文本块进行重新排序。有关详细用法，请参阅`examples/rerank_example.py`文件。
+您可以将这些函数之一注入到xwrag对象的`rerank_model_func`属性中。这将使xwrag的查询功能能够使用注入的函数对检索到的文本块进行重新排序。有关详细用法，请参阅`examples/rerank_example.py`文件。
 
 ### 用户提示词 vs. 查询内容
 
-当使用lightrag查询内容的时候，不要把内容查询和与查询结果无关的输出加工写在一起。因为把两者混在一起会严重影响查询的效果。Query Param中的`user_prompt`就是为解决这一问题而设计的。`user_prompt`中的内容不参与RAG中的查询过程，它仅会在获得查询结果之后，与查询结果一起送给LLM，指导LLM如何处理查询结果。以下是使用方法：
+当使用xwrag查询内容的时候，不要把内容查询和与查询结果无关的输出加工写在一起。因为把两者混在一起会严重影响查询的效果。Query Param中的`user_prompt`就是为解决这一问题而设计的。`user_prompt`中的内容不参与RAG中的查询过程，它仅会在获得查询结果之后，与查询结果一起送给LLM，指导LLM如何处理查询结果。以下是使用方法：
 
 ```python
 # Create query parameters
@@ -645,7 +645,7 @@ rag.insert("文本")
 rag.insert(["文本1", "文本2",...])
 
 # 带有自定义批量大小配置的批量插入
-rag = lightrag(
+rag = xwrag(
     ...
     working_dir=WORKING_DIR,
     max_parallel_insert = 4
@@ -683,7 +683,7 @@ rag.insert(["文本1", "文本2",...], ids=["文本1的ID", "文本2的ID"])
 并使用例程处理新文档。
 
 ```python
-rag = lightrag(..)
+rag = xwrag(..)
 
 await rag.apipeline_enqueue_documents(input)
 # 您的循环例程
@@ -726,7 +726,7 @@ rag.insert(documents, file_paths=file_paths)
 
 ### 存储
 
-lightrag 使用 4 种类型的存储用于不同目的：
+xwrag 使用 4 种类型的存储用于不同目的：
 
 * KV_STORAGE：llm 响应缓存、文本块、文档信息
 * VECTOR_STORAGE：实体向量、关系向量、块向量
@@ -773,7 +773,7 @@ PGDocStatusStorage          Postgres
 MongoDocStatusStorage       MongoDB
 ```
 
-每一种存储类型的链接配置范例可以在 `env.example` 文件中找到。链接字符串中的数据库实例是需要你预先在数据库服务器上创建好的，lightrag 仅负责在数据库实例中创建数据表，不负责创建数据库实例。如果使用 Redis 作为存储，记得给 Redis 配置自动持久化数据规则，否则 Redis 服务重启后数据会丢失。如果使用PostgreSQL数据库，推荐使用16.6版本或以上。
+每一种存储类型的链接配置范例可以在 `env.example` 文件中找到。链接字符串中的数据库实例是需要你预先在数据库服务器上创建好的，xwrag 仅负责在数据库实例中创建数据表，不负责创建数据库实例。如果使用 Redis 作为存储，记得给 Redis 配置自动持久化数据规则，否则 Redis 服务重启后数据会丢失。如果使用PostgreSQL数据库，推荐使用16.6版本或以上。
 
 <details>
 <summary> <b>使用Neo4J存储</b> </summary>
@@ -787,15 +787,15 @@ export NEO4J_URI="neo4j://localhost:7687"
 export NEO4J_USERNAME="neo4j"
 export NEO4J_PASSWORD="password"
 
-# 为lightrag设置日志记录器
-setup_logger("lightrag", level="INFO")
+# 为xwrag设置日志记录器
+setup_logger("xwrag", level="INFO")
 
 # 当您启动项目时，请确保通过指定kg="Neo4JStorage"来覆盖默认的KG：NetworkX。
 
 # 注意：默认设置使用NetworkX
-# 使用Neo4J实现初始化lightrag。
+# 使用Neo4J实现初始化xwrag。
 async def initialize_rag():
-    rag = lightrag(
+    rag = xwrag(
         working_dir=WORKING_DIR,
         llm_model_func=gpt_4o_mini_complete,  # 使用gpt_4o_mini_complete LLM模型
         graph_storage="Neo4JStorage", #<-----------覆盖KG默认值
@@ -833,8 +833,8 @@ async def embedding_func(texts: list[str]) -> np.ndarray:
     embeddings = model.encode(texts, convert_to_numpy=True)
     return embeddings
 
-# 使用LLM模型函数和嵌入函数初始化lightrag
-rag = lightrag(
+# 使用LLM模型函数和嵌入函数初始化xwrag
+rag = xwrag(
     working_dir=WORKING_DIR,
     llm_model_func=llm_model_func,
     embedding_func=EmbeddingFunc(
@@ -863,14 +863,14 @@ rag = lightrag(
 <details>
 <summary> <b>使用MogonDB存储</b> </summary>
 
-MongoDB为lightrag提供了一站式的存储解决方案。MongoDB提供原生的KV存储和向量存储。lightrag使用MogoDB的集合实现了一个简易的图存储。MongoDB 官方的向量检索功能（`$vectorSearch`）目前必须依赖其官方的云服务 MongoDB Atlas。无法在自托管的 MongoDB Community/Enterprise 版本上使用此功能。
+MongoDB为xwrag提供了一站式的存储解决方案。MongoDB提供原生的KV存储和向量存储。xwrag使用MogoDB的集合实现了一个简易的图存储。MongoDB 官方的向量检索功能（`$vectorSearch`）目前必须依赖其官方的云服务 MongoDB Atlas。无法在自托管的 MongoDB Community/Enterprise 版本上使用此功能。
 
 </details>
 
 <details>
 <summary> <b>使用Redis存储</b> </summary>
 
-lightrag支持使用Reidis作为KV存储。使用Redis存储的时候需要注意进行持久化配置和内存使用量配置。以下是推荐的redis配置
+xwrag支持使用Reidis作为KV存储。使用Redis存储的时候需要注意进行持久化配置和内存使用量配置。以下是推荐的redis配置
 
 ```
 save 900 1
@@ -884,9 +884,9 @@ maxclients 500
 
 </details>
 
-### lightrag实例间的数据隔离
+### xwrag实例间的数据隔离
 
-通过 workspace 参数可以不同实现不同lightrag实例之间的存储数据隔离。lightrag在初始化后workspace就已经确定，之后修改workspace是无效的。下面是不同类型的存储实现工作空间的方式：
+通过 workspace 参数可以不同实现不同xwrag实例之间的存储数据隔离。xwrag在初始化后workspace就已经确定，之后修改workspace是无效的。下面是不同类型的存储实现工作空间的方式：
 
 - **对于本地基于文件的数据库，数据隔离通过工作空间子目录实现：** JsonKVStorage, JsonDocStatusStorage, NetworkXStorage, NanoVectorDBStorage, FaissVectorDBStorage。
 - **对于将数据存储在集合（collection）中的数据库，通过在集合名称前添加工作空间前缀来实现：** RedisKVStorage, RedisDocStatusStorage, MilvusVectorDBStorage, QdrantVectorDBStorage, MongoKVStorage, MongoDocStatusStorage, MongoVectorDBStorage, MongoGraphStorage, PGGraphStorage。
@@ -898,7 +898,7 @@ maxclients 500
 
 ## 编辑实体和关系
 
-lightrag现在支持全面的知识图谱管理功能，允许您在知识图谱中创建、编辑和删除实体和关系。
+xwrag现在支持全面的知识图谱管理功能，允许您在知识图谱中创建、编辑和删除实体和关系。
 
 <details>
 <summary> <b>创建实体和关系</b> </summary>
@@ -1033,7 +1033,7 @@ rag.insert_custom_kg(custom_kg)
 
 ## 删除功能
 
-lightrag提供了全面的删除功能，允许您删除文档、实体和关系。
+xwrag提供了全面的删除功能，允许您删除文档、实体和关系。
 
 <details>
 <summary> <b>删除实体</b> </summary>
@@ -1124,7 +1124,7 @@ await rag.adelete_by_doc_id("doc-12345")
 <details>
 <summary> <b>合并实体及其关系</b> </summary>
 
-lightrag现在支持将多个实体合并为单个实体，自动处理所有关系：
+xwrag现在支持将多个实体合并为单个实体，自动处理所有关系：
 
 ```python
 # 基本实体合并
@@ -1192,7 +1192,7 @@ rag.merge_entities(
 
 ## 多模态文档处理（RAG-Anything集成）
 
-lightrag 现已与 [RAG-Anything](https://github.com/HKUDS/RAG-Anything) 实现无缝集成，这是一个专为 lightrag 构建的**全能多模态文档处理RAG系统**。RAG-Anything 提供先进的解析和检索增强生成（RAG）能力，让您能够无缝处理多模态文档，并从各种文档格式中提取结构化内容——包括文本、图片、表格和公式——以集成到您的RAG流程中。
+xwrag 现已与 [RAG-Anything](https://github.com/HKUDS/RAG-Anything) 实现无缝集成，这是一个专为 xwrag 构建的**全能多模态文档处理RAG系统**。RAG-Anything 提供先进的解析和检索增强生成（RAG）能力，让您能够无缝处理多模态文档，并从各种文档格式中提取结构化内容——包括文本、图片、表格和公式——以集成到您的RAG流程中。
 
 **主要特性：**
 - **端到端多模态流程**：从文档摄取解析到智能多模态问答的完整工作流程
@@ -1213,24 +1213,24 @@ lightrag 现已与 [RAG-Anything](https://github.com/HKUDS/RAG-Anything) 实现�
     ```python
         import asyncio
         from raganything import RAGAnything
-        from lightrag import lightrag
-        from lightrag.llm.openai import openai_complete_if_cache, openai_embed
-        from lightrag.utils import EmbeddingFunc
+        from xwrag import xwrag
+        from xwrag.llm.openai import openai_complete_if_cache, openai_embed
+        from xwrag.utils import EmbeddingFunc
         import os
 
-        async def load_existing_lightrag():
-            # 首先，创建或加载现有的 lightrag 实例
-            lightrag_working_dir = "./existing_lightrag_storage"
+        async def load_existing_xwrag():
+            # 首先，创建或加载现有的 xwrag 实例
+            xwrag_working_dir = "./existing_xwrag_storage"
 
-            # 检查是否存在之前的 lightrag 实例
-            if os.path.exists(lightrag_working_dir) and os.listdir(lightrag_working_dir):
-                print("✅ Found existing lightrag instance, loading...")
+            # 检查是否存在之前的 xwrag 实例
+            if os.path.exists(xwrag_working_dir) and os.listdir(xwrag_working_dir):
+                print("✅ Found existing xwrag instance, loading...")
             else:
-                print("❌ No existing lightrag instance found, will create new one")
+                print("❌ No existing xwrag instance found, will create new one")
 
-            # 使用您的配置创建/加载 lightrag 实例
-            lightrag_instance = lightrag(
-                working_dir=lightrag_working_dir,
+            # 使用您的配置创建/加载 xwrag 实例
+            xwrag_instance = xwrag(
+                working_dir=xwrag_working_dir,
                 llm_model_func=lambda prompt, system_prompt=None, history_messages=[], **kwargs: openai_complete_if_cache(
                     "gpt-4o-mini",
                     prompt,
@@ -1251,11 +1251,11 @@ lightrag 现已与 [RAG-Anything](https://github.com/HKUDS/RAG-Anything) 实现�
             )
 
             # 初始化存储（如果有现有数据，这将加载现有数据）
-            await lightrag_instance.initialize_storages()
+            await xwrag_instance.initialize_storages()
 
-            # 现在使用现有的 lightrag 实例初始化 RAGAnything
+            # 现在使用现有的 xwrag 实例初始化 RAGAnything
             rag = RAGAnything(
-                lightrag=lightrag_instance,  # 传递现有的 lightrag 实例
+                xwrag=xwrag_instance,  # 传递现有的 xwrag 实例
                 # 仅需要视觉模型用于多模态处理
                 vision_model_func=lambda prompt, system_prompt=None, history_messages=[], image_data=None, **kwargs: openai_complete_if_cache(
                     "gpt-4o",
@@ -1279,24 +1279,24 @@ lightrag 现已与 [RAG-Anything](https://github.com/HKUDS/RAG-Anything) 实现�
                     api_key="your-api-key",
                     **kwargs,
                 )
-                # 注意：working_dir、llm_model_func、embedding_func 等都从 lightrag_instance 继承
+                # 注意：working_dir、llm_model_func、embedding_func 等都从 xwrag_instance 继承
             )
 
             # 查询现有的知识库
             result = await rag.query_with_multimodal(
-                "What data has been processed in this lightrag instance?",
+                "What data has been processed in this xwrag instance?",
                 mode="hybrid"
             )
             print("Query result:", result)
 
-            # 向现有的 lightrag 实例添加新的多模态文档
+            # 向现有的 xwrag 实例添加新的多模态文档
             await rag.process_document_complete(
                 file_path="path/to/new/multimodal_document.pdf",
                 output_dir="./output"
             )
 
         if __name__ == "__main__":
-            asyncio.run(load_existing_lightrag())
+            asyncio.run(load_existing_xwrag())
     ```
 
     </details>
@@ -1308,12 +1308,12 @@ lightrag 现已与 [RAG-Anything](https://github.com/HKUDS/RAG-Anything) 实现�
 <details>
 <summary> <b>概述和使用</b> </summary>
 
-lightrag提供了TokenTracker工具来跟踪和管理大模型的token消耗。这个功能对于控制API成本和优化性能特别有用。
+xwrag提供了TokenTracker工具来跟踪和管理大模型的token消耗。这个功能对于控制API成本和优化性能特别有用。
 
 ### 使用方法
 
 ```python
-from lightrag.utils import TokenTracker
+from xwrag.utils import TokenTracker
 
 # 创建TokenTracker实例
 token_tracker = TokenTracker()
@@ -1345,8 +1345,8 @@ print("Token usage:", token_tracker.get_usage())
 
 ### 实际应用示例
 您可以参考以下示例来实现token统计：
-- `examples/lightrag_gemini_track_token_demo.py`：使用Google Gemini模型的token统计示例
-- `examples/lightrag_siliconcloud_track_token_demo.py`：使用SiliconCloud模型的token统计示例
+- `examples/xwrag_gemini_track_token_demo.py`：使用Google Gemini模型的token统计示例
+- `examples/xwrag_siliconcloud_track_token_demo.py`：使用SiliconCloud模型的token统计示例
 
 这些示例展示了如何在不同模型和场景下有效地使用TokenTracker功能。
 
@@ -1356,7 +1356,7 @@ print("Token usage:", token_tracker.get_usage())
 
 ### 概述
 
-lightrag允许您以各种格式导出知识图谱数据，用于分析、共享和备份目的。系统支持导出实体、关系和关系数据。
+xwrag允许您以各种格式导出知识图谱数据，用于分析、共享和备份目的。系统支持导出实体、关系和关系数据。
 
 ### 导出功能
 
@@ -1437,13 +1437,13 @@ rag.clear_cache(modes=["local"])
 
 </details>
 
-## lightrag API
+## xwrag API
 
-lightrag服务器旨在提供Web UI和API支持。**有关lightrag服务器的更多信息，请参阅[lightrag服务器](./lightrag/api/README.md)。**
+xwrag服务器旨在提供Web UI和API支持。**有关xwrag服务器的更多信息，请参阅[xwrag服务器](./xwrag/api/README.md)。**
 
 ## 知识图谱可视化
 
-lightrag服务器提供全面的知识图谱可视化功能。它支持各种重力布局、节点查询、子图过滤等。**有关lightrag服务器的更多信息，请参阅[lightrag服务器](./lightrag/api/README.md)。**
+xwrag服务器提供全面的知识图谱可视化功能。它支持各种重力布局、节点查询、子图过滤等。**有关xwrag服务器的更多信息，请参阅[xwrag服务器](./xwrag/api/README.md)。**
 
 ![iShot_2025-03-23_12.40.08](./README.assets/iShot_2025-03-23_12.40.08.png)
 
@@ -1451,11 +1451,11 @@ lightrag服务器提供全面的知识图谱可视化功能。它支持各种重
 
 ### 数据集
 
-lightrag使用的数据集可以从[TommyChien/UltraDomain](https://huggingface.co/datasets/TommyChien/UltraDomain)下载。
+xwrag使用的数据集可以从[TommyChien/UltraDomain](https://huggingface.co/datasets/TommyChien/UltraDomain)下载。
 
 ### 生成查询
 
-lightrag使用以下提示生成高级查询，相应的代码在`example/generate_query.py`中。
+xwrag使用以下提示生成高级查询，相应的代码在`example/generate_query.py`中。
 
 <details>
 <summary> 提示 </summary>
@@ -1488,7 +1488,7 @@ lightrag使用以下提示生成高级查询，相应的代码在`example/genera
 
 ### 批量评估
 
-为了评估两个RAG系统在高级查询上的性能，lightrag使用以下提示，具体代码可在`example/batch_eval.py`中找到。
+为了评估两个RAG系统在高级查询上的性能，xwrag使用以下提示，具体代码可在`example/batch_eval.py`中找到。
 
 <details>
 <summary> 提示 </summary>
@@ -1542,22 +1542,22 @@ lightrag使用以下提示生成高级查询，相应的代码在`example/genera
 
 |                      |**农业**|            |**计算机科学**|            |**法律**|            |**混合**|            |
 |----------------------|---------------|------------|------|------------|---------|------------|-------|------------|
-|                      |NaiveRAG|**lightrag**|NaiveRAG|**lightrag**|NaiveRAG|**lightrag**|NaiveRAG|**lightrag**|
+|                      |NaiveRAG|**xwrag**|NaiveRAG|**xwrag**|NaiveRAG|**xwrag**|NaiveRAG|**xwrag**|
 |**全面性**|32.4%|**67.6%**|38.4%|**61.6%**|16.4%|**83.6%**|38.8%|**61.2%**|
 |**多样性**|23.6%|**76.4%**|38.0%|**62.0%**|13.6%|**86.4%**|32.4%|**67.6%**|
 |**赋能性**|32.4%|**67.6%**|38.8%|**61.2%**|16.4%|**83.6%**|42.8%|**57.2%**|
 |**总体**|32.4%|**67.6%**|38.8%|**61.2%**|15.2%|**84.8%**|40.0%|**60.0%**|
-|                      |RQ-RAG|**lightrag**|RQ-RAG|**lightrag**|RQ-RAG|**lightrag**|RQ-RAG|**lightrag**|
+|                      |RQ-RAG|**xwrag**|RQ-RAG|**xwrag**|RQ-RAG|**xwrag**|RQ-RAG|**xwrag**|
 |**全面性**|31.6%|**68.4%**|38.8%|**61.2%**|15.2%|**84.8%**|39.2%|**60.8%**|
 |**多样性**|29.2%|**70.8%**|39.2%|**60.8%**|11.6%|**88.4%**|30.8%|**69.2%**|
 |**赋能性**|31.6%|**68.4%**|36.4%|**63.6%**|15.2%|**84.8%**|42.4%|**57.6%**|
 |**总体**|32.4%|**67.6%**|38.0%|**62.0%**|14.4%|**85.6%**|40.0%|**60.0%**|
-|                      |HyDE|**lightrag**|HyDE|**lightrag**|HyDE|**lightrag**|HyDE|**lightrag**|
+|                      |HyDE|**xwrag**|HyDE|**xwrag**|HyDE|**xwrag**|HyDE|**xwrag**|
 |**全面性**|26.0%|**74.0%**|41.6%|**58.4%**|26.8%|**73.2%**|40.4%|**59.6%**|
 |**多样性**|24.0%|**76.0%**|38.8%|**61.2%**|20.0%|**80.0%**|32.4%|**67.6%**|
 |**赋能性**|25.2%|**74.8%**|40.8%|**59.2%**|26.0%|**74.0%**|46.0%|**54.0%**|
 |**总体**|24.8%|**75.2%**|41.6%|**58.4%**|26.4%|**73.6%**|42.4%|**57.6%**|
-|                      |GraphRAG|**lightrag**|GraphRAG|**lightrag**|GraphRAG|**lightrag**|GraphRAG|**lightrag**|
+|                      |GraphRAG|**xwrag**|GraphRAG|**xwrag**|GraphRAG|**xwrag**|GraphRAG|**xwrag**|
 |**全面性**|45.6%|**54.4%**|48.4%|**51.6%**|48.4%|**51.6%**|**50.4%**|49.6%|
 |**多样性**|22.8%|**77.2%**|40.8%|**59.2%**|26.4%|**73.6%**|36.0%|**64.0%**|
 |**赋能性**|41.2%|**58.8%**|45.2%|**54.8%**|43.6%|**56.4%**|**50.8%**|49.2%|
@@ -1630,7 +1630,7 @@ def extract_unique_contexts(input_directory, output_directory):
 
 ### 步骤1 插入上下文
 
-对于提取的上下文，我们将它们插入到lightrag系统中。
+对于提取的上下文，我们将它们插入到xwrag系统中。
 
 <details>
 <summary> 代码 </summary>
@@ -1683,7 +1683,7 @@ def get_summary(context, tot_tokens=2000):
 
 ### 步骤3 查询
 
-对于步骤2中生成的查询，我们将提取它们并查询lightrag。
+对于步骤2中生成的查询，我们将提取它们并查询xwrag。
 
 <details>
 <summary> 代码 </summary>
@@ -1704,11 +1704,11 @@ def extract_queries(file_path):
 
 ## Star历史
 
-<a href="https://star-history.com/#HKUDS/lightrag&Date">
+<a href="https://star-history.com/#HKUDS/xwrag&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/lightrag&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/lightrag&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/lightrag&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/xwrag&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/xwrag&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/xwrag&type=Date" />
  </picture>
 </a>
 
@@ -1716,15 +1716,15 @@ def extract_queries(file_path):
 
 感谢所有贡献者！
 
-<a href="https://github.com/HKUDS/lightrag/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=HKUDS/lightrag" />
+<a href="https://github.com/HKUDS/xwrag/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=HKUDS/xwrag" />
 </a>
 
 ## 🌟引用
 
 ```python
-@article{guo2024lightrag,
-title={lightrag: Simple and Fast Retrieval-Augmented Generation},
+@article{guo2024xwrag,
+title={xwrag: Simple and Fast Retrieval-Augmented Generation},
 author={Zirui Guo and Lianghao Xia and Yanhua Yu and Tu Ao and Chao Huang},
 year={2024},
 eprint={2410.05779},

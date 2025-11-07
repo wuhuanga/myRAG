@@ -23,25 +23,25 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import aiofiles
 
-# lightrag 相关导入
+# xwrag 相关导入
 from dotenv import load_dotenv
 import nest_asyncio
 import textract
-from lightrag import lightrag, QueryParam
-from lightrag.llm.llama_index_impl import llama_index_complete_if_cache
-from lightrag.llm.hf import hf_embed
+from xwrag import xwrag, QueryParam
+from xwrag.llm.llama_index_impl import llama_index_complete_if_cache
+from xwrag.llm.hf import hf_embed
 from transformers import AutoModel, AutoTokenizer
-from lightrag.utils import EmbeddingFunc
+from xwrag.utils import EmbeddingFunc
 from llama_index.llms.litellm import LiteLLM
-from lightrag.kg.shared_storage import initialize_pipeline_status
+from xwrag.kg.shared_storage import initialize_pipeline_status
 
 load_dotenv()
 nest_asyncio.apply()
 
-# ========== lightrag 处理器实现 ==========
+# ========== xwrag 处理器实现 ==========
 
-class lightragProcessor:
-    """lightrag 处理器，用于构建和查询知识图谱"""
+class xwragProcessor:
+    """xwrag 处理器，用于构建和查询知识图谱"""
 
     def __init__(
         self,
@@ -54,7 +54,7 @@ class lightragProcessor:
         litellm_key: Optional[str] = None
     ):
         """
-        初始化 lightrag 处理器
+        初始化 xwrag 处理器
 
         Args:
             working_dir: 工作目录
@@ -132,7 +132,7 @@ class lightragProcessor:
 
     async def initialize_rag(self):
         """初始化 RAG 系统"""
-        logger.info("正在初始化 lightrag 系统...")
+        logger.info("正在初始化 xwrag 系统...")
 
         # 加载 Embedding 模型
         logger.info(f"正在加载 Embedding 模型: {self.embedding_model}")
@@ -145,7 +145,7 @@ class lightragProcessor:
             logger.info(f"请确保 EMBEDDING_MODEL 环境变量或 --embedding_model 参数配置正确")
             raise
 
-        self.rag = lightrag(
+        self.rag = xwrag(
             working_dir=str(self.working_dir),
             llm_model_func=self.llm_model_func,
             embedding_func=EmbeddingFunc(
@@ -167,7 +167,7 @@ class lightragProcessor:
         await self.rag.initialize_storages()
         await initialize_pipeline_status()
 
-        logger.info("lightrag 系统初始化完成")
+        logger.info("xwrag 系统初始化完成")
 
     def insert_document(self, document_path: str, custom_id: Optional[str] = None):
         """
@@ -262,7 +262,7 @@ class lightragProcessor:
             查询结果
         """
         if self.rag is None:
-            raise ValueError("lightrag 系统未初始化")
+            raise ValueError("xwrag 系统未初始化")
 
         logger.info(f"查询模式: {mode}")
         logger.info(f"查询问题: {question}")
@@ -316,7 +316,7 @@ app.add_middleware(
 )
 
 # 全局变量
-rag_processor: Optional[lightragProcessor] = None
+rag_processor: Optional[xwragProcessor] = None
 ucd_builder: Optional[UCBuilder] = None
 UPLOAD_DIR = Path("uploaded_files")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -536,7 +536,7 @@ async def initialize_system(request: InitRequest):
         logger.info(f"正在初始化 RAG 处理器，工作目录: {request.working_dir}")
         
         # 初始化 RAG 处理器
-        rag_processor = lightragProcessor(
+        rag_processor = xwragProcessor(
             working_dir=request.working_dir,
             llm_model=request.llm_model,
             embedding_model=request.embedding_model,
@@ -1048,7 +1048,7 @@ async def get_documents_by_status(status: str):
         )
     
     try:
-        from lightrag.base import DocStatus
+        from xwrag.base import DocStatus
         
         logger.info(f"获取状态为 {status_upper} 的文档列表...")
         

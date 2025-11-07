@@ -7,7 +7,7 @@ myRAG/
 ├── app/                           # 主应用目录
 │   ├── __init__.py                # 包初始化文件
 │   ├── main.py                    # 应用入口文件,包含 FastAPI 实例和路由配置
-│   ├── dependencies.py            # 依赖管理:RAG 实例管理器、lightragProcessor 类
+│   ├── dependencies.py            # 依赖管理:RAG 实例管理器、xwragProcessor 类
 │   ├── models.py                  # Pydantic 模型定义
 │   ├── routers/                   # 路由模块
 │   │   ├── __init__.py
@@ -378,6 +378,6 @@ WebSocket 端点: `ws://localhost:8000/ws`
 
 ```bash
 pip install fastapi uvicorn python-multipart aiofiles
-pip install lightrag transformers llama-index-llms-litellm
+pip install xwrag transformers llama-index-llms-litellm
 pip install textract python-dotenv nest-asyncio
 ```

@@ -59,14 +59,14 @@ export NEO4J_PASSWORD=$NEO4J_PASSWORD
 #fi
 #export REDIS_PASSWORD=$REDIS_PASSWORD
 
-echo "Deploying production lightrag (using external databases)..."
+echo "Deploying production xwrag (using external databases)..."
 
 if ! kubectl get namespace rag &> /dev/null; then
   echo "creating namespace 'rag'..."
   kubectl create namespace rag
 fi
 
-helm upgrade --install lightrag $SCRIPT_DIR/lightrag \
+helm upgrade --install xwrag $SCRIPT_DIR/xwrag \
   --namespace $NAMESPACE \
   --set-string env.POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
   --set-string env.NEO4J_PASSWORD=$NEO4J_PASSWORD \
@@ -80,16 +80,16 @@ helm upgrade --install lightrag $SCRIPT_DIR/lightrag \
   --set-string env.EMBEDDING_BINDING_API_KEY=$OPENAI_API_KEY
 #  --set-string env.REDIS_URI="redis://default:${REDIS_PASSWORD}@redis-cluster-redis-redis:6379"
 
-# Wait for lightrag pod to be ready
+# Wait for xwrag pod to be ready
 echo ""
-echo "Waiting for lightrag pod to be ready..."
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=lightrag --timeout=300s -n rag
-echo "lightrag pod is ready"
+echo "Waiting for xwrag pod to be ready..."
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=xwrag --timeout=300s -n rag
+echo "xwrag pod is ready"
 echo ""
 echo "Running Port-Forward:"
-echo "    kubectl --namespace rag port-forward svc/lightrag 9621:9621"
+echo "    kubectl --namespace rag port-forward svc/xwrag 9621:9621"
 echo "==========================================="
 echo ""
-echo "✅ You can visit lightrag at: http://localhost:9621"
+echo "✅ You can visit xwrag at: http://localhost:9621"
 echo ""
-kubectl --namespace rag port-forward svc/lightrag 9621:9621
+kubectl --namespace rag port-forward svc/xwrag 9621:9621

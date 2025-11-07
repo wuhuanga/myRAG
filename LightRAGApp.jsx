@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, MessageSquare, Settings, Database, Send, FileText, Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
-export default function lightragApp() {
+export default function xwragApp() {
   const [activeTab, setActiveTab] = useState('query');
   const [initialized, setInitialized] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -184,7 +184,7 @@ export default function lightragApp() {
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-white mb-2 flex items-center justify-center gap-3">
             <Database className="w-10 h-10 text-purple-400" />
-            lightrag 知识图谱系统
+            xwrag 知识图谱系统
           </h1>
           <p className="text-purple-200">基于 Neo4j 和 Faiss 的智能 RAG 系统</p>
         </div>
@@ -545,7 +545,7 @@ export default function lightragApp() {
 
         {/* Footer */}
         <div className="mt-8 text-center text-purple-300 text-sm">
-          <p>基于 lightrag · Neo4j · Faiss · LiteLLM</p>
+          <p>基于 xwrag · Neo4j · Faiss · LiteLLM</p>
         </div>
       </div>
     </div>
