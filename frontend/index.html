@@ -30,6 +30,22 @@
         <div id="instances" class="tab-content active">
             <div class="section">
                 <h2>创建 RAG 实例</h2>
+
+                <!-- 环境变量说明 -->
+                <div class="env-notice">
+                    <strong>📌 配置说明：</strong>
+                    <p>LLM 和 Embedding 模型配置从后端环境变量读取（与 lightrag_cli.py 一致）：</p>
+                    <ul>
+                        <li><code>LLM_MODEL</code>: LLM 模型名称（默认 gpt-4）</li>
+                        <li><code>EMBEDDING_MODEL</code>: Embedding 模型路径（默认 sentence-transformers/all-MiniLM-L6-v2）</li>
+                        <li><code>EMBEDDING_DIM</code>: Embedding 维度（默认 384）</li>
+                        <li><code>EMBEDDING_MAX_TOKEN</code>: 最大 token 数（默认 5000）</li>
+                        <li><code>LITELLM_URL</code>: LiteLLM 服务地址（默认 http://localhost:4000）</li>
+                        <li><code>LITELLM_KEY</code>: LiteLLM API 密钥（默认 sk-1234）</li>
+                    </ul>
+                    <p><strong>存储配置：</strong>固定使用 Neo4JStorage（图存储）+ FaissVectorDBStorage（向量存储）</p>
+                </div>
+
                 <form id="createInstanceForm" class="form-grid">
                     <div class="form-group">
                         <label>实例 ID *</label>
@@ -45,35 +61,6 @@
                     <div class="form-group">
                         <label>工作目录</label>
                         <input type="text" id="workingDir" value="./rag_storage" placeholder="./rag_storage">
-                    </div>
-
-                    <div class="form-group">
-                        <label>LLM 模型</label>
-                        <input type="text" id="llmModel" placeholder="gpt-4o-mini">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Embedding 模型</label>
-                        <input type="text" id="embeddingModel" placeholder="sentence-transformers/all-MiniLM-L6-v2">
-                    </div>
-
-                    <div class="form-group">
-                        <label>向量存储</label>
-                        <select id="vectorStorage">
-                            <option value="">默认 (FaissVectorDBStorage)</option>
-                            <option value="NanoVectorDBStorage">NanoVectorDB</option>
-                            <option value="FaissVectorDBStorage">Faiss</option>
-                            <option value="MilvusVectorDBStorage">Milvus</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>图存储</label>
-                        <select id="graphStorage">
-                            <option value="">默认 (Neo4JStorage)</option>
-                            <option value="Neo4JStorage">Neo4j</option>
-                            <option value="NetworkXStorage">NetworkX</option>
-                        </select>
                     </div>
 
                     <div class="form-group full-width">

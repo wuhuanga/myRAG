@@ -36,17 +36,7 @@ class lightragProcessor:
         self,
         working_dir: str,
         workspace: Optional[str] = None,
-        llm_model: Optional[str] = None,
-        embedding_model: Optional[str] = None,
-        embedding_dim: Optional[int] = None,
-        embedding_max_token: Optional[int] = None,
-        litellm_url: Optional[str] = None,
-        litellm_key: Optional[str] = None,
-        # 新增参数
-        kv_storage: Optional[str] = None,
-        vector_storage: Optional[str] = None,
-        graph_storage: Optional[str] = None,
-        doc_status_storage: Optional[str] = None,
+        # 查询和分块参数（可选）
         top_k: Optional[int] = None,
         chunk_top_k: Optional[int] = None,
         max_entity_tokens: Optional[int] = None,
@@ -62,19 +52,21 @@ class lightragProcessor:
         """
         初始化 lightrag 处理器
 
+        LLM 和 Embedding 配置从环境变量读取（与 lightrag_cli.py 一致）：
+        - LLM_MODEL: LLM 模型名称（默认 gpt-4）
+        - EMBEDDING_MODEL: Embedding 模型路径（默认 sentence-transformers/all-MiniLM-L6-v2）
+        - EMBEDDING_DIM: Embedding 维度（默认 384）
+        - EMBEDDING_MAX_TOKEN: 最大 token 数（默认 5000）
+        - LITELLM_URL: LiteLLM 服务地址（默认 http://localhost:4000）
+        - LITELLM_KEY: LiteLLM API 密钥（默认 sk-1234）
+
+        存储配置固定使用：
+        - 图存储: Neo4JStorage
+        - 向量存储: FaissVectorDBStorage
+
         Args:
             working_dir: 工作目录
-            workspace: 工作空间(可选)
-            llm_model: LLM 模型名称
-            embedding_model: Embedding 模型名称
-            embedding_dim: Embedding 维度
-            embedding_max_token: Embedding 最大 token 数
-            litellm_url: LiteLLM 服务地址
-            litellm_key: LiteLLM API 密钥
-            kv_storage: KV 存储类型
-            vector_storage: 向量存储类型
-            graph_storage: 图存储类型
-            doc_status_storage: 文档状态存储类型
+            workspace: 工作空间（必须唯一）
             top_k: 查询返回的 top k 结果
             chunk_top_k: 分块查询返回的 top k 结果
             max_entity_tokens: 实体的最大 token 数
@@ -90,27 +82,16 @@ class lightragProcessor:
         self.working_dir = Path(working_dir)
         self.workspace = workspace
 
-        # 从环境变量获取配置,优先使用传入参数
-        self.llm_model = llm_model or os.environ.get("LLM_MODEL", "gpt-4")
-        self.embedding_model = embedding_model or os.environ.get(
+        # 从环境变量获取 LLM 和 Embedding 配置（与 lightrag_cli.py 一致）
+        self.llm_model = os.environ.get("LLM_MODEL", "gpt-4")
+        self.embedding_model = os.environ.get(
             "EMBEDDING_MODEL",
             "sentence-transformers/all-MiniLM-L6-v2"
         )
-        self.embedding_dim = embedding_dim or int(os.environ.get("EMBEDDING_DIM", "384"))
-        self.embedding_max_token = embedding_max_token or int(
-            os.environ.get("EMBEDDING_MAX_TOKEN", "5000")
-        )
-        self.litellm_url = litellm_url or os.environ.get(
-            "LITELLM_URL",
-            "http://localhost:4000"
-        )
-        self.litellm_key = litellm_key or os.environ.get("LITELLM_KEY", "sk-1234")
-
-        # 存储配置参数
-        self.kv_storage = kv_storage
-        self.vector_storage = vector_storage
-        self.graph_storage = graph_storage
-        self.doc_status_storage = doc_status_storage
+        self.embedding_dim = int(os.environ.get("EMBEDDING_DIM", "384"))
+        self.embedding_max_token = int(os.environ.get("EMBEDDING_MAX_TOKEN", "5000"))
+        self.litellm_url = os.environ.get("LITELLM_URL", "http://localhost:4000")
+        self.litellm_key = os.environ.get("LITELLM_KEY", "sk-1234")
         self.top_k = top_k
         self.chunk_top_k = chunk_top_k
         self.max_entity_tokens = max_entity_tokens
@@ -202,33 +183,18 @@ class lightragProcessor:
             ),
         }
 
-        # 添加可选参数
-        if self.graph_storage:
-            rag_kwargs["graph_storage"] = self.graph_storage
-        else:
-            rag_kwargs["graph_storage"] = "Neo4JStorage"  # 默认使用 Neo4j
-
-        if self.vector_storage:
-            rag_kwargs["vector_storage"] = self.vector_storage
-        else:
-            rag_kwargs["vector_storage"] = "FaissVectorDBStorage"  # 默认使用 Faiss
+        # 固定使用 Neo4j 和 Faiss（与 lightrag_cli.py 一致）
+        rag_kwargs["graph_storage"] = "Neo4JStorage"
+        rag_kwargs["vector_storage"] = "FaissVectorDBStorage"
 
         # 向量数据库配置
         rag_kwargs["vector_db_storage_cls_kwargs"] = {
             "cosine_better_than_threshold": self.cosine_threshold
         }
 
-        if self.kv_storage:
-            rag_kwargs["kv_storage"] = self.kv_storage
-
-        if self.doc_status_storage:
-            rag_kwargs["doc_status_storage"] = self.doc_status_storage
-
-        if self.chunk_token_size:
-            rag_kwargs["chunk_token_size"] = self.chunk_token_size
-
-        if self.chunk_overlap_token_size:
-            rag_kwargs["chunk_overlap_token_size"] = self.chunk_overlap_token_size
+        # 分块配置
+        rag_kwargs["chunk_token_size"] = self.chunk_token_size
+        rag_kwargs["chunk_overlap_token_size"] = self.chunk_overlap_token_size
 
         # 初始化 RAG
         self.rag = lightrag(**rag_kwargs)
@@ -440,20 +406,10 @@ class RAGInstanceManager:
 
         logger.info(f"正在创建 RAG 实例: {config.rag_id}")
 
-        # 创建 RAG 处理器
+        # 创建 RAG 处理器（LLM 和 Embedding 配置从环境变量读取）
         processor = lightragProcessor(
             working_dir=config.working_dir,
             workspace=config.workspace,
-            llm_model=config.llm_model,
-            embedding_model=config.embedding_model,
-            embedding_dim=config.embedding_dim,
-            embedding_max_token=config.embedding_max_token,
-            litellm_url=config.litellm_url,
-            litellm_key=config.litellm_key,
-            kv_storage=config.kv_storage,
-            vector_storage=config.vector_storage,
-            graph_storage=config.graph_storage,
-            doc_status_storage=config.doc_status_storage,
             top_k=config.top_k,
             chunk_top_k=config.chunk_top_k,
             max_entity_tokens=config.max_entity_tokens,

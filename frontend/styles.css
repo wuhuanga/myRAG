@@ -182,6 +182,45 @@ header h1 {
     padding-left: 15px;
 }
 
+/* 环境变量说明 */
+.env-notice {
+    background: #f0f9ff;
+    border: 2px solid #3b82f6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 25px;
+}
+
+.env-notice strong {
+    color: #1e40af;
+    font-size: 16px;
+}
+
+.env-notice p {
+    margin: 10px 0;
+    color: var(--text-primary);
+}
+
+.env-notice ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.env-notice li {
+    margin: 8px 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.env-notice code {
+    background: #e0f2fe;
+    color: #0c4a6e;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+}
+
 /* ============================================
    表单
    ============================================ */

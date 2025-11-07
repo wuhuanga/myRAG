@@ -439,10 +439,6 @@ document.getElementById('createInstanceForm')?.addEventListener('submit', async 
     const ragId = document.getElementById('ragId').value.trim();
     const workspace = document.getElementById('workspace').value.trim();
     const workingDir = document.getElementById('workingDir').value.trim();
-    const llmModel = document.getElementById('llmModel').value.trim();
-    const embeddingModel = document.getElementById('embeddingModel').value.trim();
-    const vectorStorage = document.getElementById('vectorStorage').value;
-    const graphStorage = document.getElementById('graphStorage').value;
 
     if (!ragId || !workspace) {
         showNotification('RAG ID 和 Workspace 为必填项', 'warning');
@@ -456,14 +452,12 @@ document.getElementById('createInstanceForm')?.addEventListener('submit', async 
                 rag_id: ragId,
                 workspace: workspace,
                 working_dir: workingDir || './rag_storage',
-                llm_model: llmModel || undefined,
-                embedding_model: embeddingModel || undefined,
-                vector_storage: vectorStorage || undefined,
-                graph_storage: graphStorage || undefined,
+                // LLM 和 Embedding 配置从后端环境变量读取
+                // 存储配置固定使用 Neo4j + Faiss
             }),
         });
 
-        showNotification(`实例 ${ragId} 创建成功`, 'success');
+        showNotification(`实例 ${ragId} 创建成功！使用环境变量中的 LLM 配置。`, 'success');
         e.target.reset();
         loadInstances();
     } catch (error) {

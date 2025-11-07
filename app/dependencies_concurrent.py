@@ -78,20 +78,10 @@ class ConcurrentRAGInstanceManager:
 
             logger.info(f"正在创建 RAG 实例: {config.rag_id}")
 
-            # 创建 RAG 处理器
+            # 创建 RAG 处理器（LLM 和 Embedding 配置从环境变量读取）
             processor = lightragProcessor(
                 working_dir=config.working_dir,
                 workspace=config.workspace,
-                llm_model=config.llm_model,
-                embedding_model=config.embedding_model,
-                embedding_dim=config.embedding_dim,
-                embedding_max_token=config.embedding_max_token,
-                litellm_url=config.litellm_url,
-                litellm_key=config.litellm_key,
-                kv_storage=config.kv_storage,
-                vector_storage=config.vector_storage,
-                graph_storage=config.graph_storage,
-                doc_status_storage=config.doc_status_storage,
                 top_k=config.top_k,
                 chunk_top_k=config.chunk_top_k,
                 max_entity_tokens=config.max_entity_tokens,
