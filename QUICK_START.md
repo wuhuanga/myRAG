@@ -16,6 +16,43 @@ cd /root/workplace/lightrag/LightRAG1
 ./start_frontend.sh
 ```
 
+## 🔒 **重要：远程访问前必须配置防火墙**
+
+如果您需要**从其他电脑**访问服务器上的服务，必须先开放端口：
+
+### ⚠️ 阿里云/腾讯云用户（必读）
+
+**症状**：前端可以访问（8080），但API一直loading或超时
+**原因**：云服务器默认关闭大部分端口，需要在安全组中开放
+
+**快速解决**：
+1. 登录云服务商控制台（阿里云/腾讯云/AWS等）
+2. 找到您的ECS/云服务器实例
+3. 进入 **安全组配置**
+4. 添加**入方向规则**：
+   ```
+   端口: 8000/8000  (后端API)
+   端口: 8080/8080  (前端界面)
+   协议: TCP
+   来源: 0.0.0.0/0  (或您的IP地址)
+   ```
+
+**详细步骤**：参见 `FIREWALL_SETUP.md`
+
+**验证是否成功**：
+```bash
+# 在本地电脑（非服务器）运行
+curl http://YOUR_SERVER_IP:8000/api/admin/health
+
+# 成功会返回：
+{"status":"healthy",...}
+
+# 失败会显示：
+curl: (28) Failed to connect... timeout
+```
+
+---
+
 ## 📋 手动启动
 
 ### 方法1：启动后端
@@ -193,6 +230,7 @@ curl http://localhost:8000/api/admin/health
 
 ## 📚 更多帮助
 
+- **防火墙配置**：`FIREWALL_SETUP.md`（远程访问必读）
 - 完整 API 文档：`app/README.md`
 - 迁移指南：`MIGRATION_GUIDE.md`
 - 前端故障排除：`frontend/TROUBLESHOOTING.md`
