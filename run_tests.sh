@@ -32,9 +32,10 @@ echo ""
 echo "选择测试类型："
 echo "  1) 快速测试 (推荐，约1-2分钟)"
 echo "  2) 全面测试 (完整测试，约5-10分钟)"
-echo "  3) 退出"
+echo "  3) 并发测试 (测试并发场景，约3-5分钟)"
+echo "  4) 退出"
 echo ""
-read -p "请选择 [1-3]: " choice
+read -p "请选择 [1-4]: " choice
 
 case $choice in
     1)
@@ -50,6 +51,18 @@ case $choice in
         python3 test_backend_api.py
         ;;
     3)
+        echo ""
+        echo -e "${GREEN}运行并发测试...${NC}"
+        echo ""
+        echo -e "${YELLOW}测试场景：${NC}"
+        echo "  - 同一实例并发上传"
+        echo "  - 不同实例并发上传"
+        echo "  - 同一实例并发查询"
+        echo "  - 不同实例并发查询"
+        echo ""
+        python3 test_concurrent_api.py
+        ;;
+    4)
         echo "退出"
         exit 0
         ;;
