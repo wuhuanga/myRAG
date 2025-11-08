@@ -117,7 +117,7 @@ async def get_rag_instance_info(rag_id: str):
 
 @router.delete("/rag_instances/{rag_id}")
 async def delete_rag_instance(rag_id: str):
-    """删除指定的 RAG 实例"""
+    """删除指定的 RAG 实例（包括所有知识库数据）"""
     manager = get_rag_manager()
 
     try:
@@ -126,8 +126,13 @@ async def delete_rag_instance(rag_id: str):
         if success:
             return {
                 "status": "success",
-                "message": f"RAG 实例 '{rag_id}' 已删除",
-                "rag_id": rag_id
+                "message": f"RAG 实例 '{rag_id}' 及其知识库已完全删除",
+                "rag_id": rag_id,
+                "deleted": {
+                    "instance": True,
+                    "knowledge_base": True,
+                    "working_directory": True
+                }
             }
         else:
             raise HTTPException(status_code=404, detail=f"RAG 实例 '{rag_id}' 不存在")

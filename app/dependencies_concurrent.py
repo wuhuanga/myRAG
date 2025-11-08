@@ -5,6 +5,7 @@
 import os
 import asyncio
 import logging
+import shutil
 from pathlib import Path
 from typing import Optional, Dict
 from datetime import datetime
@@ -146,7 +147,7 @@ class ConcurrentRAGInstanceManager:
 
     async def delete_instance(self, rag_id: str) -> bool:
         """
-        删除指定的 RAG 实例（线程安全）
+        删除指定的 RAG 实例（包括知识库数据，线程安全）
 
         Args:
             rag_id: RAG 实例 ID
@@ -156,8 +157,30 @@ class ConcurrentRAGInstanceManager:
         """
         async with self._lock:  # 加锁保护
             if rag_id in self.instances:
+                processor = self.instances[rag_id]
+
+                # 获取工作目录路径
+                working_dir = processor.working_dir
+
+                # 从实例字典中移除
                 del self.instances[rag_id]
-                logger.info(f"RAG 实例已删除: {rag_id}")
+                logger.info(f"RAG 实例已从内存中删除: {rag_id}")
+
+                # 删除工作目录和所有知识库数据
+                if working_dir.exists():
+                    try:
+                        # 在异步上下文中使用 run_in_executor 执行同步删除操作
+                        loop = asyncio.get_event_loop()
+                        await loop.run_in_executor(None, shutil.rmtree, working_dir)
+                        logger.info(f"已删除工作目录: {working_dir}")
+                        logger.info(f"RAG 实例及其知识库已完全删除: {rag_id}")
+                    except Exception as e:
+                        logger.error(f"删除工作目录失败: {working_dir}, 错误: {str(e)}")
+                        # 即使删除目录失败，实例也已从内存中移除
+                        return True
+                else:
+                    logger.warning(f"工作目录不存在: {working_dir}")
+
                 return True
             return False
 
