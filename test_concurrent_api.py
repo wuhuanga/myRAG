@@ -527,35 +527,47 @@ def main():
             tester.log("❌ 没有可用的测试文件", "ERROR")
             sys.exit(1)
 
-        # ==================== 创建实例 ====================
-        tester.log_separator("创建测试实例")
+        # ==================== 清理旧实例 ====================
+        tester.log_separator("清理旧实例（如果存在）")
 
-        success1, dur1 = tester.create_rag_instance(
-            INSTANCE_1,
-            f"{INSTANCE_1}_workspace",
-            "卫星工程项目知识库"
-        )
+        for inst_id in [INSTANCE_1, INSTANCE_2]:
+            tester.log(f"尝试删除旧实例: {inst_id}", "INFO")
+            if tester.delete_rag_instance(inst_id):
+                tester.log(f"✓ 已删除旧实例: {inst_id}", "SUCCESS")
+            else:
+                tester.log(f"ℹ 实例不存在或删除失败（正常）: {inst_id}", "INFO")
+            time.sleep(0.5)
 
-        time.sleep(0.5)
-
-        success2, dur2 = tester.create_rag_instance(
-            INSTANCE_2,
-            f"{INSTANCE_2}_workspace",
-            "标书文档知识库"
-        )
-
-        if not (success1 and success2):
-            tester.log("⚠ 部分实例创建失败，但继续测试", "WARNING")
-
-        time.sleep(2)
+        tester.log("清理完成，准备创建新实例", "INFO")
+        time.sleep(1)
 
         # ==================== 测试1：同一实例并发上传 ====================
         if len(existing_files) >= 2:
-            tester.test_concurrent_upload_same_instance(
+            tester.log_separator("准备测试1：同一实例并发上传")
+
+            # 删除并重新创建实例1
+            tester.log(f"删除实例: {INSTANCE_1}", "INFO")
+            tester.delete_rag_instance(INSTANCE_1)
+            time.sleep(1)
+
+            tester.log(f"创建新实例: {INSTANCE_1}", "INFO")
+            success1, dur1 = tester.create_rag_instance(
                 INSTANCE_1,
-                existing_files[:2],  # 取前2个文件
-                max_workers=2
+                f"{INSTANCE_1}_workspace",
+                "卫星工程项目知识库"
             )
+
+            if not success1:
+                tester.log("⚠ 实例1创建失败，跳过测试1", "WARNING")
+            else:
+                time.sleep(2)
+
+                # 执行并发上传测试
+                tester.test_concurrent_upload_same_instance(
+                    INSTANCE_1,
+                    existing_files[:2],  # 取前2个文件
+                    max_workers=2
+                )
 
             time.sleep(3)
 
@@ -570,6 +582,28 @@ def main():
 
         # ==================== 测试2：不同实例并发上传 ====================
         if FILE_SATELLITE.exists() and FILE_TENDER_01.exists() and FILE_TENDER_02.exists():
+            tester.log_separator("准备测试2：不同实例并发上传")
+
+            # 删除并重新创建两个实例
+            for inst_id, desc in [(INSTANCE_1, "卫星工程项目知识库"),
+                                   (INSTANCE_2, "标书文档知识库")]:
+                tester.log(f"删除实例: {inst_id}", "INFO")
+                tester.delete_rag_instance(inst_id)
+                time.sleep(0.5)
+
+                tester.log(f"创建新实例: {inst_id}", "INFO")
+                success, dur = tester.create_rag_instance(
+                    inst_id,
+                    f"{inst_id}_workspace",
+                    desc
+                )
+                if not success:
+                    tester.log(f"⚠ 实例 {inst_id} 创建失败", "WARNING")
+                time.sleep(0.5)
+
+            time.sleep(2)
+
+            # 执行并发上传测试
             upload_tasks = [
                 (INSTANCE_1, str(FILE_SATELLITE)),
                 (INSTANCE_2, str(FILE_TENDER_01)),
