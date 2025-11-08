@@ -2,8 +2,21 @@
 // 全局状态
 // ============================================
 
-let API_BASE_URL = 'http://localhost:8000/api';
+// 智能检测 API 地址
+function getDefaultApiUrl() {
+    // 如果通过 localhost 或 127.0.0.1 访问前端，使用 localhost
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:8000';
+    }
+    // 否则使用前端页面相同的主机名（适用于远程访问）
+    return `http://${hostname}:8000`;
+}
+
+let API_BASE_URL = getDefaultApiUrl() + '/api';
 let currentInstances = [];
+
+console.log(`🔧 自动检测到的 API 地址: ${getDefaultApiUrl()}`);
 
 // ============================================
 // 工具函数
@@ -672,6 +685,13 @@ document.getElementById('getRelationForm')?.addEventListener('submit', async (e)
 // ============================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 自动填充检测到的 API 地址
+    const apiInput = document.getElementById('apiUrl');
+    if (apiInput) {
+        apiInput.value = getDefaultApiUrl();
+        console.log(`✅ API 地址已自动设置为: ${apiInput.value}`);
+    }
+
     // 检查 API 连接
     checkApiStatus();
 });
