@@ -116,24 +116,46 @@ function showSubTab(subTabId) {
 // ============================================
 
 async function checkApiStatus() {
+    const statusBadge = document.getElementById('apiStatus');
+    const apiUrl = getApiUrl();
+
+    if (statusBadge) {
+        statusBadge.textContent = '检查中...';
+        statusBadge.classList.remove('connected', 'error');
+    }
+
     try {
+        console.log(`正在连接 API: ${apiUrl}/admin/health`);
         const data = await apiRequest('/admin/health');
-        const statusBadge = document.getElementById('apiStatus');
+        console.log('API 响应:', data);
+
         if (statusBadge) {
             statusBadge.textContent = '已连接';
             statusBadge.classList.add('connected');
             statusBadge.classList.remove('error');
         }
-        showNotification('API 连接成功', 'success');
+        showNotification(`✅ API 连接成功`, 'success');
         loadInstances();
     } catch (error) {
-        const statusBadge = document.getElementById('apiStatus');
+        console.error('API 连接失败:', error);
+
         if (statusBadge) {
             statusBadge.textContent = '连接失败';
             statusBadge.classList.add('error');
             statusBadge.classList.remove('connected');
         }
-        showNotification(`连接失败: ${error.message}`, 'error');
+
+        // 提供更详细的错误提示
+        let helpText = '';
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+            helpText = '\n\n💡 可能的原因：\n' +
+                       '• 后端服务未启动\n' +
+                       '• API 地址错误（远程访问请用 IP 而非 localhost）\n' +
+                       '• 防火墙阻止或端口未开放';
+            alert(`⚠️ 无法连接到后端\n\n当前地址: ${apiUrl}${helpText}`);
+        }
+
+        showNotification(`❌ ${error.message}`, 'error');
     }
 }
 
