@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG 知识图谱管理系统</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <header>
+            <h1>🧠 RAG 知识图谱管理系统</h1>
+            <div class="api-status">
+                <span id="apiStatus" class="status-badge">未连接</span>
+                <input type="text" id="apiUrl" value="http://localhost:8000" placeholder="API 地址">
+                <button onclick="checkApiStatus()" class="btn-secondary">测试连接</button>
+            </div>
+        </header>
+
+        <!-- 主要导航 -->
+        <nav class="tabs">
+            <button class="tab-button active" onclick="showTab('instances')">📦 实例管理</button>
+            <button class="tab-button" onclick="showTab('documents')">📄 文档操作</button>
+            <button class="tab-button" onclick="showTab('query')">🔍 查询</button>
+            <button class="tab-button" onclick="showTab('graph')">🕸️ 图谱操作</button>
+        </nav>
+
+        <!-- Tab 1: 实例管理 -->
+        <div id="instances" class="tab-content active">
+            <div class="section">
+                <h2>创建 RAG 实例</h2>
+
+                <!-- 环境变量说明 -->
+                <div class="env-notice">
+                    <strong>📌 配置说明：</strong>
+                    <p>LLM 和 Embedding 模型配置从后端环境变量读取（与 xwrag_cli.py 一致）：</p>
+                    <ul>
+                        <li><code>LLM_MODEL</code>: LLM 模型名称（默认 gpt-4）</li>
+                        <li><code>EMBEDDING_MODEL</code>: Embedding 模型路径（默认 sentence-transformers/all-MiniLM-L6-v2）</li>
+                        <li><code>EMBEDDING_DIM</code>: Embedding 维度（默认 384）</li>
+                        <li><code>EMBEDDING_MAX_TOKEN</code>: 最大 token 数（默认 5000）</li>
+                        <li><code>LITELLM_URL</code>: LiteLLM 服务地址（默认 http://localhost:4000）</li>
+                        <li><code>LITELLM_KEY</code>: LiteLLM API 密钥（默认 sk-1234）</li>
+                    </ul>
+                    <p><strong>存储配置：</strong>固定使用 Neo4JStorage（图存储）+ FaissVectorDBStorage（向量存储）</p>
+                </div>
+
+                <form id="createInstanceForm" class="form-grid">
+                    <div class="form-group">
+                        <label>实例 ID *</label>
+                        <input type="text" id="ragId" placeholder="例如: my-rag-instance" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Workspace *</label>
+                        <input type="text" id="workspace" placeholder="例如: project_001" required>
+                        <small>⚠️ 必须唯一，避免多实例数据冲突</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>工作目录</label>
+                        <input type="text" id="workingDir" value="./rag_storage" placeholder="./rag_storage">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <button type="submit" class="btn-primary">创建实例</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="section">
+                <h2>实例列表</h2>
+                <button onclick="loadInstances()" class="btn-secondary mb-10">刷新</button>
+                <div id="instancesList" class="instances-grid"></div>
+            </div>
+        </div>
+
+        <!-- Tab 2: 文档操作 -->
+        <div id="documents" class="tab-content">
+            <div class="section">
+                <h2>选择 RAG 实例</h2>
+                <select id="docRagId" class="full-width-select">
+                    <option value="">请先创建或选择实例</option>
+                </select>
+            </div>
+
+            <div class="section">
+                <h2>上传文档</h2>
+                <form id="uploadForm">
+                    <div class="form-group">
+                        <label>选择文件</label>
+                        <input type="file" id="fileInput" accept=".txt,.pdf,.docx,.md">
+                    </div>
+                    <div class="form-group">
+                        <label>自定义文档 ID（可选）</label>
+                        <input type="text" id="customDocId" placeholder="留空则自动生成">
+                    </div>
+                    <button type="submit" class="btn-primary">上传并索引</button>
+                </form>
+            </div>
+
+            <div class="section">
+                <h2>插入文本内容</h2>
+                <form id="insertTextForm">
+                    <div class="form-group">
+                        <label>文本内容</label>
+                        <textarea id="textContent" rows="8" placeholder="输入要插入的文本内容..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>文档 ID（可选）</label>
+                        <input type="text" id="textDocId" placeholder="留空则自动生成">
+                    </div>
+                    <div class="form-group">
+                        <label>文件路径（可选）</label>
+                        <input type="text" id="textFilePath" placeholder="例如: manual_input.txt">
+                    </div>
+                    <button type="submit" class="btn-primary">插入文本</button>
+                </form>
+            </div>
+
+            <div class="section">
+                <h2>文档状态</h2>
+                <button onclick="loadDocStatus()" class="btn-secondary mb-10">查看状态</button>
+                <div id="docStatus" class="status-container"></div>
+            </div>
+        </div>
+
+        <!-- Tab 3: 查询 -->
+        <div id="query" class="tab-content">
+            <div class="section">
+                <h2>选择 RAG 实例</h2>
+                <select id="queryRagId" class="full-width-select">
+                    <option value="">请先创建或选择实例</option>
+                </select>
+            </div>
+
+            <div class="section">
+                <h2>查询知识图谱</h2>
+                <form id="queryForm">
+                    <div class="form-group">
+                        <label>查询问题</label>
+                        <textarea id="queryQuestion" rows="3" placeholder="输入您的问题..." required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>查询模式</label>
+                        <select id="queryMode">
+                            <option value="hybrid">Hybrid (混合模式 - 推荐)</option>
+                            <option value="local">Local (本地模式)</option>
+                            <option value="global">Global (全局模式)</option>
+                            <option value="naive">Naive (朴素模式)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>只需要上下文</label>
+                        <input type="checkbox" id="onlyContext" checked>
+                        <small>不调用 LLM 生成答案</small>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label>Top K</label>
+                            <input type="number" id="topK" value="20" min="1" max="100">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Chunk Top K</label>
+                            <input type="number" id="chunkTopK" value="10" min="1" max="50">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary">查询</button>
+                </form>
+            </div>
+
+            <div class="section">
+                <h2>查询结果</h2>
+                <div id="queryResult" class="result-container"></div>
+            </div>
+        </div>
+
+        <!-- Tab 4: 图谱操作 -->
+        <div id="graph" class="tab-content">
+            <div class="section">
+                <h2>选择 RAG 实例</h2>
+                <select id="graphRagId" class="full-width-select">
+                    <option value="">请先创建或选择实例</option>
+                </select>
+            </div>
+
+            <div class="sub-tabs">
+                <button class="sub-tab-button active" onclick="showSubTab('entities')">实体操作</button>
+                <button class="sub-tab-button" onclick="showSubTab('relations')">关系操作</button>
+                <button class="sub-tab-button" onclick="showSubTab('export')">数据导出</button>
+            </div>
+
+            <!-- 实体操作 -->
+            <div id="entities" class="sub-tab-content active">
+                <div class="section">
+                    <h2>创建实体</h2>
+                    <form id="createEntityForm">
+                        <div class="form-group">
+                            <label>实体名称 *</label>
+                            <input type="text" id="entityName" required placeholder="例如: 人工智能">
+                        </div>
+                        <div class="form-group">
+                            <label>实体类型</label>
+                            <input type="text" id="entityType" placeholder="例如: 技术">
+                        </div>
+                        <div class="form-group">
+                            <label>描述</label>
+                            <textarea id="entityDescription" rows="3" placeholder="实体的详细描述..."></textarea>
+                        </div>
+                        <button type="submit" class="btn-primary">创建实体</button>
+                    </form>
+                </div>
+
+                <div class="section">
+                    <h2>查询实体</h2>
+                    <form id="getEntityForm">
+                        <div class="form-group">
+                            <label>实体名称</label>
+                            <input type="text" id="getEntityName" placeholder="输入实体名称">
+                        </div>
+                        <button type="submit" class="btn-secondary">查询</button>
+                    </form>
+                    <div id="entityResult" class="result-container"></div>
+                </div>
+            </div>
+
+            <!-- 关系操作 -->
+            <div id="relations" class="sub-tab-content">
+                <div class="section">
+                    <h2>创建关系</h2>
+                    <form id="createRelationForm">
+                        <div class="form-group">
+                            <label>源实体 *</label>
+                            <input type="text" id="srcEntity" required placeholder="例如: 深度学习">
+                        </div>
+                        <div class="form-group">
+                            <label>目标实体 *</label>
+                            <input type="text" id="tgtEntity" required placeholder="例如: 神经网络">
+                        </div>
+                        <div class="form-group">
+                            <label>关系描述</label>
+                            <textarea id="relationDescription" rows="3" placeholder="描述两个实体之间的关系..."></textarea>
+                        </div>
+                        <button type="submit" class="btn-primary">创建关系</button>
+                    </form>
+                </div>
+
+                <div class="section">
+                    <h2>查询关系</h2>
+                    <form id="getRelationForm">
+                        <div class="form-group">
+                            <label>源实体</label>
+                            <input type="text" id="getSrcEntity">
+                        </div>
+                        <div class="form-group">
+                            <label>目标实体</label>
+                            <input type="text" id="getTgtEntity">
+                        </div>
+                        <button type="submit" class="btn-secondary">查询</button>
+                    </form>
+                    <div id="relationResult" class="result-container"></div>
+                </div>
+            </div>
+
+            <!-- 数据导出 -->
+            <div id="export" class="sub-tab-content">
+                <div class="section">
+                    <h2>导出知识图谱</h2>
+                    <div class="export-options">
+                        <button onclick="exportData('csv')" class="btn-primary">导出为 CSV</button>
+                        <button onclick="exportData('json')" class="btn-primary">导出为 JSON</button>
+                        <button onclick="exportData('markdown')" class="btn-primary">导出为 Markdown</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载提示 -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>处理中...</p>
+    </div>
+
+    <!-- 通知提示 -->
+    <div id="notification" class="notification"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

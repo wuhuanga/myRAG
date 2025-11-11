@@ -9,17 +9,26 @@ from pydantic import BaseModel
 # ==================== RAG 实例管理相关模型 ====================
 
 class RAGInstanceCreate(BaseModel):
-    """创建 RAG 实例请求模型"""
+    """
+    创建 RAG 实例请求模型
+
+    注意：LLM 和 Embedding 模型配置从环境变量读取：
+    - LLM_MODEL: LLM 模型名称（默认 gpt-4）
+    - EMBEDDING_MODEL: Embedding 模型路径（默认 sentence-transformers/all-MiniLM-L6-v2）
+    - EMBEDDING_DIM: Embedding 维度（默认 384）
+    - EMBEDDING_MAX_TOKEN: 最大 token 数（默认 5000）
+    - LITELLM_URL: LiteLLM 服务地址（默认 http://localhost:4000）
+    - LITELLM_KEY: LiteLLM API 密钥（默认 sk-1234）
+
+    存储配置固定使用：
+    - 图存储: Neo4JStorage
+    - 向量存储: FaissVectorDBStorage
+    """
     rag_id: str
     description: Optional[str] = None
-    working_dir: str
+    working_dir: str = "./rag_storage"
     workspace: str
-    # 存储配置
-    kv_storage: Optional[str] = None
-    vector_storage: Optional[str] = None
-    graph_storage: Optional[str] = None
-    doc_status_storage: Optional[str] = None
-    # 查询配置
+    # 查询配置（可选）
     top_k: Optional[int] = None
     chunk_top_k: Optional[int] = None
     max_entity_tokens: Optional[int] = None
@@ -31,13 +40,6 @@ class RAGInstanceCreate(BaseModel):
     chunk_overlap_token_size: int = 100
     enable_llm_cache: bool = True
     enable_llm_cache_for_entity_extract: bool = True
-    # LLM 配置 (可选)
-    llm_model: Optional[str] = None
-    embedding_model: Optional[str] = None
-    embedding_dim: Optional[int] = None
-    embedding_max_token: Optional[int] = None
-    litellm_url: Optional[str] = None
-    litellm_key: Optional[str] = None
 
 
 class RAGInstanceInfo(BaseModel):
