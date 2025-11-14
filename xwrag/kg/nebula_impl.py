@@ -612,28 +612,29 @@ class NebulaGraphStorage(BaseGraphStorage):
         retry=retry_if_exception_type((IOErrorException,)),
     )
     async def upsert_edge(self, source_node_id: str, target_node_id: str, edge_data: Dict[str, Any]) -> None:
-        """插入或更新边"""
-        async with get_graph_db_lock():
-            try:
-                if not await self.has_node(source_node_id):
-                    await self.upsert_node(source_node_id, {"entity_id": source_node_id, "entity_type": "entity"})
-                if not await self.has_node(target_node_id):
-                    await self.upsert_node(target_node_id, {"entity_id": target_node_id, "entity_type": "entity"})
+        """插入或更新边
 
-                weight = edge_data.get("weight", 1.0)
-                description = self._escape_string(edge_data.get("description", ""))
-                keywords = self._escape_string(edge_data.get("keywords", ""))
-                source_id = self._escape_string(edge_data.get("source_id", ""))
+        注意：此方法假设调用者已经确保节点存在（由 operate.py 保证）
+        不再重复检查节点存在性，以提高性能
+        """
+        # 移除全局锁，使用 INSERT EDGE 的原子性
+        # NebulaGraph 的 INSERT EDGE 是原子操作，不需要全局锁保护
+        try:
+            weight = edge_data.get("weight", 1.0)
+            description = self._escape_string(edge_data.get("description", ""))
+            keywords = self._escape_string(edge_data.get("keywords", ""))
+            source_id = self._escape_string(edge_data.get("source_id", ""))
 
-                query = (
-                    f'INSERT EDGE relationship(weight, description, keywords, source_id) VALUES '
-                    f'"{self._escape_string(source_node_id)}" -> "{self._escape_string(target_node_id)}": '
-                    f'({weight}, "{description}", "{keywords}", "{source_id}")'
-                )
-                await self._execute_query(query)
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error upserting edge {source_node_id}->{target_node_id}: {e}")
-                raise
+            # INSERT EDGE 是幂等的，重复插入会更新
+            query = (
+                f'INSERT EDGE relationship(weight, description, keywords, source_id) VALUES '
+                f'"{self._escape_string(source_node_id)}" -> "{self._escape_string(target_node_id)}": '
+                f'({weight}, "{description}", "{keywords}", "{source_id}")'
+            )
+            await self._execute_query(query)
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error upserting edge {source_node_id}->{target_node_id}: {e}")
+            raise
 
     async def upsert_edges(self, edges: List[tuple]):
         """批量插入或更新边"""
