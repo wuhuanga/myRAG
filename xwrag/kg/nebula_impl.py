@@ -631,7 +631,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 props_str = self._format_properties(node_data)
                 tag = self._tag_name
                 query = (
-                    f'INSERT VERTEX {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
+                    f'INSERT VERTEX IF NOT EXISTS {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
                     f'VALUES "{self._escape_string(node_id)}": ({props_str})'
                 )
                 # 添加调试日志（仅首次）
@@ -660,7 +660,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                     batch_values.append(f'"{self._escape_string(node_id)}": ({props_str})')
                 
                 query = (
-                    f'INSERT VERTEX {tag}(entity_id, entity_type, description, source_id) '
+                    f'INSERT VERTEX IF NOT EXISTS {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
                     f'VALUES {", ".join(batch_values)}'
                 )
                 await self._execute_query(query)
