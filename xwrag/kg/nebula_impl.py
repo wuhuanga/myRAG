@@ -634,9 +634,15 @@ class NebulaGraphStorage(BaseGraphStorage):
                     f'INSERT VERTEX {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
                     f'VALUES "{self._escape_string(node_id)}": ({props_str})'
                 )
+                # 添加调试日志（仅首次）
+                if not hasattr(self, '_logged_first_insert'):
+                    logger.info(f"[{self.workspace}] First node insert query: {query[:200]}...")
+                    self._logged_first_insert = True
+
                 await self._execute_query(query)
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error upserting node {node_id}: {e}")
+                logger.error(f"[{self.workspace}] Failed query: {query[:300]}...")
                 raise
 
     async def upsert_nodes(self, nodes: List[tuple]):
