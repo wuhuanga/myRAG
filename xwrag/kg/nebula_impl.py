@@ -298,27 +298,70 @@ class NebulaGraphStorage(BaseGraphStorage):
         """索引完成回调"""
         return None
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((IOErrorException, NotValidConnectionException)),
-    )
     async def _execute_query(self, query: str):
         """执行查询 - 每次创建独立的 session 以避免泄漏"""
         if not self._connection_pool:
             raise RuntimeError("Connection pool not initialized")
 
         session = None
+        max_retries = 5
+        retry_delay = 0.5
+
+        for attempt in range(max_retries):
+            try:
+                # 为每个查询创建独立的 session（避免并发竞争和 session 泄漏）
+                # 如果连接池满，这里会抛出异常，我们需要重试
+                session = self._connection_pool.get_session(self._user, self._password)
+                break  # 成功获取 session，跳出重试循环
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    # 连接池可能已满，等待后重试
+                    error_str = str(e).lower()
+                    if "no available connection" in error_str or "connection" in error_str:
+                        logger.warning(
+                            f"[{self.workspace}] Connection pool exhausted (attempt {attempt + 1}/{max_retries}), "
+                            f"waiting {retry_delay}s..."
+                        )
+                        await asyncio.sleep(retry_delay)
+                        retry_delay = min(retry_delay * 2, 5)  # 指数退避，最多等待 5 秒
+                        continue
+                # 最后一次重试失败或其他错误
+                logger.error(f"[{self.workspace}] Failed to get session after {max_retries} attempts: {e}")
+                raise
+
+        if session is None:
+            raise RuntimeError(f"[{self.workspace}] Could not acquire session from pool after {max_retries} attempts")
+
         try:
-            # 为每个查询创建独立的 session（避免并发竞争和 session 泄漏）
-            session = self._connection_pool.get_session(self._user, self._password)
 
-            # 切换到正确的 Space
-            use_res = session.execute(f"USE {self._space_name}")
-            if not use_res.is_succeeded():
-                raise RuntimeError(f"Failed to USE space {self._space_name}: {use_res.error_msg()}")
+            # 切换到正确的 Space（带重试）
+            use_success = False
+            for use_attempt in range(3):
+                try:
+                    use_res = session.execute(f"USE {self._space_name}")
+                    if use_res.is_succeeded():
+                        use_success = True
+                        break
+                    else:
+                        if use_attempt < 2:
+                            logger.warning(
+                                f"[{self.workspace}] Failed to USE space (attempt {use_attempt + 1}/3): "
+                                f"{use_res.error_msg()}"
+                            )
+                            await asyncio.sleep(0.5)
+                        else:
+                            raise RuntimeError(f"Failed to USE space {self._space_name}: {use_res.error_msg()}")
+                except Exception as use_error:
+                    if use_attempt < 2:
+                        logger.warning(f"[{self.workspace}] Error using space (attempt {use_attempt + 1}/3): {use_error}")
+                        await asyncio.sleep(0.5)
+                    else:
+                        raise
 
-            # 执行查询
+            if not use_success:
+                raise RuntimeError(f"Could not USE space {self._space_name} after 3 attempts")
+
+            # 执行查询（带重试）
             def run_query():
                 return session.execute(query)
 
@@ -326,7 +369,7 @@ class NebulaGraphStorage(BaseGraphStorage):
             if not result.is_succeeded():
                 logger.error(
                     f"[{self.workspace}] Query failed in Space {self._space_name}: "
-                    f"{result.error_msg()}\nQuery: {query}"
+                    f"{result.error_msg()}\nQuery: {query[:200]}..."
                 )
                 raise RuntimeError(f"Query execution failed: {result.error_msg()}")
             return result
