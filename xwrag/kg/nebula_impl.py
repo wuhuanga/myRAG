@@ -526,26 +526,36 @@ class NebulaGraphStorage(BaseGraphStorage):
 
         try:
             tag = self._tag_name
-            # 构建WHERE子句：WHERE n.entity_id IN ["id1", "id2", ...]
+            # 使用FETCH PROP ON直接通过VID批量查询（VID就是node_id）
+            # NebulaGraph语法：FETCH PROP ON tag "vid1", "vid2" YIELD properties(vertex)
             escaped_ids = [f'"{self._escape_string(nid)}"' for nid in node_ids]
-            ids_list = ", ".join(escaped_ids)
-            query = f'MATCH (n:{tag}) WHERE n.entity_id IN [{ids_list}] RETURN n'
+            ids_str = ", ".join(escaped_ids)
+            query = f'FETCH PROP ON {tag} {ids_str} YIELD properties(vertex)'
 
             result = await self._execute_query(query)
             nodes = {}
 
             for i in range(result.row_size()):
-                node_value = result.row_values(i)[0]
-                properties = {}
+                row = result.row_values(i)
+                if row and len(row) > 0:
+                    # YIELD properties(vertex) 返回一个Map类型的值
+                    props_value = row[0]
+                    properties = {}
 
-                # 安全地检查并访问 properties
-                if hasattr(node_value, 'properties') and node_value.properties:
-                    for key, value in node_value.properties.items():
-                        properties[key] = self._value_to_python(value)
+                    # 安全地检查并访问 properties
+                    if hasattr(props_value, 'items'):
+                        # 如果是字典类型
+                        for key, value in props_value.items():
+                            properties[key] = self._value_to_python(value)
+                    elif hasattr(props_value, 'keys'):
+                        # 如果是Map类型
+                        for key in props_value.keys():
+                            value = props_value[key]
+                            properties[key] = self._value_to_python(value)
 
-                # 使用entity_id作为key
-                if 'entity_id' in properties:
-                    nodes[properties['entity_id']] = properties
+                    # 使用entity_id作为key
+                    if 'entity_id' in properties:
+                        nodes[properties['entity_id']] = properties
 
             # 记录未找到的节点
             found_ids = set(nodes.keys())
@@ -559,6 +569,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
         except Exception as e:
             logger.error(f"[{self.workspace}] Error in get_nodes_batch: {e}")
+            logger.error(f"[{self.workspace}] Query was: FETCH PROP ON {tag} ... YIELD properties(vertex)")
             # 降级到逐个查询
             logger.info(f"[{self.workspace}] Falling back to individual queries")
             result = {}
