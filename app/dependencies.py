@@ -48,6 +48,8 @@ class xwragProcessor:
         chunk_overlap_token_size: int = 100,
         enable_llm_cache: bool = True,
         enable_llm_cache_for_entity_extract: bool = True,
+        # NebulaGraph 连接池配置（可选）
+        nebula_max_connection_pool_size: Optional[int] = None,
     ):
         """
         初始化 xwrag 处理器
@@ -103,6 +105,7 @@ class xwragProcessor:
         self.chunk_overlap_token_size = chunk_overlap_token_size
         self.enable_llm_cache = enable_llm_cache
         self.enable_llm_cache_for_entity_extract = enable_llm_cache_for_entity_extract
+        self.nebula_max_connection_pool_size = nebula_max_connection_pool_size
 
         # 创建工作目录
         self.working_dir.mkdir(exist_ok=True)
@@ -157,53 +160,67 @@ class xwragProcessor:
         """初始化 RAG 系统"""
         logger.info("正在初始化 xwrag 系统...")
 
-        # 加载 Embedding 模型
-        logger.info(f"正在加载 Embedding 模型: {self.embedding_model}")
+        # 如果指定了实例级别的连接池大小，临时设置环境变量
+        original_pool_size = os.environ.get("NEBULA_MAX_CONNECTION_POOL_SIZE")
+        if self.nebula_max_connection_pool_size is not None:
+            os.environ["NEBULA_MAX_CONNECTION_POOL_SIZE"] = str(self.nebula_max_connection_pool_size)
+            logger.info(f"设置实例 NebulaGraph 连接池大小: {self.nebula_max_connection_pool_size}")
+
         try:
-            tokenizer = AutoTokenizer.from_pretrained(self.embedding_model)
-            embed_model = AutoModel.from_pretrained(self.embedding_model)
-            logger.info("Embedding 模型加载完成")
-        except Exception as e:
-            logger.error(f"加载 Embedding 模型失败: {e}")
-            logger.info(f"请确保 EMBEDDING_MODEL 环境变量或 --embedding_model 参数配置正确")
-            raise
+            # 加载 Embedding 模型
+            logger.info(f"正在加载 Embedding 模型: {self.embedding_model}")
+            try:
+                tokenizer = AutoTokenizer.from_pretrained(self.embedding_model)
+                embed_model = AutoModel.from_pretrained(self.embedding_model)
+                logger.info("Embedding 模型加载完成")
+            except Exception as e:
+                logger.error(f"加载 Embedding 模型失败: {e}")
+                logger.info(f"请确保 EMBEDDING_MODEL 环境变量或 --embedding_model 参数配置正确")
+                raise
 
-        # 构建 xwrag 初始化参数
-        rag_kwargs = {
-            "working_dir": str(self.working_dir),
-            "llm_model_func": self.llm_model_func,
-            "embedding_func": EmbeddingFunc(
-                embedding_dim=self.embedding_dim,
-                max_token_size=self.embedding_max_token,
-                func=lambda texts: hf_embed(
-                    texts,
-                    tokenizer=tokenizer,
-                    embed_model=embed_model,
+            # 构建 xwrag 初始化参数
+            rag_kwargs = {
+                "working_dir": str(self.working_dir),
+                "llm_model_func": self.llm_model_func,
+                "embedding_func": EmbeddingFunc(
+                    embedding_dim=self.embedding_dim,
+                    max_token_size=self.embedding_max_token,
+                    func=lambda texts: hf_embed(
+                        texts,
+                        tokenizer=tokenizer,
+                        embed_model=embed_model,
+                    ),
                 ),
-            ),
-        }
+            }
 
-        # 固定使用 Neo4j 和 Faiss
-        rag_kwargs["graph_storage"] = "Neo4JStorage"
-        rag_kwargs["vector_storage"] = "FaissVectorDBStorage"
+            # 固定使用 Neo4j 和 Faiss
+            rag_kwargs["graph_storage"] = "Neo4JStorage"
+            rag_kwargs["vector_storage"] = "FaissVectorDBStorage"
 
-        # 向量数据库配置
-        rag_kwargs["vector_db_storage_cls_kwargs"] = {
-            "cosine_better_than_threshold": self.cosine_threshold
-        }
+            # 向量数据库配置
+            rag_kwargs["vector_db_storage_cls_kwargs"] = {
+                "cosine_better_than_threshold": self.cosine_threshold
+            }
 
-        # 分块配置
-        rag_kwargs["chunk_token_size"] = self.chunk_token_size
-        rag_kwargs["chunk_overlap_token_size"] = self.chunk_overlap_token_size
+            # 分块配置
+            rag_kwargs["chunk_token_size"] = self.chunk_token_size
+            rag_kwargs["chunk_overlap_token_size"] = self.chunk_overlap_token_size
 
-        # 初始化 RAG
-        self.rag = xwrag(**rag_kwargs)
+            # 初始化 RAG
+            self.rag = xwrag(**rag_kwargs)
 
-        # 初始化存储
-        await self.rag.initialize_storages()
-        await initialize_pipeline_status()
+            # 初始化存储
+            await self.rag.initialize_storages()
+            await initialize_pipeline_status()
 
-        logger.info("xwrag 系统初始化完成")
+            logger.info("xwrag 系统初始化完成")
+        finally:
+            # 恢复原始环境变量
+            if self.nebula_max_connection_pool_size is not None:
+                if original_pool_size is not None:
+                    os.environ["NEBULA_MAX_CONNECTION_POOL_SIZE"] = original_pool_size
+                else:
+                    os.environ.pop("NEBULA_MAX_CONNECTION_POOL_SIZE", None)
 
     def insert_document(self, document_path: str, custom_id: Optional[str] = None):
         """
@@ -421,6 +438,7 @@ class RAGInstanceManager:
             chunk_overlap_token_size=config.chunk_overlap_token_size,
             enable_llm_cache=config.enable_llm_cache,
             enable_llm_cache_for_entity_extract=config.enable_llm_cache_for_entity_extract,
+            nebula_max_connection_pool_size=config.nebula_max_connection_pool_size,
         )
 
         # 初始化 RAG

@@ -40,6 +40,8 @@ class RAGInstanceCreate(BaseModel):
     chunk_overlap_token_size: int = 100
     enable_llm_cache: bool = True
     enable_llm_cache_for_entity_extract: bool = True
+    # NebulaGraph 连接池配置（可选，用于多实例场景）
+    nebula_max_connection_pool_size: Optional[int] = None  # 如果不设置，使用环境变量 NEBULA_MAX_CONNECTION_POOL_SIZE（默认 10）
 
 
 class RAGInstanceInfo(BaseModel):
