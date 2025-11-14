@@ -512,6 +512,62 @@ class NebulaGraphStorage(BaseGraphStorage):
             logger.error(f"[{self.workspace}] Error getting node: {e}")
             return None
 
+    async def get_nodes_batch(self, node_ids: list[str]) -> dict[str, dict]:
+        """批量获取节点数据
+
+        Args:
+            node_ids: 要查询的节点ID列表
+
+        Returns:
+            字典，键为node_id，值为节点数据字典；未找到的节点不在返回字典中
+        """
+        if not node_ids:
+            return {}
+
+        try:
+            tag = self._tag_name
+            # 构建WHERE子句：WHERE n.entity_id IN ["id1", "id2", ...]
+            escaped_ids = [f'"{self._escape_string(nid)}"' for nid in node_ids]
+            ids_list = ", ".join(escaped_ids)
+            query = f'MATCH (n:{tag}) WHERE n.entity_id IN [{ids_list}] RETURN n'
+
+            result = await self._execute_query(query)
+            nodes = {}
+
+            for i in range(result.row_size()):
+                node_value = result.row_values(i)[0]
+                properties = {}
+
+                # 安全地检查并访问 properties
+                if hasattr(node_value, 'properties') and node_value.properties:
+                    for key, value in node_value.properties.items():
+                        properties[key] = self._value_to_python(value)
+
+                # 使用entity_id作为key
+                if 'entity_id' in properties:
+                    nodes[properties['entity_id']] = properties
+
+            # 记录未找到的节点
+            found_ids = set(nodes.keys())
+            missing_ids = set(node_ids) - found_ids
+            if missing_ids:
+                logger.warning(
+                    f"[{self.workspace}] get_nodes_batch: {len(missing_ids)} nodes not found: {list(missing_ids)[:5]}..."
+                )
+
+            return nodes
+
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error in get_nodes_batch: {e}")
+            # 降级到逐个查询
+            logger.info(f"[{self.workspace}] Falling back to individual queries")
+            result = {}
+            for node_id in node_ids:
+                node = await self.get_node(node_id)
+                if node is not None:
+                    result[node_id] = node
+            return result
+
     async def get_edge(self, source_node_id: str, target_node_id: str) -> Optional[Dict[str, Any]]:
         """获取边数据"""
         # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
