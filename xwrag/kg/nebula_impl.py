@@ -82,7 +82,7 @@ class NebulaGraphStorage(BaseGraphStorage):
         )
 
         self._connection_pool: Optional[ConnectionPool] = None
-        self._session = None
+        # 注意：不再维护持久的 self._session，每次查询创建独立 session 以避免泄漏
         
         # 使用 workspace 作为 Space 名称
         self._space_name = re.sub(r"[^a-zA-Z0-9_]", "_", self.workspace)
@@ -141,22 +141,21 @@ class NebulaGraphStorage(BaseGraphStorage):
             if not self._connection_pool.init(hosts, nebula_config):
                 raise ConnectionError("Failed to initialize NebulaGraph connection pool")
 
+            # 使用临时 session 进行初始化（完成后立即释放）
+            init_session = None
             try:
-                # 🔥 修复2: 使用 get_session 时先检查 connection_pool 不为 None
-                if self._connection_pool is None:
-                    raise RuntimeError("Connection pool is None")
-                    
-                self._session = self._connection_pool.get_session(self._user, self._password)
+                # 创建临时 session 用于初始化
+                init_session = self._connection_pool.get_session(self._user, self._password)
                 
                 # 使用 workspace 创建独立的 Space
                 logger.info(
                     f"[{self.workspace}] Creating/Using Space: {self._space_name} "
                     f"(workspace-based isolation)"
                 )
-                
+
                 # 先检查 space 是否存在
                 check_space_query = f"SHOW SPACES"
-                check_res = self._session.execute(check_space_query)
+                check_res = init_session.execute(check_space_query)
                 space_exists = False
                 
                 if check_res.is_succeeded():
@@ -182,7 +181,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                         f"CREATE SPACE IF NOT EXISTS {self._space_name} "
                         f"(partition_num=10, replica_factor=1, vid_type=FIXED_STRING(256))"
                     )
-                    res = self._session.execute(create_space_q)
+                    res = init_session.execute(create_space_q)
                     if not res.is_succeeded():
                         error_msg = res.error_msg()
                         # 如果错误不是"space已存在",则记录警告
@@ -203,7 +202,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 use_success = False
                 
                 for retry in range(max_retries):
-                    use_res = self._session.execute(f"USE {self._space_name}")
+                    use_res = init_session.execute(f"USE {self._space_name}")
                     if use_res.is_succeeded():
                         use_success = True
                         logger.info(f"[{self.workspace}] ✅ Successfully switched to Space: {self._space_name}")
@@ -237,7 +236,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                     f"(entity_id string, entity_type string, description string, source_id string, "
                     f"file_path string, created_at int)"
                 )
-                tag_res = self._session.execute(create_tag_q)
+                tag_res = init_session.execute(create_tag_q)
                 if not tag_res.is_succeeded():
                     logger.warning(f"[{self.workspace}] Tag creation message: {tag_res.error_msg()}")
 
@@ -246,14 +245,14 @@ class NebulaGraphStorage(BaseGraphStorage):
                     "CREATE EDGE IF NOT EXISTS relationship "
                     "(weight double, description string, keywords string, source_id string)"
                 )
-                edge_res = self._session.execute(create_edge_q)
+                edge_res = init_session.execute(create_edge_q)
                 if not edge_res.is_succeeded():
                     logger.warning(f"[{self.workspace}] Edge creation message: {edge_res.error_msg()}")
 
                 # 创建索引
                 try:
                     index_q = f"CREATE TAG INDEX IF NOT EXISTS idx_entity_id ON {tag_name}(entity_id(256))"
-                    index_res = self._session.execute(index_q)
+                    index_res = init_session.execute(index_q)
                     if index_res.is_succeeded():
                         logger.info(f"[{self.workspace}] Created index on {tag_name}.entity_id")
                     else:
@@ -277,17 +276,19 @@ class NebulaGraphStorage(BaseGraphStorage):
                 if self._connection_pool:
                     self._connection_pool.close()
                 raise
+            finally:
+                # 确保初始化 session 被释放（防止泄漏）
+                if init_session:
+                    try:
+                        init_session.release()
+                        logger.debug(f"[{self.workspace}] Released initialization session")
+                    except Exception as release_error:
+                        logger.warning(f"[{self.workspace}] Failed to release init session: {release_error}")
 
     async def finalize(self):
         """关闭连接"""
         if self._connection_pool:
             try:
-                if hasattr(self, "_session") and self._session:
-                    try:
-                        self._session.release()
-                    except Exception:
-                        pass
-                    self._session = None
                 self._connection_pool.close()
             finally:
                 self._connection_pool = None
@@ -297,43 +298,27 @@ class NebulaGraphStorage(BaseGraphStorage):
         """索引完成回调"""
         return None
 
-    def _ensure_session(self):
-        """确保 session 有效,并自动切换到正确的 Space"""
-        if not self._connection_pool:
-            raise RuntimeError("Connection pool not initialized")
-
-        if self._session:
-            try:
-                _ = self._session.execute("SHOW SPACES")
-                use_res = self._session.execute(f"USE {self._space_name}")
-                if use_res.is_succeeded():
-                    return self._session
-            except Exception:
-                pass
-            
-            try:
-                self._session.release()
-            except Exception:
-                pass
-            self._session = None
-
-        # 重新创建 session
-        self._session = self._connection_pool.get_session(self._user, self._password)
-        use_res = self._session.execute(f"USE {self._space_name}")
-        if not use_res.is_succeeded():
-            raise RuntimeError(f"Failed to USE space {self._space_name}: {use_res.error_msg()}")
-        return self._session
-
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((IOErrorException, NotValidConnectionException)),
     )
     async def _execute_query(self, query: str):
-        """执行查询"""
+        """执行查询 - 每次创建独立的 session 以避免泄漏"""
+        if not self._connection_pool:
+            raise RuntimeError("Connection pool not initialized")
+
+        session = None
         try:
-            session = self._ensure_session()
-            
+            # 为每个查询创建独立的 session（避免并发竞争和 session 泄漏）
+            session = self._connection_pool.get_session(self._user, self._password)
+
+            # 切换到正确的 Space
+            use_res = session.execute(f"USE {self._space_name}")
+            if not use_res.is_succeeded():
+                raise RuntimeError(f"Failed to USE space {self._space_name}: {use_res.error_msg()}")
+
+            # 执行查询
             def run_query():
                 return session.execute(query)
 
@@ -348,6 +333,13 @@ class NebulaGraphStorage(BaseGraphStorage):
         except Exception as e:
             logger.error(f"[{self.workspace}] Execute query error: {e}")
             raise
+        finally:
+            # 确保 session 总是被释放（防止泄漏）
+            if session:
+                try:
+                    session.release()
+                except Exception as release_error:
+                    logger.warning(f"[{self.workspace}] Failed to release session: {release_error}")
 
     def _escape_string(self, s: Optional[str]) -> str:
         """转义字符串 - 处理所有 NebulaGraph 需要的特殊字符"""
@@ -948,14 +940,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 logger.warning(
                     f"[{self.workspace}] Dropping entire Space: {self._space_name}"
                 )
-                
-                if self._session:
-                    try:
-                        self._session.release()
-                    except Exception:
-                        pass
-                    self._session = None
-                
+
                 if self._connection_pool:
                     temp_session = self._connection_pool.get_session(self._user, self._password)
                     try:
