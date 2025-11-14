@@ -17,10 +17,10 @@ build/
 .eggs/
 *.egg-info/
 *.tgz
-*.tar.gz
+# *.tar.gz
 
 # Exclude siles and folders
-*.yml
+# *.yml
 .dockerignore
 Dockerfile
 Makefile

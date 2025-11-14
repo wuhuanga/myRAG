@@ -2244,7 +2244,7 @@ class xwrag:
         # Create a copy of param to avoid modifying the original
         data_param = QueryParam(
             mode=param.mode,
-            only_need_context=True,  # Skip LLM generation, only get context and data
+            only_need_context=False,  # Skip LLM generation, only get context and data
             only_need_prompt=False,
             response_type=param.response_type,
             stream=False,  # Data retrieval doesn't need streaming

@@ -183,7 +183,7 @@ class xwragProcessor:
             ),
         }
 
-        # 固定使用 Neo4j 和 Faiss（与 xwrag_cli.py 一致）
+        # 固定使用 Neo4j 和 Faiss
         rag_kwargs["graph_storage"] = "Neo4JStorage"
         rag_kwargs["vector_storage"] = "FaissVectorDBStorage"
 

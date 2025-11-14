@@ -197,8 +197,9 @@ class xwragProcessor:
                     embed_model=embed_model,
                 ),
             ),
-            graph_storage="Neo4JStorage",   # 使用 Neo4j 存储知识图谱
-            vector_storage="FaissVectorDBStorage",  # 使用 Faiss 存储向量数据库
+            workspace="nebula",
+            graph_storage="NebulaGraphStorage",   # 使用 NebulaGraph 存储知识图谱
+            vector_storage="MilvusVectorDBStorage",  # 使用 Milvus 存储向量数据库
             vector_db_storage_cls_kwargs={
                 "cosine_better_than_threshold": 0.3  # 您期望的阈值
             },
@@ -248,12 +249,12 @@ class xwragProcessor:
             return
 
         logger.info(f"正在插入文档到知识图谱...")
-        self.rag.insert(content)
+        self.rag.insert(content, file_paths=[str(doc_path)])
         logger.info("文档插入完成")
 
     def query(self, question: str, mode: str = "hybrid") -> str:
         """
-        查询知识图谱
+        查询知识图谱(仅返回上下文)
 
         Args:
             question: 查询问题
@@ -271,7 +272,7 @@ class xwragProcessor:
         result = self.rag.query(
             question,
             param=QueryParam(mode=mode, only_need_context=True)
-        )##only_need_prompt,only_need_context
+        )
 
         # Normalize result to a single string (handle str or iterator/generator of str)
         if isinstance(result, str):
@@ -283,7 +284,44 @@ class xwragProcessor:
             except TypeError:
                 out_text = str(result)
 
-        with open('output2.txt', 'w', encoding='utf-8') as f:
+        with open('output_context.txt', 'w', encoding='utf-8') as f:
+            f.write(out_text)
+
+        return result
+
+    def query_with_llm(self, question: str, mode: str = "hybrid") -> str:
+        """
+        查询知识图谱并返回大模型生成的完整答案
+
+        Args:
+            question: 查询问题
+            mode: 查询模式 (naive/local/global/hybrid)
+
+        Returns:
+            大模型生成的答案
+        """
+        if self.rag is None:
+            raise ValueError("RAG 系统未初始化")
+
+        logger.info(f"查询模式: {mode} (带LLM生成)")
+        logger.info(f"查询问题: {question}")
+
+        result = self.rag.query(
+            question,
+            param=QueryParam(mode=mode, only_need_context=False)
+        )
+
+        # Normalize result to a single string (handle str or iterator/generator of str)
+        if isinstance(result, str):
+            out_text = result
+        else:
+            # Try to join iterable of strings; if that fails, fallback to str()
+            try:
+                out_text = "".join(result)
+            except TypeError:
+                out_text = str(result)
+
+        with open('output_llm_answer.txt', 'w', encoding='utf-8') as f:
             f.write(out_text)
 
         return result
@@ -370,6 +408,7 @@ def main():
         # 进入交互式查询模式
         print("\n=== xwrag 系统就绪 ===")
         print("支持的查询模式: naive, local, global, hybrid")
+        print("支持的查询类型: context(仅检索), llm(生成答案)")
         print("输入 'quit' 或 'exit' 退出\n")
 
         while True:
@@ -379,6 +418,14 @@ def main():
                 break
             if not question:
                 continue
+
+            # 询问查询类型
+            query_type = input("请选择查询类型 [context/llm] (默认 context): ").strip().lower()
+            if not query_type:
+                query_type = "context"
+            if query_type not in ["context", "llm"]:
+                print(f"无效的查询类型: {query_type}，使用默认类型 context")
+                query_type = "context"
 
             # 询问查询模式
             mode = input("请选择查询模式 [naive/local/global/hybrid] (默认 hybrid): ").strip()
@@ -390,8 +437,14 @@ def main():
 
             try:
                 print(f"\n正在查询...")
-                answer = processor.query(question, mode=mode)
-                print(f"\n答案:\n{answer}\n")
+                if query_type == "llm":
+                    answer = processor.query_with_llm(question, mode=mode)
+                    print(f"\n大模型答案:\n{answer}\n")
+                    print(f"✅ 答案已保存到 output_llm_answer.txt")
+                else:
+                    answer = processor.query(question, mode=mode)
+                    print(f"\n检索上下文:\n{answer}\n")
+                    print(f"✅ 上下文已保存到 output_context.txt")
                 print("-" * 50)
             except Exception as e:
                 logger.error(f"查询时出错: {e}")

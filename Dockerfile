@@ -1,63 +1,47 @@
-# Build stage
-FROM python:3.12-slim AS builder
+# 正确处理扁平结构的 conda-pack Dockerfile
+
+FROM condaforge/miniforge3:latest
 
 WORKDIR /app
 
-# Upgrade pip、setuptools and wheel to the latest version
-RUN pip install --upgrade pip setuptools wheel
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH=/opt/conda/envs/lightrag/bin:$PATH
 
-# Install Rust and required build dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
+# 安装系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
-    && . $HOME/.cargo/env
+    git \
+    curl \
+    wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy pyproject.toml and source code for dependency installation
-COPY pyproject.toml .
-COPY setup.py .
-COPY xwrag/ ./xwrag/
+# 复制打包好的 conda 环境
+COPY ./xwrag.tar.gz /tmp/xwrag.tar.gz
 
-# Install dependencies
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN pip install --user --no-cache-dir --use-pep517 .
-RUN pip install --user --no-cache-dir --use-pep517 .[api]
+# 解包 conda 环境到正确位置
+# xwrag.tar.gz 的结构是: bin/, lib/, ... 直接在根目录
+# 所以我们直接解包到 /opt/conda/envs/lightrag/
+RUN mkdir -p /opt/conda/envs/lightrag && \
+    tar -xzf /tmp/xwrag.tar.gz -C /opt/conda/envs/lightrag && \
+    rm /tmp/xwrag.tar.gz && \
+    # conda-unpack 修复打包环境的路径引用
+    /opt/conda/bin/conda-unpack -p /opt/conda/envs/lightrag || true
 
-# Install depndencies for default storage
-RUN pip install --user --no-cache-dir nano-vectordb networkx
-# Install depndencies for default LLM
-RUN pip install --user --no-cache-dir openai ollama tiktoken
-# Install depndencies for default document loader
-RUN pip install --user --no-cache-dir pypdf2 python-docx python-pptx openpyxl
+# 验证环境安装成功
+RUN /opt/conda/envs/lightrag/bin/python --version && \
+    /opt/conda/envs/lightrag/bin/pip --version
 
-# Final stage
-FROM python:3.12-slim
+# 复制项目代码
+COPY . .
 
-WORKDIR /app
+# 暴露端口
+EXPOSE 8000
 
-# Upgrade pip and setuptools
-RUN pip install --upgrade pip setuptools wheel
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/docs || exit 1
 
-# Copy only necessary files from builder
-COPY --from=builder /root/.local /root/.local
-COPY ./xwrag ./xwrag
-COPY setup.py .
-
-RUN pip install --use-pep517 ".[api]"
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
-
-# Create necessary directories
-RUN mkdir -p /app/data/rag_storage /app/data/inputs
-
-# Docker data directories
-ENV WORKING_DIR=/app/data/rag_storage
-ENV INPUT_DIR=/app/data/inputs
-
-# Expose the default port
-EXPOSE 9621
-
-# Set entrypoint
-ENTRYPOINT ["python", "-m", "xwrag.api.xwrag_server"]
+# 启动命令 - 直接使用完整路径
+CMD ["/opt/conda/envs/lightrag/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

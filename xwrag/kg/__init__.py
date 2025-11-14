@@ -15,6 +15,7 @@ STORAGE_IMPLEMENTATIONS = {
             "PGGraphStorage",
             "MongoGraphStorage",
             "MemgraphStorage",
+            "NebulaGraphStorage",  # 👈 新增: NebulaGraph 支持
         ],
         "required_methods": ["upsert_node", "upsert_edge"],
     },
@@ -53,6 +54,7 @@ STORAGE_ENV_REQUIREMENTS: dict[str, list[str]] = {
     "Neo4JStorage": ["NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD"],
     "MongoGraphStorage": [],
     "MemgraphStorage": ["MEMGRAPH_URI"],
+    "NebulaGraphStorage": ["NEBULA_HOSTS", "NEBULA_USER", "NEBULA_PASSWORD"],  # 👈 新增: NEBULA_USER 和 NEBULA_PASSWORD 有默认值 (root/nebula)
     "AGEStorage": [
         "AGE_POSTGRES_DB",
         "AGE_POSTGRES_USER",
@@ -85,6 +87,7 @@ STORAGES = {
     "NanoVectorDBStorage": ".kg.nano_vector_db_impl",
     "JsonDocStatusStorage": ".kg.json_doc_status_impl",
     "Neo4JStorage": ".kg.neo4j_impl",
+    "NebulaGraphStorage": ".kg.nebula_impl",  # 👈 新增: NebulaGraph 实现模块
     "MilvusVectorDBStorage": ".kg.milvus_impl",
     "MongoKVStorage": ".kg.mongo_impl",
     "MongoDocStatusStorage": ".kg.mongo_impl",
