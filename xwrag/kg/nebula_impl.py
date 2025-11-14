@@ -404,51 +404,51 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def has_node(self, node_id: str) -> bool:
         """检查节点是否存在"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                safe_id = self._escape_string(node_id)
-                query = f'MATCH (n:{tag}) WHERE n.entity_id == "{safe_id}" RETURN n LIMIT 1'
-                result = await self._execute_query(query)
-                return result.row_size() > 0
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error checking node existence: {e}")
-                return False
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            safe_id = self._escape_string(node_id)
+            query = f'MATCH (n:{tag}) WHERE n.entity_id == "{safe_id}" RETURN n LIMIT 1'
+            result = await self._execute_query(query)
+            return result.row_size() > 0
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error checking node existence: {e}")
+            return False
 
     async def has_edge(self, source_node_id: str, target_node_id: str) -> bool:
         """检查边是否存在"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                src = self._escape_string(source_node_id)
-                tgt = self._escape_string(target_node_id)
-                query = (
-                    f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                    f'WHERE a.entity_id == "{src}" AND b.entity_id == "{tgt}" RETURN r LIMIT 1'
-                )
-                result = await self._execute_query(query)
-                return result.row_size() > 0
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error checking edge existence: {e}")
-                return False
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            src = self._escape_string(source_node_id)
+            tgt = self._escape_string(target_node_id)
+            query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE a.entity_id == "{src}" AND b.entity_id == "{tgt}" RETURN r LIMIT 1'
+            )
+            result = await self._execute_query(query)
+            return result.row_size() > 0
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error checking edge existence: {e}")
+            return False
 
     async def node_degree(self, node_id: str) -> int:
         """获取节点度数"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                safe_id = self._escape_string(node_id)
-                query = (
-                    f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
-                    f'WHERE n.entity_id == "{safe_id}" RETURN count(r) AS degree'
-                )
-                result = await self._execute_query(query)
-                if result.row_size() > 0:
-                    return int(result.row_values(0)[0].as_int())
-                return 0
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting node degree: {e}")
-                return 0
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            safe_id = self._escape_string(node_id)
+            query = (
+                f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
+                f'WHERE n.entity_id == "{safe_id}" RETURN count(r) AS degree'
+            )
+            result = await self._execute_query(query)
+            if result.row_size() > 0:
+                return int(result.row_values(0)[0].as_int())
+            return 0
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting node degree: {e}")
+            return 0
 
     async def edge_degree(self, src_id: str, tgt_id: str) -> int:
         """获取边度数"""
@@ -458,73 +458,73 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
         """获取节点数据"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                safe_id = self._escape_string(node_id)
-                query = f'MATCH (n:{tag}) WHERE n.entity_id == "{safe_id}" RETURN n LIMIT 1'
-                result = await self._execute_query(query)
-                if result.row_size() == 0:
-                    return None
-                node_value = result.row_values(0)[0]
-                properties = {}
-                # 🔥 修复4: 安全地检查并访问 properties
-                if hasattr(node_value, 'properties') and node_value.properties:
-                    for key, value in node_value.properties.items():
-                        properties[key] = self._value_to_python(value)
-                return properties
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting node: {e}")
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            safe_id = self._escape_string(node_id)
+            query = f'MATCH (n:{tag}) WHERE n.entity_id == "{safe_id}" RETURN n LIMIT 1'
+            result = await self._execute_query(query)
+            if result.row_size() == 0:
                 return None
+            node_value = result.row_values(0)[0]
+            properties = {}
+            # 🔥 修复4: 安全地检查并访问 properties
+            if hasattr(node_value, 'properties') and node_value.properties:
+                for key, value in node_value.properties.items():
+                    properties[key] = self._value_to_python(value)
+            return properties
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting node: {e}")
+            return None
 
     async def get_edge(self, source_node_id: str, target_node_id: str) -> Optional[Dict[str, Any]]:
         """获取边数据"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                src = self._escape_string(source_node_id)
-                tgt = self._escape_string(target_node_id)
-                query = (
-                    f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                    f'WHERE a.entity_id == "{src}" AND b.entity_id == "{tgt}" RETURN r LIMIT 1'
-                )
-                result = await self._execute_query(query)
-                if result.row_size() == 0:
-                    return None
-                edge_value = result.row_values(0)[0]
-                properties = {}
-                # 🔥 修复5: 安全地检查并访问 properties
-                if hasattr(edge_value, 'properties') and edge_value.properties:
-                    for key, value in edge_value.properties.items():
-                        properties[key] = self._value_to_python(value)
-                return properties
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting edge: {e}")
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            src = self._escape_string(source_node_id)
+            tgt = self._escape_string(target_node_id)
+            query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE a.entity_id == "{src}" AND b.entity_id == "{tgt}" RETURN r LIMIT 1'
+            )
+            result = await self._execute_query(query)
+            if result.row_size() == 0:
                 return None
+            edge_value = result.row_values(0)[0]
+            properties = {}
+            # 🔥 修复5: 安全地检查并访问 properties
+            if hasattr(edge_value, 'properties') and edge_value.properties:
+                for key, value in edge_value.properties.items():
+                    properties[key] = self._value_to_python(value)
+            return properties
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting edge: {e}")
+            return None
 
     async def get_node_edges(self, source_node_id: str) -> Optional[List[tuple]]:
         """获取节点的所有边"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                src = self._escape_string(source_node_id)
-                query = (
-                    f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                    f'WHERE a.entity_id == "{src}" RETURN a.entity_id AS src, b.entity_id AS tgt'
-                )
-                result = await self._execute_query(query)
-                if result.row_size() == 0:
-                    return []
-                edges = []
-                for i in range(result.row_size()):
-                    row = result.row_values(i)
-                    src_val = self._value_to_python(row[0])
-                    tgt_val = self._value_to_python(row[1])
-                    edges.append((src_val, tgt_val))
-                return edges
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting node edges: {e}")
-                return None
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            src = self._escape_string(source_node_id)
+            query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE a.entity_id == "{src}" RETURN a.entity_id AS src, b.entity_id AS tgt'
+            )
+            result = await self._execute_query(query)
+            if result.row_size() == 0:
+                return []
+            edges = []
+            for i in range(result.row_size()):
+                row = result.row_values(i)
+                src_val = self._value_to_python(row[0])
+                tgt_val = self._value_to_python(row[1])
+                edges.append((src_val, tgt_val))
+            return edges
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting node edges: {e}")
+            return None
 
     @retry(
         stop=stop_after_attempt(3),
