@@ -631,21 +631,33 @@ class NebulaGraphStorage(BaseGraphStorage):
             tag = self._tag_name
             src = self._escape_string(source_node_id)
             tgt = self._escape_string(target_node_id)
-            # 修复：使用id()函数而不是entity_id属性
+            # 修复：使用MATCH ... RETURN properties(r)来获取边属性
             query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                f'WHERE id(a) == "{src}" AND id(b) == "{tgt}" RETURN r LIMIT 1'
+                f'WHERE id(a) == "{src}" AND id(b) == "{tgt}" '
+                f'RETURN properties(r) LIMIT 1'
             )
             result = await self._execute_query(query)
             if result.row_size() == 0:
+                logger.warning(f"[{self.workspace}] get_edge: no edge found between {source_node_id} and {target_node_id}")
                 return None
-            edge_value = result.row_values(0)[0]
-            properties = {}
-            # 🔥 修复5: 安全地检查并访问 properties
-            if hasattr(edge_value, 'properties') and edge_value.properties:
-                for key, value in edge_value.properties.items():
-                    properties[key] = self._value_to_python(value)
-            return properties
+
+            # properties(r) 返回Map类型，与properties(vertex)类似
+            row = result.row_values(0)
+            if row and len(row) > 0:
+                props_value = row[0]
+                logger.info(f"[{self.workspace}] get_edge props_value type: {type(props_value)}")
+
+                # _value_to_python 可以直接处理 Map 类型并返回 Python 字典
+                properties = self._value_to_python(props_value)
+                logger.info(f"[{self.workspace}] get_edge extracted properties: {properties}")
+
+                if isinstance(properties, dict):
+                    return properties
+                else:
+                    logger.warning(f"[{self.workspace}] Expected dict but got {type(properties)}")
+                    return None
+            return None
         except Exception as e:
             logger.error(f"[{self.workspace}] Error getting edge: {e}")
             return None
