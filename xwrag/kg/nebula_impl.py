@@ -338,9 +338,12 @@ class NebulaGraphStorage(BaseGraphStorage):
             use_success = False
             for use_attempt in range(3):
                 try:
-                    use_res = session.execute(f"USE {self._space_name}")
+                    use_query = f"USE {self._space_name}"
+                    logger.info(f"[{self.workspace}] Executing: {use_query}")
+                    use_res = session.execute(use_query)
                     if use_res.is_succeeded():
                         use_success = True
+                        logger.info(f"[{self.workspace}] ✓ Successfully switched to Space: {self._space_name}")
                         break
                     else:
                         if use_attempt < 2:
