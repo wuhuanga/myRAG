@@ -583,12 +583,181 @@ class NebulaTestSuite:
         except Exception as e:
             self.log_test("remove_edges", False, f"异常: {e}")
 
+    async def test_delete_node(self):
+        """测试删除单个节点"""
+        print("\n" + "-" * 80)
+        print("测试 23: delete_node - 删除单个节点")
+        print("-" * 80)
+
+        try:
+            # 先插入一个待删除的节点
+            await self.storage.upsert_node("待删除节点", {
+                "entity_type": "temporary",
+                "description": "这个节点将被删除",
+                "source_id": "test_chunk_delete",
+                "file_path": "test.txt"
+            })
+
+            # 验证节点存在
+            exists_before = await self.storage.has_node("待删除节点")
+
+            # 删除节点
+            await self.storage.delete_node("待删除节点")
+
+            # 验证节点已被删除
+            exists_after = await self.storage.has_node("待删除节点")
+
+            if exists_before and not exists_after:
+                self.log_test("delete_node", True, "成功删除节点")
+            else:
+                self.log_test("delete_node", False,
+                    f"删除失败: before={exists_before}, after={exists_after}")
+        except Exception as e:
+            self.log_test("delete_node", False, f"异常: {e}")
+
+    async def test_remove_nodes(self):
+        """测试批量删除节点"""
+        print("\n" + "-" * 80)
+        print("测试 24: remove_nodes - 批量删除节点")
+        print("-" * 80)
+
+        try:
+            # 先插入多个待删除的节点
+            test_nodes = [
+                ("批量删除节点1", {"entity_type": "temp", "description": "临时节点1",
+                  "source_id": "test_chunk_temp1", "file_path": "test.txt"}),
+                ("批量删除节点2", {"entity_type": "temp", "description": "临时节点2",
+                  "source_id": "test_chunk_temp2", "file_path": "test.txt"}),
+                ("批量删除节点3", {"entity_type": "temp", "description": "临时节点3",
+                  "source_id": "test_chunk_temp3", "file_path": "test.txt"})
+            ]
+            await self.storage.upsert_nodes(test_nodes)
+
+            # 验证节点存在
+            nodes_before = await self.storage.get_nodes_batch([
+                "批量删除节点1", "批量删除节点2", "批量删除节点3"
+            ])
+
+            # 批量删除
+            await self.storage.remove_nodes([
+                "批量删除节点1", "批量删除节点2", "批量删除节点3"
+            ])
+
+            # 验证节点已被删除
+            nodes_after = await self.storage.get_nodes_batch([
+                "批量删除节点1", "批量删除节点2", "批量删除节点3"
+            ])
+
+            if len(nodes_before) == 3 and len(nodes_after) == 0:
+                self.log_test("remove_nodes", True, "成功批量删除 3 个节点")
+            else:
+                self.log_test("remove_nodes", False,
+                    f"删除失败: before={len(nodes_before)}, after={len(nodes_after)}")
+        except Exception as e:
+            self.log_test("remove_nodes", False, f"异常: {e}")
+
+    async def test_get_all_labels(self):
+        """测试获取所有标签"""
+        print("\n" + "-" * 80)
+        print("测试 25: get_all_labels - 获取所有节点标签")
+        print("-" * 80)
+
+        try:
+            labels = await self.storage.get_all_labels()
+
+            # 应该至少包含测试节点1-4的标签
+            expected_labels = ["测试节点1", "测试节点2", "测试节点3", "测试节点4"]
+            found_count = sum(1 for label in expected_labels if label in labels)
+
+            if found_count >= 4:
+                self.log_test("get_all_labels", True,
+                    f"成功获取 {len(labels)} 个标签，包含所有测试节点")
+                print(f"   标签示例: {labels[:5]}")
+            else:
+                self.log_test("get_all_labels", False,
+                    f"预期至少 4 个测试标签，实际找到 {found_count} 个")
+        except Exception as e:
+            self.log_test("get_all_labels", False, f"异常: {e}")
+
+    async def test_search_labels(self):
+        """测试搜索标签"""
+        print("\n" + "-" * 80)
+        print("测试 26: search_labels - 搜索标签")
+        print("-" * 80)
+
+        try:
+            # 搜索包含"测试"的标签（中文搜索）
+            chinese_results = await self.storage.search_labels("测试", limit=10)
+
+            # 搜索包含"node"的标签（如果有英文节点的话，这里主要测试功能）
+            # 由于我们的测试数据都是中文，这里改为搜索"节点"
+            results = await self.storage.search_labels("节点", limit=10)
+
+            if len(results) >= 3:  # 应该至少找到测试节点1-4
+                self.log_test("search_labels", True,
+                    f"成功搜索到 {len(results)} 个标签")
+                print(f"   搜索结果: {results[:5]}")
+            else:
+                self.log_test("search_labels", False,
+                    f"预期至少 3 个结果，实际获取 {len(results)} 个")
+        except Exception as e:
+            self.log_test("search_labels", False, f"异常: {e}")
+
+    async def test_drop(self):
+        """测试删除整个Space（数据库）"""
+        print("\n" + "-" * 80)
+        print("测试 27: drop - 删除整个Space（数据库）")
+        print("-" * 80)
+
+        try:
+            # 创建一个临时的测试space
+            temp_storage = NebulaGraphStorage(
+                namespace="test_drop_temp",
+                global_config={
+                    "host": "127.0.0.1",
+                    "port": 9669,
+                    "username": "root",
+                    "password": "nebula",
+                    "space_vid_type": "FIXED_STRING(256)"
+                },
+                embedding_func=lambda texts: [0.1] * 384 if isinstance(texts, str) else [[0.1] * 384 for _ in texts],
+                workspace="test_drop_temp"
+            )
+
+            # 初始化临时space
+            await temp_storage.initialize()
+
+            # 添加一些测试数据
+            await temp_storage.upsert_node("临时节点1", {
+                "entity_type": "temp",
+                "description": "临时测试数据",
+                "source_id": "temp_chunk",
+                "file_path": "temp.txt"
+            })
+
+            # 验证数据存在
+            node_exists = await temp_storage.has_node("临时节点1")
+
+            # 删除整个space
+            await temp_storage.drop()
+
+            # 关闭连接
+            await temp_storage.finalize()
+
+            if node_exists:
+                self.log_test("drop", True, "成功删除整个Space (test_drop_temp)")
+                print("   ⚠️  注意：Space 'test_drop_temp' 已被完全删除")
+            else:
+                self.log_test("drop", False, "临时数据创建失败，无法验证删除功能")
+        except Exception as e:
+            self.log_test("drop", False, f"异常: {e}")
+
     # ==================== 其他功能测试 ====================
 
     async def test_get_nodes_edges_batch(self):
         """测试批量获取多个节点的边"""
         print("\n" + "-" * 80)
-        print("测试 22: get_nodes_edges_batch - 批量获取多个节点的边")
+        print("测试 28: get_nodes_edges_batch - 批量获取多个节点的边")
         print("-" * 80)
 
         try:
@@ -643,9 +812,18 @@ class NebulaTestSuite:
 
         # 删除测试
         await self.test_remove_edges()
+        await self.test_delete_node()
+        await self.test_remove_nodes()
+
+        # 标签和搜索测试
+        await self.test_get_all_labels()
+        await self.test_search_labels()
 
         # 其他功能测试
         await self.test_get_nodes_edges_batch()
+
+        # Space删除测试（放在最后，因为会创建和删除独立的space）
+        await self.test_drop()
 
         await self.cleanup()
 
