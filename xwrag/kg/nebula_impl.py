@@ -508,24 +508,36 @@ class NebulaGraphStorage(BaseGraphStorage):
             # 修复：使用FETCH PROP ON直接通过VID查询
             query = f'FETCH PROP ON {tag} "{safe_id}" YIELD properties(vertex)'
             result = await self._execute_query(query)
+
+            # Debug logging
+            logger.info(f"[{self.workspace}] get_node result row_size: {result.row_size()}")
             if result.row_size() == 0:
+                logger.warning(f"[{self.workspace}] get_node returned 0 rows for node_id: {node_id}")
                 return None
 
             # YIELD properties(vertex) 返回Map类型
             row = result.row_values(0)
+            logger.info(f"[{self.workspace}] get_node row: len={len(row) if row else 0}, type={type(row)}")
+
             if row and len(row) > 0:
                 props_value = row[0]
+                logger.info(f"[{self.workspace}] get_node props_value type: {type(props_value)}")
+                logger.info(f"[{self.workspace}] get_node props_value: {props_value}")
+
                 properties = {}
 
                 # 安全地检查并访问 properties
                 if hasattr(props_value, 'items'):
+                    logger.info(f"[{self.workspace}] get_node using .items()")
                     for key, value in props_value.items():
                         properties[key] = self._value_to_python(value)
                 elif hasattr(props_value, 'keys'):
+                    logger.info(f"[{self.workspace}] get_node using .keys()")
                     for key in props_value.keys():
                         value = props_value[key]
                         properties[key] = self._value_to_python(value)
 
+                logger.info(f"[{self.workspace}] get_node extracted properties: {properties}")
                 return properties
             return None
         except Exception as e:
@@ -555,27 +567,45 @@ class NebulaGraphStorage(BaseGraphStorage):
             result = await self._execute_query(query)
             nodes = {}
 
+            # Debug: Log result structure
+            logger.info(f"[{self.workspace}] FETCH result row_size: {result.row_size()}")
+            logger.info(f"[{self.workspace}] FETCH result columns: {result.keys()}")
+
             for i in range(result.row_size()):
                 row = result.row_values(i)
+                logger.info(f"[{self.workspace}] Row {i}: len={len(row) if row else 0}, type={type(row)}")
+
                 if row and len(row) > 0:
                     # YIELD properties(vertex) 返回一个Map类型的值
                     props_value = row[0]
+                    logger.info(f"[{self.workspace}] props_value type: {type(props_value)}, value: {props_value}")
+                    logger.info(f"[{self.workspace}] props_value hasattr items: {hasattr(props_value, 'items')}")
+                    logger.info(f"[{self.workspace}] props_value hasattr keys: {hasattr(props_value, 'keys')}")
+                    logger.info(f"[{self.workspace}] props_value dir: {[attr for attr in dir(props_value) if not attr.startswith('_')]}")
+
                     properties = {}
 
                     # 安全地检查并访问 properties
                     if hasattr(props_value, 'items'):
                         # 如果是字典类型
+                        logger.info(f"[{self.workspace}] Using .items() method")
                         for key, value in props_value.items():
                             properties[key] = self._value_to_python(value)
                     elif hasattr(props_value, 'keys'):
                         # 如果是Map类型
+                        logger.info(f"[{self.workspace}] Using .keys() method")
                         for key in props_value.keys():
                             value = props_value[key]
                             properties[key] = self._value_to_python(value)
 
+                    logger.info(f"[{self.workspace}] Extracted properties: {properties}")
+
                     # 使用entity_id作为key
                     if 'entity_id' in properties:
                         nodes[properties['entity_id']] = properties
+                        logger.info(f"[{self.workspace}] Added node with entity_id: {properties['entity_id']}")
+                    else:
+                        logger.warning(f"[{self.workspace}] No entity_id found in properties: {properties}")
 
             # 记录未找到的节点
             found_ids = set(nodes.keys())
