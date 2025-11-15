@@ -266,9 +266,12 @@ class NebulaGraphStorage(BaseGraphStorage):
                 except Exception as e:
                     logger.warning(f"[{self.workspace}] Index creation warning: {e}")
 
-                # 等待 schema 传播
-                await asyncio.sleep(1)
-                
+                # 等待 schema 传播（Tag和Edge需要2个心跳周期才能完全传播，每个周期默认10秒）
+                # 对于新创建的space，需要等待更长时间确保schema可用
+                wait_time = 15 if not space_exists else 10
+                logger.info(f"[{self.workspace}] ⏳ Waiting {wait_time}s for schema propagation...")
+                await asyncio.sleep(wait_time)
+
                 logger.info(
                     f"[{self.workspace}] ✅ NebulaGraph initialized successfully:\n"
                     f"  Space: {self._space_name} (isolated per workspace)\n"
