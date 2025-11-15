@@ -714,10 +714,14 @@ class NebulaTestSuite:
             kg = await self.storage.get_knowledge_graph("测试节点", max_depth=2, max_nodes=100)
 
             if kg and len(kg.nodes) >= 3 and len(kg.edges) >= 2:
+                # 先打印详细信息，再记录测试结果
+                node_sample = kg.nodes[0].id if kg.nodes else 'N/A'
+                edge_sample = f"{kg.edges[0].source}->{kg.edges[0].target}" if kg.edges else 'N/A'
+
                 self.log_test("get_knowledge_graph", True,
                     f"成功获取知识图谱: {len(kg.nodes)} 个节点, {len(kg.edges)} 条边")
-                print(f"   节点示例: {kg.nodes[0].id if kg.nodes else 'N/A'}")
-                print(f"   边示例: {kg.edges[0].source}->{kg.edges[0].target if kg.edges else 'N/A'}")
+                print(f"   节点示例: {node_sample}")
+                print(f"   边示例: {edge_sample}")
             else:
                 self.log_test("get_knowledge_graph", False,
                     f"知识图谱数据不足: nodes={len(kg.nodes) if kg else 0}, edges={len(kg.edges) if kg else 0}")
