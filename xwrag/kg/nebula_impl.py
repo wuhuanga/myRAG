@@ -469,7 +469,8 @@ class NebulaGraphStorage(BaseGraphStorage):
         try:
             tag = self._tag_name
             safe_id = self._escape_string(node_id)
-            query = f'MATCH (n:{tag}) WHERE n.entity_id == "{safe_id}" RETURN n LIMIT 1'
+            # 使用id()函数匹配VID，与其他查询保持一致
+            query = f'MATCH (n:{tag}) WHERE id(n) == "{safe_id}" RETURN n LIMIT 1'
             result = await self._execute_query(query)
             return result.row_size() > 0
         except Exception as e:
@@ -977,9 +978,11 @@ class NebulaGraphStorage(BaseGraphStorage):
         async with get_graph_db_lock():
             try:
                 tag = self._tag_name
+                # 修复：使用id(n)并添加GROUP BY子句用于聚合
                 query = (
                     f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
-                    f'RETURN n.entity_id AS label, count(r) AS degree ORDER BY degree DESC LIMIT {limit}'
+                    f'RETURN id(n) AS label, count(r) AS degree '
+                    f'ORDER BY degree DESC LIMIT {limit}'
                 )
                 result = await self._execute_query(query)
                 labels: List[str] = []
