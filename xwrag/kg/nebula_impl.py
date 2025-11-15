@@ -846,17 +846,21 @@ class NebulaGraphStorage(BaseGraphStorage):
         async with get_graph_db_lock():
             try:
                 tag = self._tag_name
-                query = f'MATCH (n:{tag}) RETURN n.entity_id AS id, n'
+                # 修复：使用id(n)和properties(n)
+                query = f'MATCH (n:{tag}) RETURN id(n) AS id, properties(n)'
                 result = await self._execute_query(query)
                 nodes = []
                 for i in range(result.row_size()):
                     row = result.row_values(i)
                     node_id = self._value_to_python(row[0])
-                    node_value = row[1]
+                    props_value = row[1]
+
                     node_data = {"id": node_id}
-                    if hasattr(node_value, 'properties') and node_value.properties:
-                        for key, value in node_value.properties.items():
-                            node_data[key] = self._value_to_python(value)
+                    # _value_to_python 可以直接处理 Map 类型
+                    props = self._value_to_python(props_value)
+                    if isinstance(props, dict):
+                        node_data.update(props)
+
                     nodes.append(node_data)
                 return nodes
             except Exception as e:
@@ -868,18 +872,22 @@ class NebulaGraphStorage(BaseGraphStorage):
         async with get_graph_db_lock():
             try:
                 tag = self._tag_name
-                query = f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) RETURN a.entity_id AS src, b.entity_id AS tgt, r'
+                # 修复：使用properties(r)来获取边属性
+                query = f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) RETURN id(a) AS src, id(b) AS tgt, properties(r)'
                 result = await self._execute_query(query)
                 edges = []
                 for i in range(result.row_size()):
                     row = result.row_values(i)
                     src = self._value_to_python(row[0])
                     tgt = self._value_to_python(row[1])
-                    edge_value = row[2]
+                    props_value = row[2]
+
                     edge_data = {"source": src, "target": tgt}
-                    if hasattr(edge_value, 'properties') and edge_value.properties:
-                        for key, value in edge_value.properties.items():
-                            edge_data[key] = self._value_to_python(value)
+                    # _value_to_python 可以直接处理 Map 类型
+                    props = self._value_to_python(props_value)
+                    if isinstance(props, dict):
+                        edge_data.update(props)
+
                     edges.append(edge_data)
                 return edges
             except Exception as e:
@@ -893,28 +901,29 @@ class NebulaGraphStorage(BaseGraphStorage):
             try:
                 if not chunk_ids:
                     return []
-                
+
                 tag = self._tag_name
                 # 转义并构建查询
                 safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
                 chunk_ids_str = ", ".join(safe_chunk_ids)
-                
+
+                # 修复：使用properties(n)来获取节点属性
                 query = (
                     f'MATCH (n:{tag}) '
                     f'WHERE n.source_id IN [{chunk_ids_str}] '
-                    f'RETURN n'
+                    f'RETURN properties(n)'
                 )
                 result = await self._execute_query(query)
-                
+
                 nodes = []
                 for i in range(result.row_size()):
-                    node_value = result.row_values(i)[0]
-                    node_data = {}
-                    if hasattr(node_value, 'properties') and node_value.properties:
-                        for key, value in node_value.properties.items():
-                            node_data[key] = self._value_to_python(value)
-                    nodes.append(node_data)
-                
+                    props_value = result.row_values(i)[0]
+
+                    # _value_to_python 可以直接处理 Map 类型
+                    node_data = self._value_to_python(props_value)
+                    if isinstance(node_data, dict):
+                        nodes.append(node_data)
+
                 return nodes
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error getting nodes by chunk_ids: {e}")
@@ -926,31 +935,35 @@ class NebulaGraphStorage(BaseGraphStorage):
             try:
                 if not chunk_ids:
                     return []
-                
+
                 tag = self._tag_name
                 # 转义并构建查询
                 safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
                 chunk_ids_str = ", ".join(safe_chunk_ids)
-                
+
+                # 修复：使用properties(r)来获取边属性，使用id()来获取节点ID
                 query = (
                     f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
                     f'WHERE r.source_id IN [{chunk_ids_str}] '
-                    f'RETURN a.entity_id AS src, b.entity_id AS tgt, r'
+                    f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
                 )
                 result = await self._execute_query(query)
-                
+
                 edges = []
                 for i in range(result.row_size()):
                     row = result.row_values(i)
                     src = self._value_to_python(row[0])
                     tgt = self._value_to_python(row[1])
-                    edge_value = row[2]
+                    props_value = row[2]
+
                     edge_data = {"source": src, "target": tgt}
-                    if hasattr(edge_value, 'properties') and edge_value.properties:
-                        for key, value in edge_value.properties.items():
-                            edge_data[key] = self._value_to_python(value)
+                    # _value_to_python 可以直接处理 Map 类型
+                    props = self._value_to_python(props_value)
+                    if isinstance(props, dict):
+                        edge_data.update(props)
+
                     edges.append(edge_data)
-                
+
                 return edges
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error getting edges by chunk_ids: {e}")
