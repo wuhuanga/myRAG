@@ -361,6 +361,9 @@ class NebulaGraphStorage(BaseGraphStorage):
             if not use_success:
                 raise RuntimeError(f"Could not USE space {self._space_name} after 3 attempts")
 
+            # 打印要执行的查询语句（用于调试NebulaGraph语法）
+            logger.info(f"[{self.workspace}] Executing NebulaGraph query: {query}")
+
             # 执行查询（带重试）
             def run_query():
                 return session.execute(query)
@@ -369,7 +372,7 @@ class NebulaGraphStorage(BaseGraphStorage):
             if not result.is_succeeded():
                 logger.error(
                     f"[{self.workspace}] Query failed in Space {self._space_name}: "
-                    f"{result.error_msg()}\nQuery: {query[:200]}..."
+                    f"{result.error_msg()}\nQuery: {query}"
                 )
                 raise RuntimeError(f"Query execution failed: {result.error_msg()}")
             return result
