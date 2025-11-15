@@ -257,12 +257,21 @@ class NebulaGraphStorage(BaseGraphStorage):
 
                 # 创建索引
                 try:
+                    # 创建entity_id索引（用于主键查询）
                     index_q = f"CREATE TAG INDEX IF NOT EXISTS idx_entity_id ON {tag_name}(entity_id(256))"
                     index_res = init_session.execute(index_q)
                     if index_res.is_succeeded():
                         logger.info(f"[{self.workspace}] Created index on {tag_name}.entity_id")
                     else:
                         logger.warning(f"[{self.workspace}] Index creation message: {index_res.error_msg()}")
+
+                    # 创建source_id索引（用于按chunk_id过滤查询）
+                    source_index_q = f"CREATE TAG INDEX IF NOT EXISTS idx_source_id ON {tag_name}(source_id(256))"
+                    source_index_res = init_session.execute(source_index_q)
+                    if source_index_res.is_succeeded():
+                        logger.info(f"[{self.workspace}] Created index on {tag_name}.source_id")
+                    else:
+                        logger.warning(f"[{self.workspace}] source_id index message: {source_index_res.error_msg()}")
                 except Exception as e:
                     logger.warning(f"[{self.workspace}] Index creation warning: {e}")
 
@@ -911,11 +920,11 @@ class NebulaGraphStorage(BaseGraphStorage):
                 safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
                 chunk_ids_str = ", ".join(safe_chunk_ids)
 
-                # 修复：使用properties(n)来获取节点属性
+                # 使用LOOKUP ON来利用source_id索引进行高效查询
                 query = (
-                    f'MATCH (n:{tag}) '
-                    f'WHERE n.source_id IN [{chunk_ids_str}] '
-                    f'RETURN properties(n)'
+                    f'LOOKUP ON {tag} '
+                    f'WHERE {tag}.source_id IN [{chunk_ids_str}] '
+                    f'YIELD properties(vertex) AS props'
                 )
                 result = await self._execute_query(query)
 
