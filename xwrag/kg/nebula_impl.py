@@ -842,7 +842,8 @@ class NebulaGraphStorage(BaseGraphStorage):
         async with get_graph_db_lock():
             try:
                 tag = self._tag_name
-                query = f'MATCH (n:{tag}) RETURN DISTINCT n.entity_id AS label'
+                # 使用id(n)获取节点VID作为标签，与其他查询保持一致
+                query = f'MATCH (n:{tag}) RETURN DISTINCT id(n) AS label'
                 result = await self._execute_query(query)
                 labels: List[str] = []
                 for i in range(result.row_size()):
@@ -1016,20 +1017,22 @@ class NebulaGraphStorage(BaseGraphStorage):
 
         async with get_graph_db_lock():
             try:
+                # 获取所有标签（使用id(n)），然后在客户端过滤
+                # 这样避免了在属性上使用CONTAINS的问题
+                nql = f'MATCH (n:{tag}) RETURN id(n) AS label LIMIT 1000'
+                result = await self._execute_query(nql)
+
+                all_labels = []
+                for i in range(result.row_size()):
+                    label = self._value_to_python(result.row_values(i)[0])
+                    if isinstance(label, str):
+                        all_labels.append(label)
+
+                # 客户端过滤
                 if is_chinese:
-                    nql = (
-                        f'MATCH (n:{tag}) '
-                        f'WHERE n.entity_id CONTAINS "{self._escape_string(query_strip)}" '
-                        f'RETURN n.entity_id AS label LIMIT {limit * 2}'
-                    )
-                    result = await self._execute_query(nql)
-                    
-                    labels = []
-                    for i in range(result.row_size()):
-                        label = self._value_to_python(result.row_values(i)[0])
-                        if isinstance(label, str):
-                            labels.append(label)
-                    
+                    # 中文搜索：查找包含搜索词的标签
+                    matched_labels = [label for label in all_labels if query_strip in label]
+
                     def chinese_score(label):
                         if label == query_strip:
                             return 1000
@@ -1037,27 +1040,13 @@ class NebulaGraphStorage(BaseGraphStorage):
                             return 500
                         else:
                             return 100 - len(label)
-                    
-                    labels.sort(key=chinese_score, reverse=True)
-                    return labels[:limit]
-                    
+
+                    matched_labels.sort(key=chinese_score, reverse=True)
+                    return matched_labels[:limit]
                 else:
-                    nql = (
-                        f'MATCH (n:{tag}) '
-                        f'WHERE n.entity_id IS NOT NULL '
-                        f'RETURN n.entity_id AS label LIMIT {limit * 3}'
-                    )
-                    result = await self._execute_query(nql)
-                    
-                    labels = []
-                    for i in range(result.row_size()):
-                        label = self._value_to_python(result.row_values(i)[0])
-                        if not isinstance(label, str):
-                            continue
-                        label_lower = label.lower()
-                        if query_lower in label_lower:
-                            labels.append(label)
-                    
+                    # 拉丁文搜索：不区分大小写
+                    matched_labels = [label for label in all_labels if query_lower in label.lower()]
+
                     def latin_score(label):
                         label_lower = label.lower()
                         if label_lower == query_lower:
@@ -1068,9 +1057,9 @@ class NebulaGraphStorage(BaseGraphStorage):
                             return 50
                         else:
                             return 100 - len(label)
-                    
-                    labels.sort(key=latin_score, reverse=True)
-                    return labels[:limit]
+
+                    matched_labels.sort(key=latin_score, reverse=True)
+                    return matched_labels[:limit]
                     
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error searching labels: {e}")
