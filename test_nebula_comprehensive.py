@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from xwrag.kg.nebula_impl import NebulaGraphStorage
+from xwrag.kg.shared_storage import initialize_share_data
 
 
 class NebulaTestSuite:
@@ -42,6 +43,11 @@ class NebulaTestSuite:
         print("\n" + "=" * 80)
         print("NebulaGraph 全功能测试")
         print("=" * 80)
+
+        # 初始化共享存储系统（必须在创建实例之前调用）
+        print("\n[SETUP] 初始化共享存储系统...")
+        initialize_share_data(workers=1)
+        print("[SETUP] ✅ 共享存储初始化完成")
 
         print("\n[SETUP] 创建 NebulaGraph 存储实例...")
 
