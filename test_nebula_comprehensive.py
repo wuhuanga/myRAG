@@ -703,10 +703,55 @@ class NebulaTestSuite:
         except Exception as e:
             self.log_test("search_labels", False, f"异常: {e}")
 
+    async def test_get_knowledge_graph(self):
+        """测试获取知识图谱"""
+        print("\n" + "-" * 80)
+        print("测试 27: get_knowledge_graph - 获取知识图谱结构")
+        print("-" * 80)
+
+        try:
+            # 测试获取特定节点的知识图谱
+            kg = await self.storage.get_knowledge_graph("测试节点", max_depth=2, max_nodes=100)
+
+            if kg and len(kg.nodes) >= 3 and len(kg.edges) >= 2:
+                self.log_test("get_knowledge_graph", True,
+                    f"成功获取知识图谱: {len(kg.nodes)} 个节点, {len(kg.edges)} 条边")
+                print(f"   节点示例: {kg.nodes[0].id if kg.nodes else 'N/A'}")
+                print(f"   边示例: {kg.edges[0].source_id}->{kg.edges[0].target_id if kg.edges else 'N/A'}")
+            else:
+                self.log_test("get_knowledge_graph", False,
+                    f"知识图谱数据不足: nodes={len(kg.nodes) if kg else 0}, edges={len(kg.edges) if kg else 0}")
+        except Exception as e:
+            self.log_test("get_knowledge_graph", False, f"异常: {e}")
+
+    async def test_embed_nodes(self):
+        """测试节点嵌入"""
+        print("\n" + "-" * 80)
+        print("测试 28: embed_nodes - 节点向量嵌入")
+        print("-" * 80)
+
+        try:
+            # 测试节点嵌入功能
+            kg, embeddings = await self.storage.embed_nodes(algorithm="default")
+
+            if kg and embeddings and len(embeddings) >= 3:
+                self.log_test("embed_nodes", True,
+                    f"成功生成嵌入: {len(embeddings)} 个节点向量")
+                # 检查向量维度
+                first_node_id = list(embeddings.keys())[0]
+                vector_dim = len(embeddings[first_node_id])
+                print(f"   向量维度: {vector_dim}")
+                print(f"   节点示例: {first_node_id}")
+            else:
+                self.log_test("embed_nodes", False,
+                    f"嵌入生成失败: embeddings={len(embeddings) if embeddings else 0}")
+        except Exception as e:
+            self.log_test("embed_nodes", False, f"异常: {e}")
+
     async def test_drop(self):
         """测试删除整个Space（数据库）"""
         print("\n" + "-" * 80)
-        print("测试 27: drop - 删除整个Space（数据库）")
+        print("测试 29: drop - 删除整个Space（数据库）")
         print("-" * 80)
 
         try:
@@ -757,7 +802,7 @@ class NebulaTestSuite:
     async def test_get_nodes_edges_batch(self):
         """测试批量获取多个节点的边"""
         print("\n" + "-" * 80)
-        print("测试 28: get_nodes_edges_batch - 批量获取多个节点的边")
+        print("测试 30: get_nodes_edges_batch - 批量获取多个节点的边")
         print("-" * 80)
 
         try:
@@ -818,6 +863,10 @@ class NebulaTestSuite:
         # 标签和搜索测试
         await self.test_get_all_labels()
         await self.test_search_labels()
+
+        # 知识图谱和嵌入测试
+        await self.test_get_knowledge_graph()
+        await self.test_embed_nodes()
 
         # 其他功能测试
         await self.test_get_nodes_edges_batch()

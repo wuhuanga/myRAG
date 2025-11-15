@@ -1073,45 +1073,49 @@ class NebulaGraphStorage(BaseGraphStorage):
                 nodes = []
                 node_ids = set()
 
-                if node_label == "*":
-                    nodes_query = f'MATCH (n:{tag}) RETURN n.entity_id AS id, n LIMIT {max_nodes}'
-                else:
-                    nodes_query = (
-                        f'MATCH (n:{tag}) WHERE n.entity_id CONTAINS "{self._escape_string(node_label)}" '
-                        f'RETURN n.entity_id AS id, n LIMIT {max_nodes}'
-                    )
-
+                # 使用id(n)和properties(n)获取节点，然后客户端过滤
+                nodes_query = f'MATCH (n:{tag}) RETURN id(n) AS id, properties(n) AS props LIMIT {max_nodes * 2}'
                 nodes_result = await self._execute_query(nodes_query)
+
                 for i in range(nodes_result.row_size()):
                     row = nodes_result.row_values(i)
                     node_id = self._value_to_python(row[0])
-                    node_value = row[1]
-                    node_data = {}
-                    if hasattr(node_value, 'properties') and node_value.properties:
-                        for key, value in node_value.properties.items():
-                            node_data[key] = self._value_to_python(value)
-                    nodes.append(KnowledgeGraphNode(id=node_id, **node_data))
-                    node_ids.add(node_id)
+                    props_value = row[1]
+
+                    # 客户端过滤：如果不是 "*"，只包含匹配的节点
+                    if node_label != "*" and node_label not in node_id:
+                        continue
+
+                    # 转换属性
+                    node_data = self._value_to_python(props_value)
+                    if isinstance(node_data, dict):
+                        nodes.append(KnowledgeGraphNode(id=node_id, **node_data))
+                        node_ids.add(node_id)
+                        if len(nodes) >= max_nodes:
+                            break
 
                 edges = []
                 if node_ids:
                     node_list = ", ".join(f'"{self._escape_string(nid)}"' for nid in node_ids)
+                    # 使用id(a), id(b)和properties(r)
                     edges_query = (
                         f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                        f'WHERE a.entity_id IN [{node_list}] AND b.entity_id IN [{node_list}] '
-                        f'RETURN a.entity_id AS src, b.entity_id AS tgt, r'
+                        f'WHERE id(a) IN [{node_list}] AND id(b) IN [{node_list}] '
+                        f'RETURN id(a) AS src, id(b) AS tgt, properties(r) AS props'
                     )
                     edges_result = await self._execute_query(edges_query)
                     for i in range(edges_result.row_size()):
                         row = edges_result.row_values(i)
                         src = self._value_to_python(row[0])
                         tgt = self._value_to_python(row[1])
-                        edge_value = row[2]
-                        edge_data = {}
-                        if hasattr(edge_value, 'properties') and edge_value.properties:
-                            for key, value in edge_value.properties.items():
-                                edge_data[key] = self._value_to_python(value)
-                        edges.append(KnowledgeGraphEdge(source_id=src, target_id=tgt, **edge_data))
+                        props_value = row[2]
+
+                        # 转换边属性
+                        edge_data = self._value_to_python(props_value)
+                        if isinstance(edge_data, dict):
+                            edges.append(KnowledgeGraphEdge(source_id=src, target_id=tgt, **edge_data))
+                        else:
+                            edges.append(KnowledgeGraphEdge(source_id=src, target_id=tgt))
 
                 return KnowledgeGraph(nodes=nodes, edges=edges)
             except Exception as e:
