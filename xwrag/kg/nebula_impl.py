@@ -463,9 +463,10 @@ class NebulaGraphStorage(BaseGraphStorage):
             tag = self._tag_name
             src = self._escape_string(source_node_id)
             tgt = self._escape_string(target_node_id)
+            # 修复：使用id()函数而不是entity_id属性
             query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                f'WHERE a.entity_id == "{src}" AND b.entity_id == "{tgt}" RETURN r LIMIT 1'
+                f'WHERE id(a) == "{src}" AND id(b) == "{tgt}" RETURN r LIMIT 1'
             )
             result = await self._execute_query(query)
             return result.row_size() > 0
@@ -479,9 +480,10 @@ class NebulaGraphStorage(BaseGraphStorage):
         try:
             tag = self._tag_name
             safe_id = self._escape_string(node_id)
+            # 修复：使用id()函数而不是entity_id属性
             query = (
                 f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
-                f'WHERE n.entity_id == "{safe_id}" RETURN count(r) AS degree'
+                f'WHERE id(n) == "{safe_id}" RETURN count(r) AS degree'
             )
             result = await self._execute_query(query)
             if result.row_size() > 0:
@@ -503,17 +505,29 @@ class NebulaGraphStorage(BaseGraphStorage):
         try:
             tag = self._tag_name
             safe_id = self._escape_string(node_id)
-            query = f'MATCH (n:{tag}) WHERE n.entity_id == "{safe_id}" RETURN n LIMIT 1'
+            # 修复：使用FETCH PROP ON直接通过VID查询
+            query = f'FETCH PROP ON {tag} "{safe_id}" YIELD properties(vertex)'
             result = await self._execute_query(query)
             if result.row_size() == 0:
                 return None
-            node_value = result.row_values(0)[0]
-            properties = {}
-            # 🔥 修复4: 安全地检查并访问 properties
-            if hasattr(node_value, 'properties') and node_value.properties:
-                for key, value in node_value.properties.items():
-                    properties[key] = self._value_to_python(value)
-            return properties
+
+            # YIELD properties(vertex) 返回Map类型
+            row = result.row_values(0)
+            if row and len(row) > 0:
+                props_value = row[0]
+                properties = {}
+
+                # 安全地检查并访问 properties
+                if hasattr(props_value, 'items'):
+                    for key, value in props_value.items():
+                        properties[key] = self._value_to_python(value)
+                elif hasattr(props_value, 'keys'):
+                    for key in props_value.keys():
+                        value = props_value[key]
+                        properties[key] = self._value_to_python(value)
+
+                return properties
+            return None
         except Exception as e:
             logger.error(f"[{self.workspace}] Error getting node: {e}")
             return None
@@ -592,9 +606,10 @@ class NebulaGraphStorage(BaseGraphStorage):
             tag = self._tag_name
             src = self._escape_string(source_node_id)
             tgt = self._escape_string(target_node_id)
+            # 修复：使用id()函数而不是entity_id属性
             query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                f'WHERE a.entity_id == "{src}" AND b.entity_id == "{tgt}" RETURN r LIMIT 1'
+                f'WHERE id(a) == "{src}" AND id(b) == "{tgt}" RETURN r LIMIT 1'
             )
             result = await self._execute_query(query)
             if result.row_size() == 0:
@@ -616,9 +631,10 @@ class NebulaGraphStorage(BaseGraphStorage):
         try:
             tag = self._tag_name
             src = self._escape_string(source_node_id)
+            # 修复：使用id()函数而不是entity_id属性，并返回id()
             query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                f'WHERE a.entity_id == "{src}" RETURN a.entity_id AS src, b.entity_id AS tgt'
+                f'WHERE id(a) == "{src}" RETURN id(a) AS src, id(b) AS tgt'
             )
             result = await self._execute_query(query)
             if result.row_size() == 0:
