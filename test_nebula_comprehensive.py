@@ -717,7 +717,7 @@ class NebulaTestSuite:
                 self.log_test("get_knowledge_graph", True,
                     f"成功获取知识图谱: {len(kg.nodes)} 个节点, {len(kg.edges)} 条边")
                 print(f"   节点示例: {kg.nodes[0].id if kg.nodes else 'N/A'}")
-                print(f"   边示例: {kg.edges[0].source_id}->{kg.edges[0].target_id if kg.edges else 'N/A'}")
+                print(f"   边示例: {kg.edges[0].source}->{kg.edges[0].target if kg.edges else 'N/A'}")
             else:
                 self.log_test("get_knowledge_graph", False,
                     f"知识图谱数据不足: nodes={len(kg.nodes) if kg else 0}, edges={len(kg.edges) if kg else 0}")
