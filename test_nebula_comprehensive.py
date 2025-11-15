@@ -44,6 +44,15 @@ class NebulaTestSuite:
         print("=" * 80)
 
         print("\n[SETUP] 创建 NebulaGraph 存储实例...")
+
+        # 创建一个简单的 mock embedding function
+        def mock_embedding_func(texts):
+            """Mock embedding function for testing"""
+            if isinstance(texts, str):
+                return [0.1] * 384  # 返回384维的mock向量
+            else:
+                return [[0.1] * 384 for _ in texts]  # 批量返回
+
         self.storage = NebulaGraphStorage(
             namespace="test_comprehensive",
             global_config={
@@ -52,7 +61,9 @@ class NebulaTestSuite:
                 "username": "root",
                 "password": "nebula",
                 "space_vid_type": "FIXED_STRING(256)"
-            }
+            },
+            embedding_func=mock_embedding_func,
+            workspace="test_comprehensive"
         )
 
         print("[SETUP] 初始化数据库...")
