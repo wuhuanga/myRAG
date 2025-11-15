@@ -1089,7 +1089,12 @@ class NebulaGraphStorage(BaseGraphStorage):
                     # 转换属性
                     node_data = self._value_to_python(props_value)
                     if isinstance(node_data, dict):
-                        nodes.append(KnowledgeGraphNode(id=node_id, **node_data))
+                        # KnowledgeGraphNode 需要 labels 和 properties 字段
+                        nodes.append(KnowledgeGraphNode(
+                            id=node_id,
+                            labels=[node_data.get("entity_id", node_id)],
+                            properties=node_data
+                        ))
                         node_ids.add(node_id)
                         if len(nodes) >= max_nodes:
                             break
@@ -1113,9 +1118,22 @@ class NebulaGraphStorage(BaseGraphStorage):
                         # 转换边属性
                         edge_data = self._value_to_python(props_value)
                         if isinstance(edge_data, dict):
-                            edges.append(KnowledgeGraphEdge(source_id=src, target_id=tgt, **edge_data))
+                            # KnowledgeGraphEdge 需要 id, type, source, target, properties
+                            edges.append(KnowledgeGraphEdge(
+                                id=f"{src}_{tgt}",
+                                type="relationship",
+                                source=src,
+                                target=tgt,
+                                properties=edge_data
+                            ))
                         else:
-                            edges.append(KnowledgeGraphEdge(source_id=src, target_id=tgt))
+                            edges.append(KnowledgeGraphEdge(
+                                id=f"{src}_{tgt}",
+                                type="relationship",
+                                source=src,
+                                target=tgt,
+                                properties={}
+                            ))
 
                 return KnowledgeGraph(nodes=nodes, edges=edges)
             except Exception as e:
