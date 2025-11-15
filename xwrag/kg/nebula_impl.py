@@ -95,10 +95,16 @@ class NebulaGraphStorage(BaseGraphStorage):
 
         # 类型映射
         self._TYPE_MAP = [
+            ("is_map", "as_map"),  # Map 类型必须在前面，因为 properties(vertex) 返回 Map
+            ("is_list", "as_list"),
+            ("is_set", "as_set"),
             ("is_string", "as_string"),
             ("is_int", "as_int"),
             ("is_double", "as_double"),
             ("is_bool", "as_bool"),
+            ("is_date", "as_date"),
+            ("is_time", "as_time"),
+            ("is_datetime", "as_datetime"),
         ]
 
     def _get_workspace_label(self) -> str:
@@ -436,7 +442,18 @@ class NebulaGraphStorage(BaseGraphStorage):
         # 🔥 修复3: 安全地访问 properties 属性
         for check, getter in self._TYPE_MAP:
             if hasattr(value, check) and getattr(value, check)():
-                return getattr(value, getter)()
+                result = getattr(value, getter)()
+
+                # 递归处理嵌套类型
+                if isinstance(result, dict):
+                    # Map 类型: 递归转换字典中的值
+                    return {k: self._value_to_python(v) for k, v in result.items()}
+                elif isinstance(result, (list, set)):
+                    # List/Set 类型: 递归转换列表/集合中的元素
+                    return [self._value_to_python(item) for item in result]
+                else:
+                    return result
+
         if hasattr(value, "is_null") and value.is_null():
             return None
         return str(value)
@@ -524,21 +541,15 @@ class NebulaGraphStorage(BaseGraphStorage):
                 logger.info(f"[{self.workspace}] get_node props_value type: {type(props_value)}")
                 logger.info(f"[{self.workspace}] get_node props_value: {props_value}")
 
-                properties = {}
-
-                # 安全地检查并访问 properties
-                if hasattr(props_value, 'items'):
-                    logger.info(f"[{self.workspace}] get_node using .items()")
-                    for key, value in props_value.items():
-                        properties[key] = self._value_to_python(value)
-                elif hasattr(props_value, 'keys'):
-                    logger.info(f"[{self.workspace}] get_node using .keys()")
-                    for key in props_value.keys():
-                        value = props_value[key]
-                        properties[key] = self._value_to_python(value)
-
+                # _value_to_python 现在可以直接处理 Map 类型并返回 Python 字典
+                properties = self._value_to_python(props_value)
                 logger.info(f"[{self.workspace}] get_node extracted properties: {properties}")
-                return properties
+
+                if isinstance(properties, dict):
+                    return properties
+                else:
+                    logger.warning(f"[{self.workspace}] Expected dict but got {type(properties)}: {properties}")
+                    return None
             return None
         except Exception as e:
             logger.error(f"[{self.workspace}] Error getting node: {e}")
@@ -579,33 +590,17 @@ class NebulaGraphStorage(BaseGraphStorage):
                     # YIELD properties(vertex) 返回一个Map类型的值
                     props_value = row[0]
                     logger.info(f"[{self.workspace}] props_value type: {type(props_value)}, value: {props_value}")
-                    logger.info(f"[{self.workspace}] props_value hasattr items: {hasattr(props_value, 'items')}")
-                    logger.info(f"[{self.workspace}] props_value hasattr keys: {hasattr(props_value, 'keys')}")
-                    logger.info(f"[{self.workspace}] props_value dir: {[attr for attr in dir(props_value) if not attr.startswith('_')]}")
 
-                    properties = {}
-
-                    # 安全地检查并访问 properties
-                    if hasattr(props_value, 'items'):
-                        # 如果是字典类型
-                        logger.info(f"[{self.workspace}] Using .items() method")
-                        for key, value in props_value.items():
-                            properties[key] = self._value_to_python(value)
-                    elif hasattr(props_value, 'keys'):
-                        # 如果是Map类型
-                        logger.info(f"[{self.workspace}] Using .keys() method")
-                        for key in props_value.keys():
-                            value = props_value[key]
-                            properties[key] = self._value_to_python(value)
-
+                    # _value_to_python 现在可以直接处理 Map 类型并返回 Python 字典
+                    properties = self._value_to_python(props_value)
                     logger.info(f"[{self.workspace}] Extracted properties: {properties}")
 
                     # 使用entity_id作为key
-                    if 'entity_id' in properties:
+                    if isinstance(properties, dict) and 'entity_id' in properties:
                         nodes[properties['entity_id']] = properties
                         logger.info(f"[{self.workspace}] Added node with entity_id: {properties['entity_id']}")
                     else:
-                        logger.warning(f"[{self.workspace}] No entity_id found in properties: {properties}")
+                        logger.warning(f"[{self.workspace}] Invalid properties or missing entity_id: {properties}")
 
             # 记录未找到的节点
             found_ids = set(nodes.keys())
