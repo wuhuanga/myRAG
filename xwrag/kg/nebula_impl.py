@@ -357,11 +357,9 @@ class NebulaGraphStorage(BaseGraphStorage):
             for use_attempt in range(3):
                 try:
                     use_query = f"USE {self._space_name}"
-                    logger.info(f"[{self.workspace}] Executing: {use_query}")
                     use_res = session.execute(use_query)
                     if use_res.is_succeeded():
                         use_success = True
-                        logger.info(f"[{self.workspace}] ✓ Successfully switched to Space: {self._space_name}")
                         break
                     else:
                         if use_attempt < 2:
@@ -381,9 +379,6 @@ class NebulaGraphStorage(BaseGraphStorage):
 
             if not use_success:
                 raise RuntimeError(f"Could not USE space {self._space_name} after 3 attempts")
-
-            # 打印要执行的查询语句（用于调试NebulaGraph语法）
-            logger.info(f"[{self.workspace}] Executing NebulaGraph query: {query}")
 
             # 执行查询（带重试）
             def run_query():
@@ -547,29 +542,20 @@ class NebulaGraphStorage(BaseGraphStorage):
             query = f'FETCH PROP ON {tag} "{safe_id}" YIELD properties(vertex)'
             result = await self._execute_query(query)
 
-            # Debug logging
-            logger.info(f"[{self.workspace}] get_node result row_size: {result.row_size()}")
             if result.row_size() == 0:
-                logger.warning(f"[{self.workspace}] get_node returned 0 rows for node_id: {node_id}")
                 return None
 
             # YIELD properties(vertex) 返回Map类型
             row = result.row_values(0)
-            logger.info(f"[{self.workspace}] get_node row: len={len(row) if row else 0}, type={type(row)}")
-
             if row and len(row) > 0:
                 props_value = row[0]
-                logger.info(f"[{self.workspace}] get_node props_value type: {type(props_value)}")
-                logger.info(f"[{self.workspace}] get_node props_value: {props_value}")
-
                 # _value_to_python 现在可以直接处理 Map 类型并返回 Python 字典
                 properties = self._value_to_python(props_value)
-                logger.info(f"[{self.workspace}] get_node extracted properties: {properties}")
 
                 if isinstance(properties, dict):
                     return properties
                 else:
-                    logger.warning(f"[{self.workspace}] Expected dict but got {type(properties)}: {properties}")
+                    logger.warning(f"[{self.workspace}] Expected dict but got {type(properties)}")
                     return None
             return None
         except Exception as e:
@@ -599,45 +585,25 @@ class NebulaGraphStorage(BaseGraphStorage):
             result = await self._execute_query(query)
             nodes = {}
 
-            # Debug: Log result structure
-            logger.info(f"[{self.workspace}] FETCH result row_size: {result.row_size()}")
-            logger.info(f"[{self.workspace}] FETCH result columns: {result.keys()}")
-
             for i in range(result.row_size()):
                 row = result.row_values(i)
-                logger.info(f"[{self.workspace}] Row {i}: len={len(row) if row else 0}, type={type(row)}")
 
                 if row and len(row) > 0:
                     # YIELD properties(vertex) 返回一个Map类型的值
                     props_value = row[0]
-                    logger.info(f"[{self.workspace}] props_value type: {type(props_value)}, value: {props_value}")
 
                     # _value_to_python 现在可以直接处理 Map 类型并返回 Python 字典
                     properties = self._value_to_python(props_value)
-                    logger.info(f"[{self.workspace}] Extracted properties: {properties}")
 
                     # 使用entity_id作为key
                     if isinstance(properties, dict) and 'entity_id' in properties:
                         nodes[properties['entity_id']] = properties
-                        logger.info(f"[{self.workspace}] Added node with entity_id: {properties['entity_id']}")
-                    else:
-                        logger.warning(f"[{self.workspace}] Invalid properties or missing entity_id: {properties}")
-
-            # 记录未找到的节点
-            found_ids = set(nodes.keys())
-            missing_ids = set(node_ids) - found_ids
-            if missing_ids:
-                logger.warning(
-                    f"[{self.workspace}] get_nodes_batch: {len(missing_ids)} nodes not found: {list(missing_ids)[:5]}..."
-                )
 
             return nodes
 
         except Exception as e:
             logger.error(f"[{self.workspace}] Error in get_nodes_batch: {e}")
-            logger.error(f"[{self.workspace}] Query was: FETCH PROP ON {tag} ... YIELD properties(vertex)")
             # 降级到逐个查询
-            logger.info(f"[{self.workspace}] Falling back to individual queries")
             result = {}
             for node_id in node_ids:
                 node = await self.get_node(node_id)
@@ -669,18 +635,15 @@ class NebulaGraphStorage(BaseGraphStorage):
             )
             result = await self._execute_query(query)
             if result.row_size() == 0:
-                logger.warning(f"[{self.workspace}] get_edge: no edge found between {source_node_id} and {target_node_id}")
                 return None
 
             # properties(r) 返回Map类型，与properties(vertex)类似
             row = result.row_values(0)
             if row and len(row) > 0:
                 props_value = row[0]
-                logger.info(f"[{self.workspace}] get_edge props_value type: {type(props_value)}")
 
                 # _value_to_python 可以直接处理 Map 类型并返回 Python 字典
                 properties = self._value_to_python(props_value)
-                logger.info(f"[{self.workspace}] get_edge extracted properties: {properties}")
 
                 if isinstance(properties, dict):
                     # 确保必需的键存在，与 neo4j_impl.py 保持一致
@@ -754,11 +717,6 @@ class NebulaGraphStorage(BaseGraphStorage):
                     f'INSERT VERTEX IF NOT EXISTS {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
                     f'VALUES "{self._escape_string(node_id)}": ({props_str})'
                 )
-                # 添加调试日志（仅首次）
-                if not hasattr(self, '_logged_first_insert'):
-                    logger.info(f"[{self.workspace}] First node insert query: {query[:200]}...")
-                    self._logged_first_insert = True
-
                 await self._execute_query(query)
                 return {"status": "success", "message": "node upserted"}
             except Exception as e:
