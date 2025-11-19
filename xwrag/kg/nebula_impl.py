@@ -357,11 +357,9 @@ class NebulaGraphStorage(BaseGraphStorage):
             for use_attempt in range(3):
                 try:
                     use_query = f"USE {self._space_name}"
-                    logger.info(f"[{self.workspace}] Executing: {use_query}")
                     use_res = session.execute(use_query)
                     if use_res.is_succeeded():
                         use_success = True
-                        logger.info(f"[{self.workspace}] ✓ Successfully switched to Space: {self._space_name}")
                         break
                     else:
                         if use_attempt < 2:
@@ -381,9 +379,6 @@ class NebulaGraphStorage(BaseGraphStorage):
 
             if not use_success:
                 raise RuntimeError(f"Could not USE space {self._space_name} after 3 attempts")
-
-            # 打印要执行的查询语句（用于调试NebulaGraph语法）
-            logger.info(f"[{self.workspace}] Executing NebulaGraph query: {query}")
 
             # 执行查询（带重试）
             def run_query():
@@ -529,8 +524,16 @@ class NebulaGraphStorage(BaseGraphStorage):
         tgt_degree = await self.node_degree(tgt_id)
         return src_degree + tgt_degree
 
-    async def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
-        """获取节点数据"""
+    async def get_node(self, node_id: str) -> dict[str, str] | None:
+        """获取节点数据
+
+        Args:
+            node_id: The node label to look up
+
+        Returns:
+            dict: Node properties if found
+            None: If node not found
+        """
         # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
         try:
             tag = self._tag_name
@@ -539,29 +542,20 @@ class NebulaGraphStorage(BaseGraphStorage):
             query = f'FETCH PROP ON {tag} "{safe_id}" YIELD properties(vertex)'
             result = await self._execute_query(query)
 
-            # Debug logging
-            logger.info(f"[{self.workspace}] get_node result row_size: {result.row_size()}")
             if result.row_size() == 0:
-                logger.warning(f"[{self.workspace}] get_node returned 0 rows for node_id: {node_id}")
                 return None
 
             # YIELD properties(vertex) 返回Map类型
             row = result.row_values(0)
-            logger.info(f"[{self.workspace}] get_node row: len={len(row) if row else 0}, type={type(row)}")
-
             if row and len(row) > 0:
                 props_value = row[0]
-                logger.info(f"[{self.workspace}] get_node props_value type: {type(props_value)}")
-                logger.info(f"[{self.workspace}] get_node props_value: {props_value}")
-
                 # _value_to_python 现在可以直接处理 Map 类型并返回 Python 字典
                 properties = self._value_to_python(props_value)
-                logger.info(f"[{self.workspace}] get_node extracted properties: {properties}")
 
                 if isinstance(properties, dict):
                     return properties
                 else:
-                    logger.warning(f"[{self.workspace}] Expected dict but got {type(properties)}: {properties}")
+                    logger.warning(f"[{self.workspace}] Expected dict but got {type(properties)}")
                     return None
             return None
         except Exception as e:
@@ -591,45 +585,25 @@ class NebulaGraphStorage(BaseGraphStorage):
             result = await self._execute_query(query)
             nodes = {}
 
-            # Debug: Log result structure
-            logger.info(f"[{self.workspace}] FETCH result row_size: {result.row_size()}")
-            logger.info(f"[{self.workspace}] FETCH result columns: {result.keys()}")
-
             for i in range(result.row_size()):
                 row = result.row_values(i)
-                logger.info(f"[{self.workspace}] Row {i}: len={len(row) if row else 0}, type={type(row)}")
 
                 if row and len(row) > 0:
                     # YIELD properties(vertex) 返回一个Map类型的值
                     props_value = row[0]
-                    logger.info(f"[{self.workspace}] props_value type: {type(props_value)}, value: {props_value}")
 
                     # _value_to_python 现在可以直接处理 Map 类型并返回 Python 字典
                     properties = self._value_to_python(props_value)
-                    logger.info(f"[{self.workspace}] Extracted properties: {properties}")
 
                     # 使用entity_id作为key
                     if isinstance(properties, dict) and 'entity_id' in properties:
                         nodes[properties['entity_id']] = properties
-                        logger.info(f"[{self.workspace}] Added node with entity_id: {properties['entity_id']}")
-                    else:
-                        logger.warning(f"[{self.workspace}] Invalid properties or missing entity_id: {properties}")
-
-            # 记录未找到的节点
-            found_ids = set(nodes.keys())
-            missing_ids = set(node_ids) - found_ids
-            if missing_ids:
-                logger.warning(
-                    f"[{self.workspace}] get_nodes_batch: {len(missing_ids)} nodes not found: {list(missing_ids)[:5]}..."
-                )
 
             return nodes
 
         except Exception as e:
             logger.error(f"[{self.workspace}] Error in get_nodes_batch: {e}")
-            logger.error(f"[{self.workspace}] Query was: FETCH PROP ON {tag} ... YIELD properties(vertex)")
             # 降级到逐个查询
-            logger.info(f"[{self.workspace}] Falling back to individual queries")
             result = {}
             for node_id in node_ids:
                 node = await self.get_node(node_id)
@@ -637,8 +611,17 @@ class NebulaGraphStorage(BaseGraphStorage):
                     result[node_id] = node
             return result
 
-    async def get_edge(self, source_node_id: str, target_node_id: str) -> Optional[Dict[str, Any]]:
-        """获取边数据"""
+    async def get_edge(self, source_node_id: str, target_node_id: str) -> dict[str, str] | None:
+        """获取边数据
+
+        Args:
+            source_node_id: Label of the source node
+            target_node_id: Label of the target node
+
+        Returns:
+            dict: Edge properties if found
+            None: If edge not found
+        """
         # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
         try:
             tag = self._tag_name
@@ -652,20 +635,31 @@ class NebulaGraphStorage(BaseGraphStorage):
             )
             result = await self._execute_query(query)
             if result.row_size() == 0:
-                logger.warning(f"[{self.workspace}] get_edge: no edge found between {source_node_id} and {target_node_id}")
                 return None
 
             # properties(r) 返回Map类型，与properties(vertex)类似
             row = result.row_values(0)
             if row and len(row) > 0:
                 props_value = row[0]
-                logger.info(f"[{self.workspace}] get_edge props_value type: {type(props_value)}")
 
                 # _value_to_python 可以直接处理 Map 类型并返回 Python 字典
                 properties = self._value_to_python(props_value)
-                logger.info(f"[{self.workspace}] get_edge extracted properties: {properties}")
 
                 if isinstance(properties, dict):
+                    # 确保必需的键存在，与 neo4j_impl.py 保持一致
+                    required_keys = {
+                        "weight": 1.0,
+                        "source_id": None,
+                        "description": None,
+                        "keywords": None,
+                    }
+                    for key, default_value in required_keys.items():
+                        if key not in properties:
+                            properties[key] = default_value
+                            logger.warning(
+                                f"[{self.workspace}] Edge between {source_node_id} and {target_node_id} "
+                                f"missing {key}, using default: {default_value}"
+                            )
                     return properties
                 else:
                     logger.warning(f"[{self.workspace}] Expected dict but got {type(properties)}")
@@ -705,8 +699,14 @@ class NebulaGraphStorage(BaseGraphStorage):
         wait=wait_exponential(multiplier=1, min=4, max=10),
         retry=retry_if_exception_type((IOErrorException,)),
     )
-    async def upsert_node(self, node_id: str, node_data: Dict[str, Any]) -> None:
-        """插入或更新节点"""
+    async def upsert_node(self, node_id: str, node_data: Dict[str, Any]) -> Dict[str, str]:
+        """插入或更新节点
+
+        Returns:
+            dict[str, str]: Operation status and message
+            - On success: {"status": "success", "message": "node upserted"}
+            - On failure: {"status": "error", "message": "<error details>"}
+        """
         async with get_graph_db_lock():
             try:
                 if "entity_id" not in node_data:
@@ -723,10 +723,11 @@ class NebulaGraphStorage(BaseGraphStorage):
                     self._logged_first_insert = True
 
                 await self._execute_query(query)
+                return {"status": "success", "message": "node upserted"}
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error upserting node {node_id}: {e}")
                 logger.error(f"[{self.workspace}] Failed query: {query[:300]}...")
-                raise
+                return {"status": "error", "message": str(e)}
 
     async def upsert_nodes(self, nodes: List[tuple]):
         """批量插入或更新节点"""
@@ -756,11 +757,16 @@ class NebulaGraphStorage(BaseGraphStorage):
         wait=wait_exponential(multiplier=1, min=4, max=10),
         retry=retry_if_exception_type((IOErrorException,)),
     )
-    async def upsert_edge(self, source_node_id: str, target_node_id: str, edge_data: Dict[str, Any]) -> None:
+    async def upsert_edge(self, source_node_id: str, target_node_id: str, edge_data: Dict[str, Any]) -> Dict[str, str]:
         """插入或更新边
 
         注意：此方法假设调用者已经确保节点存在（由 operate.py 保证）
         不再重复检查节点存在性，以提高性能
+
+        Returns:
+            dict[str, str]: Operation status and message
+            - On success: {"status": "success", "message": "edge upserted"}
+            - On failure: {"status": "error", "message": "<error details>"}
         """
         # 移除全局锁，使用 INSERT EDGE 的原子性
         # NebulaGraph 的 INSERT EDGE 是原子操作，不需要全局锁保护
@@ -777,9 +783,10 @@ class NebulaGraphStorage(BaseGraphStorage):
                 f'({weight}, "{description}", "{keywords}", "{source_id}")'
             )
             await self._execute_query(query)
+            return {"status": "success", "message": "edge upserted"}
         except Exception as e:
             logger.error(f"[{self.workspace}] Error upserting edge {source_node_id}->{target_node_id}: {e}")
-            raise
+            return {"status": "error", "message": str(e)}
 
     async def upsert_edges(self, edges: List[tuple]):
         """批量插入或更新边"""
@@ -1148,8 +1155,14 @@ class NebulaGraphStorage(BaseGraphStorage):
             embeddings[node.id] = [0.0] * 128
         return kg, embeddings
 
-    async def drop(self):
-        """删除整个 workspace 的数据"""
+    async def drop(self) -> Dict[str, str]:
+        """删除整个 workspace 的数据
+
+        Returns:
+            dict[str, str]: Operation status and message
+            - On success: {"status": "success", "message": "workspace '<name>' data dropped"}
+            - On failure: {"status": "error", "message": "<error details>"}
+        """
         async with get_graph_db_lock():
             try:
                 logger.warning(
@@ -1163,14 +1176,22 @@ class NebulaGraphStorage(BaseGraphStorage):
                         result = temp_session.execute(drop_query)
                         if result.is_succeeded():
                             logger.info(f"[{self.workspace}] ✅ Dropped Space: {self._space_name}")
+                            return {
+                                "status": "success",
+                                "message": f"workspace '{self._space_name}' data dropped",
+                            }
                         else:
+                            error_msg = result.error_msg()
                             logger.error(
                                 f"[{self.workspace}] Failed to drop Space {self._space_name}: "
-                                f"{result.error_msg()}"
+                                f"{error_msg}"
                             )
+                            return {"status": "error", "message": error_msg}
                     finally:
                         temp_session.release()
-                    
+                else:
+                    return {"status": "error", "message": "Connection pool not initialized"}
+
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error dropping Space {self._space_name}: {e}")
-                raise
+                return {"status": "error", "message": str(e)}
