@@ -82,7 +82,7 @@ class NebulaGraphStorage(BaseGraphStorage):
         )
 
         self._connection_pool: Optional[ConnectionPool] = None
-        self._session = None
+        # 注意：不再维护持久的 self._session，每次查询创建独立 session 以避免泄漏
         
         # 使用 workspace 作为 Space 名称
         self._space_name = re.sub(r"[^a-zA-Z0-9_]", "_", self.workspace)
@@ -95,10 +95,16 @@ class NebulaGraphStorage(BaseGraphStorage):
 
         # 类型映射
         self._TYPE_MAP = [
+            ("is_map", "as_map"),  # Map 类型必须在前面，因为 properties(vertex) 返回 Map
+            ("is_list", "as_list"),
+            ("is_set", "as_set"),
             ("is_string", "as_string"),
             ("is_int", "as_int"),
             ("is_double", "as_double"),
             ("is_bool", "as_bool"),
+            ("is_date", "as_date"),
+            ("is_time", "as_time"),
+            ("is_datetime", "as_datetime"),
         ]
 
     def _get_workspace_label(self) -> str:
@@ -141,22 +147,21 @@ class NebulaGraphStorage(BaseGraphStorage):
             if not self._connection_pool.init(hosts, nebula_config):
                 raise ConnectionError("Failed to initialize NebulaGraph connection pool")
 
+            # 使用临时 session 进行初始化（完成后立即释放）
+            init_session = None
             try:
-                # 🔥 修复2: 使用 get_session 时先检查 connection_pool 不为 None
-                if self._connection_pool is None:
-                    raise RuntimeError("Connection pool is None")
-                    
-                self._session = self._connection_pool.get_session(self._user, self._password)
+                # 创建临时 session 用于初始化
+                init_session = self._connection_pool.get_session(self._user, self._password)
                 
                 # 使用 workspace 创建独立的 Space
                 logger.info(
                     f"[{self.workspace}] Creating/Using Space: {self._space_name} "
                     f"(workspace-based isolation)"
                 )
-                
+
                 # 先检查 space 是否存在
                 check_space_query = f"SHOW SPACES"
-                check_res = self._session.execute(check_space_query)
+                check_res = init_session.execute(check_space_query)
                 space_exists = False
                 
                 if check_res.is_succeeded():
@@ -182,7 +187,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                         f"CREATE SPACE IF NOT EXISTS {self._space_name} "
                         f"(partition_num=10, replica_factor=1, vid_type=FIXED_STRING(256))"
                     )
-                    res = self._session.execute(create_space_q)
+                    res = init_session.execute(create_space_q)
                     if not res.is_succeeded():
                         error_msg = res.error_msg()
                         # 如果错误不是"space已存在",则记录警告
@@ -203,7 +208,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 use_success = False
                 
                 for retry in range(max_retries):
-                    use_res = self._session.execute(f"USE {self._space_name}")
+                    use_res = init_session.execute(f"USE {self._space_name}")
                     if use_res.is_succeeded():
                         use_success = True
                         logger.info(f"[{self.workspace}] ✅ Successfully switched to Space: {self._space_name}")
@@ -237,7 +242,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                     f"(entity_id string, entity_type string, description string, source_id string, "
                     f"file_path string, created_at int)"
                 )
-                tag_res = self._session.execute(create_tag_q)
+                tag_res = init_session.execute(create_tag_q)
                 if not tag_res.is_succeeded():
                     logger.warning(f"[{self.workspace}] Tag creation message: {tag_res.error_msg()}")
 
@@ -246,24 +251,36 @@ class NebulaGraphStorage(BaseGraphStorage):
                     "CREATE EDGE IF NOT EXISTS relationship "
                     "(weight double, description string, keywords string, source_id string)"
                 )
-                edge_res = self._session.execute(create_edge_q)
+                edge_res = init_session.execute(create_edge_q)
                 if not edge_res.is_succeeded():
                     logger.warning(f"[{self.workspace}] Edge creation message: {edge_res.error_msg()}")
 
                 # 创建索引
                 try:
+                    # 创建entity_id索引（用于主键查询）
                     index_q = f"CREATE TAG INDEX IF NOT EXISTS idx_entity_id ON {tag_name}(entity_id(256))"
-                    index_res = self._session.execute(index_q)
+                    index_res = init_session.execute(index_q)
                     if index_res.is_succeeded():
                         logger.info(f"[{self.workspace}] Created index on {tag_name}.entity_id")
                     else:
                         logger.warning(f"[{self.workspace}] Index creation message: {index_res.error_msg()}")
+
+                    # 创建source_id索引（用于按chunk_id过滤查询）
+                    source_index_q = f"CREATE TAG INDEX IF NOT EXISTS idx_source_id ON {tag_name}(source_id(256))"
+                    source_index_res = init_session.execute(source_index_q)
+                    if source_index_res.is_succeeded():
+                        logger.info(f"[{self.workspace}] Created index on {tag_name}.source_id")
+                    else:
+                        logger.warning(f"[{self.workspace}] source_id index message: {source_index_res.error_msg()}")
                 except Exception as e:
                     logger.warning(f"[{self.workspace}] Index creation warning: {e}")
 
-                # 等待 schema 传播
-                await asyncio.sleep(1)
-                
+                # 等待 schema 传播（Tag和Edge需要2个心跳周期才能完全传播，每个周期默认10秒）
+                # 对于新创建的space，需要等待更长时间确保schema可用
+                wait_time = 15 if not space_exists else 10
+                logger.info(f"[{self.workspace}] ⏳ Waiting {wait_time}s for schema propagation...")
+                await asyncio.sleep(wait_time)
+
                 logger.info(
                     f"[{self.workspace}] ✅ NebulaGraph initialized successfully:\n"
                     f"  Space: {self._space_name} (isolated per workspace)\n"
@@ -277,17 +294,19 @@ class NebulaGraphStorage(BaseGraphStorage):
                 if self._connection_pool:
                     self._connection_pool.close()
                 raise
+            finally:
+                # 确保初始化 session 被释放（防止泄漏）
+                if init_session:
+                    try:
+                        init_session.release()
+                        logger.debug(f"[{self.workspace}] Released initialization session")
+                    except Exception as release_error:
+                        logger.warning(f"[{self.workspace}] Failed to release init session: {release_error}")
 
     async def finalize(self):
         """关闭连接"""
         if self._connection_pool:
             try:
-                if hasattr(self, "_session") and self._session:
-                    try:
-                        self._session.release()
-                    except Exception:
-                        pass
-                    self._session = None
                 self._connection_pool.close()
             finally:
                 self._connection_pool = None
@@ -297,43 +316,71 @@ class NebulaGraphStorage(BaseGraphStorage):
         """索引完成回调"""
         return None
 
-    def _ensure_session(self):
-        """确保 session 有效,并自动切换到正确的 Space"""
+    async def _execute_query(self, query: str):
+        """执行查询 - 每次创建独立的 session 以避免泄漏"""
         if not self._connection_pool:
             raise RuntimeError("Connection pool not initialized")
 
-        if self._session:
-            try:
-                _ = self._session.execute("SHOW SPACES")
-                use_res = self._session.execute(f"USE {self._space_name}")
-                if use_res.is_succeeded():
-                    return self._session
-            except Exception:
-                pass
-            
-            try:
-                self._session.release()
-            except Exception:
-                pass
-            self._session = None
+        session = None
+        max_retries = 5
+        retry_delay = 0.5
 
-        # 重新创建 session
-        self._session = self._connection_pool.get_session(self._user, self._password)
-        use_res = self._session.execute(f"USE {self._space_name}")
-        if not use_res.is_succeeded():
-            raise RuntimeError(f"Failed to USE space {self._space_name}: {use_res.error_msg()}")
-        return self._session
+        for attempt in range(max_retries):
+            try:
+                # 为每个查询创建独立的 session（避免并发竞争和 session 泄漏）
+                # 如果连接池满，这里会抛出异常，我们需要重试
+                session = self._connection_pool.get_session(self._user, self._password)
+                break  # 成功获取 session，跳出重试循环
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    # 连接池可能已满，等待后重试
+                    error_str = str(e).lower()
+                    if "no available connection" in error_str or "connection" in error_str:
+                        logger.warning(
+                            f"[{self.workspace}] Connection pool exhausted (attempt {attempt + 1}/{max_retries}), "
+                            f"waiting {retry_delay}s..."
+                        )
+                        await asyncio.sleep(retry_delay)
+                        retry_delay = min(retry_delay * 2, 5)  # 指数退避，最多等待 5 秒
+                        continue
+                # 最后一次重试失败或其他错误
+                logger.error(f"[{self.workspace}] Failed to get session after {max_retries} attempts: {e}")
+                raise
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((IOErrorException, NotValidConnectionException)),
-    )
-    async def _execute_query(self, query: str):
-        """执行查询"""
+        if session is None:
+            raise RuntimeError(f"[{self.workspace}] Could not acquire session from pool after {max_retries} attempts")
+
         try:
-            session = self._ensure_session()
-            
+
+            # 切换到正确的 Space（带重试）
+            use_success = False
+            for use_attempt in range(3):
+                try:
+                    use_query = f"USE {self._space_name}"
+                    use_res = session.execute(use_query)
+                    if use_res.is_succeeded():
+                        use_success = True
+                        break
+                    else:
+                        if use_attempt < 2:
+                            logger.warning(
+                                f"[{self.workspace}] Failed to USE space (attempt {use_attempt + 1}/3): "
+                                f"{use_res.error_msg()}"
+                            )
+                            await asyncio.sleep(0.5)
+                        else:
+                            raise RuntimeError(f"Failed to USE space {self._space_name}: {use_res.error_msg()}")
+                except Exception as use_error:
+                    if use_attempt < 2:
+                        logger.warning(f"[{self.workspace}] Error using space (attempt {use_attempt + 1}/3): {use_error}")
+                        await asyncio.sleep(0.5)
+                    else:
+                        raise
+
+            if not use_success:
+                raise RuntimeError(f"Could not USE space {self._space_name} after 3 attempts")
+
+            # 执行查询（带重试）
             def run_query():
                 return session.execute(query)
 
@@ -348,6 +395,13 @@ class NebulaGraphStorage(BaseGraphStorage):
         except Exception as e:
             logger.error(f"[{self.workspace}] Execute query error: {e}")
             raise
+        finally:
+            # 确保 session 总是被释放（防止泄漏）
+            if session:
+                try:
+                    session.release()
+                except Exception as release_error:
+                    logger.warning(f"[{self.workspace}] Failed to release session: {release_error}")
 
     def _escape_string(self, s: Optional[str]) -> str:
         """转义字符串 - 处理所有 NebulaGraph 需要的特殊字符"""
@@ -395,7 +449,18 @@ class NebulaGraphStorage(BaseGraphStorage):
         # 🔥 修复3: 安全地访问 properties 属性
         for check, getter in self._TYPE_MAP:
             if hasattr(value, check) and getattr(value, check)():
-                return getattr(value, getter)()
+                result = getattr(value, getter)()
+
+                # 递归处理嵌套类型
+                if isinstance(result, dict):
+                    # Map 类型: 递归转换字典中的值
+                    return {k: self._value_to_python(v) for k, v in result.items()}
+                elif isinstance(result, (list, set)):
+                    # List/Set 类型: 递归转换列表/集合中的元素
+                    return [self._value_to_python(item) for item in result]
+                else:
+                    return result
+
         if hasattr(value, "is_null") and value.is_null():
             return None
         return str(value)
@@ -404,51 +469,54 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def has_node(self, node_id: str) -> bool:
         """检查节点是否存在"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                safe_id = self._escape_string(node_id)
-                query = f'MATCH (n:{tag}) WHERE n.entity_id == "{safe_id}" RETURN n LIMIT 1'
-                result = await self._execute_query(query)
-                return result.row_size() > 0
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error checking node existence: {e}")
-                return False
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            safe_id = self._escape_string(node_id)
+            # 使用id()函数匹配VID，与其他查询保持一致
+            query = f'MATCH (n:{tag}) WHERE id(n) == "{safe_id}" RETURN n LIMIT 1'
+            result = await self._execute_query(query)
+            return result.row_size() > 0
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error checking node existence: {e}")
+            return False
 
     async def has_edge(self, source_node_id: str, target_node_id: str) -> bool:
         """检查边是否存在"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                src = self._escape_string(source_node_id)
-                tgt = self._escape_string(target_node_id)
-                query = (
-                    f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                    f'WHERE a.entity_id == "{src}" AND b.entity_id == "{tgt}" RETURN r LIMIT 1'
-                )
-                result = await self._execute_query(query)
-                return result.row_size() > 0
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error checking edge existence: {e}")
-                return False
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            src = self._escape_string(source_node_id)
+            tgt = self._escape_string(target_node_id)
+            # 修复：使用id()函数而不是entity_id属性
+            query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE id(a) == "{src}" AND id(b) == "{tgt}" RETURN r LIMIT 1'
+            )
+            result = await self._execute_query(query)
+            return result.row_size() > 0
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error checking edge existence: {e}")
+            return False
 
     async def node_degree(self, node_id: str) -> int:
         """获取节点度数"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                safe_id = self._escape_string(node_id)
-                query = (
-                    f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
-                    f'WHERE n.entity_id == "{safe_id}" RETURN count(r) AS degree'
-                )
-                result = await self._execute_query(query)
-                if result.row_size() > 0:
-                    return int(result.row_values(0)[0].as_int())
-                return 0
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting node degree: {e}")
-                return 0
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            safe_id = self._escape_string(node_id)
+            # 修复：使用id()函数而不是entity_id属性
+            query = (
+                f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
+                f'WHERE id(n) == "{safe_id}" RETURN count(r) AS degree'
+            )
+            result = await self._execute_query(query)
+            if result.row_size() > 0:
+                return int(result.row_values(0)[0].as_int())
+            return 0
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting node degree: {e}")
+            return 0
 
     async def edge_degree(self, src_id: str, tgt_id: str) -> int:
         """获取边度数"""
@@ -456,83 +524,189 @@ class NebulaGraphStorage(BaseGraphStorage):
         tgt_degree = await self.node_degree(tgt_id)
         return src_degree + tgt_degree
 
-    async def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
-        """获取节点数据"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                safe_id = self._escape_string(node_id)
-                query = f'MATCH (n:{tag}) WHERE n.entity_id == "{safe_id}" RETURN n LIMIT 1'
-                result = await self._execute_query(query)
-                if result.row_size() == 0:
-                    return None
-                node_value = result.row_values(0)[0]
-                properties = {}
-                # 🔥 修复4: 安全地检查并访问 properties
-                if hasattr(node_value, 'properties') and node_value.properties:
-                    for key, value in node_value.properties.items():
-                        properties[key] = self._value_to_python(value)
-                return properties
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting node: {e}")
+    async def get_node(self, node_id: str) -> dict[str, str] | None:
+        """获取节点数据
+
+        Args:
+            node_id: The node label to look up
+
+        Returns:
+            dict: Node properties if found
+            None: If node not found
+        """
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            safe_id = self._escape_string(node_id)
+            # 修复：使用FETCH PROP ON直接通过VID查询
+            query = f'FETCH PROP ON {tag} "{safe_id}" YIELD properties(vertex)'
+            result = await self._execute_query(query)
+
+            if result.row_size() == 0:
                 return None
 
-    async def get_edge(self, source_node_id: str, target_node_id: str) -> Optional[Dict[str, Any]]:
-        """获取边数据"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                src = self._escape_string(source_node_id)
-                tgt = self._escape_string(target_node_id)
-                query = (
-                    f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                    f'WHERE a.entity_id == "{src}" AND b.entity_id == "{tgt}" RETURN r LIMIT 1'
-                )
-                result = await self._execute_query(query)
-                if result.row_size() == 0:
+            # YIELD properties(vertex) 返回Map类型
+            row = result.row_values(0)
+            if row and len(row) > 0:
+                props_value = row[0]
+                # _value_to_python 现在可以直接处理 Map 类型并返回 Python 字典
+                properties = self._value_to_python(props_value)
+
+                if isinstance(properties, dict):
+                    return properties
+                else:
+                    logger.warning(f"[{self.workspace}] Expected dict but got {type(properties)}")
                     return None
-                edge_value = result.row_values(0)[0]
-                properties = {}
-                # 🔥 修复5: 安全地检查并访问 properties
-                if hasattr(edge_value, 'properties') and edge_value.properties:
-                    for key, value in edge_value.properties.items():
-                        properties[key] = self._value_to_python(value)
-                return properties
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting edge: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting node: {e}")
+            return None
+
+    async def get_nodes_batch(self, node_ids: list[str]) -> dict[str, dict]:
+        """批量获取节点数据
+
+        Args:
+            node_ids: 要查询的节点ID列表
+
+        Returns:
+            字典，键为node_id，值为节点数据字典；未找到的节点不在返回字典中
+        """
+        if not node_ids:
+            return {}
+
+        try:
+            tag = self._tag_name
+            # 使用FETCH PROP ON直接通过VID批量查询（VID就是node_id）
+            # NebulaGraph语法：FETCH PROP ON tag "vid1", "vid2" YIELD properties(vertex)
+            escaped_ids = [f'"{self._escape_string(nid)}"' for nid in node_ids]
+            ids_str = ", ".join(escaped_ids)
+            query = f'FETCH PROP ON {tag} {ids_str} YIELD properties(vertex)'
+
+            result = await self._execute_query(query)
+            nodes = {}
+
+            for i in range(result.row_size()):
+                row = result.row_values(i)
+
+                if row and len(row) > 0:
+                    # YIELD properties(vertex) 返回一个Map类型的值
+                    props_value = row[0]
+
+                    # _value_to_python 现在可以直接处理 Map 类型并返回 Python 字典
+                    properties = self._value_to_python(props_value)
+
+                    # 使用entity_id作为key
+                    if isinstance(properties, dict) and 'entity_id' in properties:
+                        nodes[properties['entity_id']] = properties
+
+            return nodes
+
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error in get_nodes_batch: {e}")
+            # 降级到逐个查询
+            result = {}
+            for node_id in node_ids:
+                node = await self.get_node(node_id)
+                if node is not None:
+                    result[node_id] = node
+            return result
+
+    async def get_edge(self, source_node_id: str, target_node_id: str) -> dict[str, str] | None:
+        """获取边数据
+
+        Args:
+            source_node_id: Label of the source node
+            target_node_id: Label of the target node
+
+        Returns:
+            dict: Edge properties if found
+            None: If edge not found
+        """
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            src = self._escape_string(source_node_id)
+            tgt = self._escape_string(target_node_id)
+            # 修复：使用MATCH ... RETURN properties(r)来获取边属性
+            query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE id(a) == "{src}" AND id(b) == "{tgt}" '
+                f'RETURN properties(r) LIMIT 1'
+            )
+            result = await self._execute_query(query)
+            if result.row_size() == 0:
                 return None
+
+            # properties(r) 返回Map类型，与properties(vertex)类似
+            row = result.row_values(0)
+            if row and len(row) > 0:
+                props_value = row[0]
+
+                # _value_to_python 可以直接处理 Map 类型并返回 Python 字典
+                properties = self._value_to_python(props_value)
+
+                if isinstance(properties, dict):
+                    # 确保必需的键存在，与 neo4j_impl.py 保持一致
+                    required_keys = {
+                        "weight": 1.0,
+                        "source_id": None,
+                        "description": None,
+                        "keywords": None,
+                    }
+                    for key, default_value in required_keys.items():
+                        if key not in properties:
+                            properties[key] = default_value
+                            logger.warning(
+                                f"[{self.workspace}] Edge between {source_node_id} and {target_node_id} "
+                                f"missing {key}, using default: {default_value}"
+                            )
+                    return properties
+                else:
+                    logger.warning(f"[{self.workspace}] Expected dict but got {type(properties)}")
+                    return None
+            return None
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting edge: {e}")
+            return None
 
     async def get_node_edges(self, source_node_id: str) -> Optional[List[tuple]]:
         """获取节点的所有边"""
-        async with get_graph_db_lock():
-            try:
-                tag = self._tag_name
-                src = self._escape_string(source_node_id)
-                query = (
-                    f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                    f'WHERE a.entity_id == "{src}" RETURN a.entity_id AS src, b.entity_id AS tgt'
-                )
-                result = await self._execute_query(query)
-                if result.row_size() == 0:
-                    return []
-                edges = []
-                for i in range(result.row_size()):
-                    row = result.row_values(i)
-                    src_val = self._value_to_python(row[0])
-                    tgt_val = self._value_to_python(row[1])
-                    edges.append((src_val, tgt_val))
-                return edges
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting node edges: {e}")
-                return None
+        # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
+        try:
+            tag = self._tag_name
+            src = self._escape_string(source_node_id)
+            # 修复：使用id()函数而不是entity_id属性，并返回id()
+            query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE id(a) == "{src}" RETURN id(a) AS src, id(b) AS tgt'
+            )
+            result = await self._execute_query(query)
+            if result.row_size() == 0:
+                return []
+            edges = []
+            for i in range(result.row_size()):
+                row = result.row_values(i)
+                src_val = self._value_to_python(row[0])
+                tgt_val = self._value_to_python(row[1])
+                edges.append((src_val, tgt_val))
+            return edges
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting node edges: {e}")
+            return None
 
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
         retry=retry_if_exception_type((IOErrorException,)),
     )
-    async def upsert_node(self, node_id: str, node_data: Dict[str, Any]) -> None:
-        """插入或更新节点"""
+    async def upsert_node(self, node_id: str, node_data: Dict[str, Any]) -> Dict[str, str]:
+        """插入或更新节点
+
+        Returns:
+            dict[str, str]: Operation status and message
+            - On success: {"status": "success", "message": "node upserted"}
+            - On failure: {"status": "error", "message": "<error details>"}
+        """
         async with get_graph_db_lock():
             try:
                 if "entity_id" not in node_data:
@@ -540,13 +714,15 @@ class NebulaGraphStorage(BaseGraphStorage):
                 props_str = self._format_properties(node_data)
                 tag = self._tag_name
                 query = (
-                    f'INSERT VERTEX {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
+                    f'INSERT VERTEX IF NOT EXISTS {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
                     f'VALUES "{self._escape_string(node_id)}": ({props_str})'
                 )
                 await self._execute_query(query)
+                return {"status": "success", "message": "node upserted"}
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error upserting node {node_id}: {e}")
-                raise
+                logger.error(f"[{self.workspace}] Failed query: {query[:300]}...")
+                return {"status": "error", "message": str(e)}
 
     async def upsert_nodes(self, nodes: List[tuple]):
         """批量插入或更新节点"""
@@ -563,7 +739,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                     batch_values.append(f'"{self._escape_string(node_id)}": ({props_str})')
                 
                 query = (
-                    f'INSERT VERTEX {tag}(entity_id, entity_type, description, source_id) '
+                    f'INSERT VERTEX IF NOT EXISTS {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
                     f'VALUES {", ".join(batch_values)}'
                 )
                 await self._execute_query(query)
@@ -576,29 +752,36 @@ class NebulaGraphStorage(BaseGraphStorage):
         wait=wait_exponential(multiplier=1, min=4, max=10),
         retry=retry_if_exception_type((IOErrorException,)),
     )
-    async def upsert_edge(self, source_node_id: str, target_node_id: str, edge_data: Dict[str, Any]) -> None:
-        """插入或更新边"""
-        async with get_graph_db_lock():
-            try:
-                if not await self.has_node(source_node_id):
-                    await self.upsert_node(source_node_id, {"entity_id": source_node_id, "entity_type": "entity"})
-                if not await self.has_node(target_node_id):
-                    await self.upsert_node(target_node_id, {"entity_id": target_node_id, "entity_type": "entity"})
+    async def upsert_edge(self, source_node_id: str, target_node_id: str, edge_data: Dict[str, Any]) -> Dict[str, str]:
+        """插入或更新边
 
-                weight = edge_data.get("weight", 1.0)
-                description = self._escape_string(edge_data.get("description", ""))
-                keywords = self._escape_string(edge_data.get("keywords", ""))
-                source_id = self._escape_string(edge_data.get("source_id", ""))
+        注意：此方法假设调用者已经确保节点存在（由 operate.py 保证）
+        不再重复检查节点存在性，以提高性能
 
-                query = (
-                    f'INSERT EDGE relationship(weight, description, keywords, source_id) VALUES '
-                    f'"{self._escape_string(source_node_id)}" -> "{self._escape_string(target_node_id)}": '
-                    f'({weight}, "{description}", "{keywords}", "{source_id}")'
-                )
-                await self._execute_query(query)
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error upserting edge {source_node_id}->{target_node_id}: {e}")
-                raise
+        Returns:
+            dict[str, str]: Operation status and message
+            - On success: {"status": "success", "message": "edge upserted"}
+            - On failure: {"status": "error", "message": "<error details>"}
+        """
+        # 移除全局锁，使用 INSERT EDGE 的原子性
+        # NebulaGraph 的 INSERT EDGE 是原子操作，不需要全局锁保护
+        try:
+            weight = edge_data.get("weight", 1.0)
+            description = self._escape_string(edge_data.get("description", ""))
+            keywords = self._escape_string(edge_data.get("keywords", ""))
+            source_id = self._escape_string(edge_data.get("source_id", ""))
+
+            # INSERT EDGE 是幂等的，重复插入会更新
+            query = (
+                f'INSERT EDGE relationship(weight, description, keywords, source_id) VALUES '
+                f'"{self._escape_string(source_node_id)}" -> "{self._escape_string(target_node_id)}": '
+                f'({weight}, "{description}", "{keywords}", "{source_id}")'
+            )
+            await self._execute_query(query)
+            return {"status": "success", "message": "edge upserted"}
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error upserting edge {source_node_id}->{target_node_id}: {e}")
+            return {"status": "error", "message": str(e)}
 
     async def upsert_edges(self, edges: List[tuple]):
         """批量插入或更新边"""
@@ -661,7 +844,8 @@ class NebulaGraphStorage(BaseGraphStorage):
         async with get_graph_db_lock():
             try:
                 tag = self._tag_name
-                query = f'MATCH (n:{tag}) RETURN DISTINCT n.entity_id AS label'
+                # 使用id(n)获取节点VID作为标签，与其他查询保持一致
+                query = f'MATCH (n:{tag}) RETURN DISTINCT id(n) AS label'
                 result = await self._execute_query(query)
                 labels: List[str] = []
                 for i in range(result.row_size()):
@@ -678,17 +862,21 @@ class NebulaGraphStorage(BaseGraphStorage):
         async with get_graph_db_lock():
             try:
                 tag = self._tag_name
-                query = f'MATCH (n:{tag}) RETURN n.entity_id AS id, n'
+                # 修复：使用id(n)和properties(n)
+                query = f'MATCH (n:{tag}) RETURN id(n) AS id, properties(n)'
                 result = await self._execute_query(query)
                 nodes = []
                 for i in range(result.row_size()):
                     row = result.row_values(i)
                     node_id = self._value_to_python(row[0])
-                    node_value = row[1]
+                    props_value = row[1]
+
                     node_data = {"id": node_id}
-                    if hasattr(node_value, 'properties') and node_value.properties:
-                        for key, value in node_value.properties.items():
-                            node_data[key] = self._value_to_python(value)
+                    # _value_to_python 可以直接处理 Map 类型
+                    props = self._value_to_python(props_value)
+                    if isinstance(props, dict):
+                        node_data.update(props)
+
                     nodes.append(node_data)
                 return nodes
             except Exception as e:
@@ -700,18 +888,22 @@ class NebulaGraphStorage(BaseGraphStorage):
         async with get_graph_db_lock():
             try:
                 tag = self._tag_name
-                query = f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) RETURN a.entity_id AS src, b.entity_id AS tgt, r'
+                # 修复：使用properties(r)来获取边属性
+                query = f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) RETURN id(a) AS src, id(b) AS tgt, properties(r)'
                 result = await self._execute_query(query)
                 edges = []
                 for i in range(result.row_size()):
                     row = result.row_values(i)
                     src = self._value_to_python(row[0])
                     tgt = self._value_to_python(row[1])
-                    edge_value = row[2]
+                    props_value = row[2]
+
                     edge_data = {"source": src, "target": tgt}
-                    if hasattr(edge_value, 'properties') and edge_value.properties:
-                        for key, value in edge_value.properties.items():
-                            edge_data[key] = self._value_to_python(value)
+                    # _value_to_python 可以直接处理 Map 类型
+                    props = self._value_to_python(props_value)
+                    if isinstance(props, dict):
+                        edge_data.update(props)
+
                     edges.append(edge_data)
                 return edges
             except Exception as e:
@@ -725,28 +917,29 @@ class NebulaGraphStorage(BaseGraphStorage):
             try:
                 if not chunk_ids:
                     return []
-                
+
                 tag = self._tag_name
                 # 转义并构建查询
                 safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
                 chunk_ids_str = ", ".join(safe_chunk_ids)
-                
+
+                # 使用LOOKUP ON来利用source_id索引进行高效查询
                 query = (
-                    f'MATCH (n:{tag}) '
-                    f'WHERE n.source_id IN [{chunk_ids_str}] '
-                    f'RETURN n'
+                    f'LOOKUP ON {tag} '
+                    f'WHERE {tag}.source_id IN [{chunk_ids_str}] '
+                    f'YIELD properties(vertex) AS props'
                 )
                 result = await self._execute_query(query)
-                
+
                 nodes = []
                 for i in range(result.row_size()):
-                    node_value = result.row_values(i)[0]
-                    node_data = {}
-                    if hasattr(node_value, 'properties') and node_value.properties:
-                        for key, value in node_value.properties.items():
-                            node_data[key] = self._value_to_python(value)
-                    nodes.append(node_data)
-                
+                    props_value = result.row_values(i)[0]
+
+                    # _value_to_python 可以直接处理 Map 类型
+                    node_data = self._value_to_python(props_value)
+                    if isinstance(node_data, dict):
+                        nodes.append(node_data)
+
                 return nodes
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error getting nodes by chunk_ids: {e}")
@@ -758,31 +951,35 @@ class NebulaGraphStorage(BaseGraphStorage):
             try:
                 if not chunk_ids:
                     return []
-                
+
                 tag = self._tag_name
                 # 转义并构建查询
                 safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
                 chunk_ids_str = ", ".join(safe_chunk_ids)
-                
+
+                # 修复：使用properties(r)来获取边属性，使用id()来获取节点ID
                 query = (
                     f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
                     f'WHERE r.source_id IN [{chunk_ids_str}] '
-                    f'RETURN a.entity_id AS src, b.entity_id AS tgt, r'
+                    f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
                 )
                 result = await self._execute_query(query)
-                
+
                 edges = []
                 for i in range(result.row_size()):
                     row = result.row_values(i)
                     src = self._value_to_python(row[0])
                     tgt = self._value_to_python(row[1])
-                    edge_value = row[2]
+                    props_value = row[2]
+
                     edge_data = {"source": src, "target": tgt}
-                    if hasattr(edge_value, 'properties') and edge_value.properties:
-                        for key, value in edge_value.properties.items():
-                            edge_data[key] = self._value_to_python(value)
+                    # _value_to_python 可以直接处理 Map 类型
+                    props = self._value_to_python(props_value)
+                    if isinstance(props, dict):
+                        edge_data.update(props)
+
                     edges.append(edge_data)
-                
+
                 return edges
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error getting edges by chunk_ids: {e}")
@@ -793,9 +990,11 @@ class NebulaGraphStorage(BaseGraphStorage):
         async with get_graph_db_lock():
             try:
                 tag = self._tag_name
+                # 修复：使用id(n)并添加GROUP BY子句用于聚合
                 query = (
                     f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
-                    f'RETURN n.entity_id AS label, count(r) AS degree ORDER BY degree DESC LIMIT {limit}'
+                    f'RETURN id(n) AS label, count(r) AS degree '
+                    f'ORDER BY degree DESC LIMIT {limit}'
                 )
                 result = await self._execute_query(query)
                 labels: List[str] = []
@@ -820,20 +1019,22 @@ class NebulaGraphStorage(BaseGraphStorage):
 
         async with get_graph_db_lock():
             try:
+                # 获取所有标签（使用id(n)），然后在客户端过滤
+                # 这样避免了在属性上使用CONTAINS的问题
+                nql = f'MATCH (n:{tag}) RETURN id(n) AS label LIMIT 1000'
+                result = await self._execute_query(nql)
+
+                all_labels = []
+                for i in range(result.row_size()):
+                    label = self._value_to_python(result.row_values(i)[0])
+                    if isinstance(label, str):
+                        all_labels.append(label)
+
+                # 客户端过滤
                 if is_chinese:
-                    nql = (
-                        f'MATCH (n:{tag}) '
-                        f'WHERE n.entity_id CONTAINS "{self._escape_string(query_strip)}" '
-                        f'RETURN n.entity_id AS label LIMIT {limit * 2}'
-                    )
-                    result = await self._execute_query(nql)
-                    
-                    labels = []
-                    for i in range(result.row_size()):
-                        label = self._value_to_python(result.row_values(i)[0])
-                        if isinstance(label, str):
-                            labels.append(label)
-                    
+                    # 中文搜索：查找包含搜索词的标签
+                    matched_labels = [label for label in all_labels if query_strip in label]
+
                     def chinese_score(label):
                         if label == query_strip:
                             return 1000
@@ -841,27 +1042,13 @@ class NebulaGraphStorage(BaseGraphStorage):
                             return 500
                         else:
                             return 100 - len(label)
-                    
-                    labels.sort(key=chinese_score, reverse=True)
-                    return labels[:limit]
-                    
+
+                    matched_labels.sort(key=chinese_score, reverse=True)
+                    return matched_labels[:limit]
                 else:
-                    nql = (
-                        f'MATCH (n:{tag}) '
-                        f'WHERE n.entity_id IS NOT NULL '
-                        f'RETURN n.entity_id AS label LIMIT {limit * 3}'
-                    )
-                    result = await self._execute_query(nql)
-                    
-                    labels = []
-                    for i in range(result.row_size()):
-                        label = self._value_to_python(result.row_values(i)[0])
-                        if not isinstance(label, str):
-                            continue
-                        label_lower = label.lower()
-                        if query_lower in label_lower:
-                            labels.append(label)
-                    
+                    # 拉丁文搜索：不区分大小写
+                    matched_labels = [label for label in all_labels if query_lower in label.lower()]
+
                     def latin_score(label):
                         label_lower = label.lower()
                         if label_lower == query_lower:
@@ -872,9 +1059,9 @@ class NebulaGraphStorage(BaseGraphStorage):
                             return 50
                         else:
                             return 100 - len(label)
-                    
-                    labels.sort(key=latin_score, reverse=True)
-                    return labels[:limit]
+
+                    matched_labels.sort(key=latin_score, reverse=True)
+                    return matched_labels[:limit]
                     
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error searching labels: {e}")
@@ -888,45 +1075,67 @@ class NebulaGraphStorage(BaseGraphStorage):
                 nodes = []
                 node_ids = set()
 
-                if node_label == "*":
-                    nodes_query = f'MATCH (n:{tag}) RETURN n.entity_id AS id, n LIMIT {max_nodes}'
-                else:
-                    nodes_query = (
-                        f'MATCH (n:{tag}) WHERE n.entity_id CONTAINS "{self._escape_string(node_label)}" '
-                        f'RETURN n.entity_id AS id, n LIMIT {max_nodes}'
-                    )
-
+                # 使用id(n)和properties(n)获取节点，然后客户端过滤
+                nodes_query = f'MATCH (n:{tag}) RETURN id(n) AS id, properties(n) AS props LIMIT {max_nodes * 2}'
                 nodes_result = await self._execute_query(nodes_query)
+
                 for i in range(nodes_result.row_size()):
                     row = nodes_result.row_values(i)
                     node_id = self._value_to_python(row[0])
-                    node_value = row[1]
-                    node_data = {}
-                    if hasattr(node_value, 'properties') and node_value.properties:
-                        for key, value in node_value.properties.items():
-                            node_data[key] = self._value_to_python(value)
-                    nodes.append(KnowledgeGraphNode(id=node_id, **node_data))
-                    node_ids.add(node_id)
+                    props_value = row[1]
+
+                    # 客户端过滤：如果不是 "*"，只包含匹配的节点
+                    if node_label != "*" and node_label not in node_id:
+                        continue
+
+                    # 转换属性
+                    node_data = self._value_to_python(props_value)
+                    if isinstance(node_data, dict):
+                        # KnowledgeGraphNode 需要 labels 和 properties 字段
+                        nodes.append(KnowledgeGraphNode(
+                            id=node_id,
+                            labels=[node_data.get("entity_id", node_id)],
+                            properties=node_data
+                        ))
+                        node_ids.add(node_id)
+                        if len(nodes) >= max_nodes:
+                            break
 
                 edges = []
                 if node_ids:
                     node_list = ", ".join(f'"{self._escape_string(nid)}"' for nid in node_ids)
+                    # 使用id(a), id(b)和properties(r)
                     edges_query = (
                         f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                        f'WHERE a.entity_id IN [{node_list}] AND b.entity_id IN [{node_list}] '
-                        f'RETURN a.entity_id AS src, b.entity_id AS tgt, r'
+                        f'WHERE id(a) IN [{node_list}] AND id(b) IN [{node_list}] '
+                        f'RETURN id(a) AS src, id(b) AS tgt, properties(r) AS props'
                     )
                     edges_result = await self._execute_query(edges_query)
                     for i in range(edges_result.row_size()):
                         row = edges_result.row_values(i)
                         src = self._value_to_python(row[0])
                         tgt = self._value_to_python(row[1])
-                        edge_value = row[2]
-                        edge_data = {}
-                        if hasattr(edge_value, 'properties') and edge_value.properties:
-                            for key, value in edge_value.properties.items():
-                                edge_data[key] = self._value_to_python(value)
-                        edges.append(KnowledgeGraphEdge(source_id=src, target_id=tgt, **edge_data))
+                        props_value = row[2]
+
+                        # 转换边属性
+                        edge_data = self._value_to_python(props_value)
+                        if isinstance(edge_data, dict):
+                            # KnowledgeGraphEdge 需要 id, type, source, target, properties
+                            edges.append(KnowledgeGraphEdge(
+                                id=f"{src}_{tgt}",
+                                type="relationship",
+                                source=src,
+                                target=tgt,
+                                properties=edge_data
+                            ))
+                        else:
+                            edges.append(KnowledgeGraphEdge(
+                                id=f"{src}_{tgt}",
+                                type="relationship",
+                                source=src,
+                                target=tgt,
+                                properties={}
+                            ))
 
                 return KnowledgeGraph(nodes=nodes, edges=edges)
             except Exception as e:
@@ -941,21 +1150,20 @@ class NebulaGraphStorage(BaseGraphStorage):
             embeddings[node.id] = [0.0] * 128
         return kg, embeddings
 
-    async def drop(self):
-        """删除整个 workspace 的数据"""
+    async def drop(self) -> Dict[str, str]:
+        """删除整个 workspace 的数据
+
+        Returns:
+            dict[str, str]: Operation status and message
+            - On success: {"status": "success", "message": "workspace '<name>' data dropped"}
+            - On failure: {"status": "error", "message": "<error details>"}
+        """
         async with get_graph_db_lock():
             try:
                 logger.warning(
                     f"[{self.workspace}] Dropping entire Space: {self._space_name}"
                 )
-                
-                if self._session:
-                    try:
-                        self._session.release()
-                    except Exception:
-                        pass
-                    self._session = None
-                
+
                 if self._connection_pool:
                     temp_session = self._connection_pool.get_session(self._user, self._password)
                     try:
@@ -963,14 +1171,22 @@ class NebulaGraphStorage(BaseGraphStorage):
                         result = temp_session.execute(drop_query)
                         if result.is_succeeded():
                             logger.info(f"[{self.workspace}] ✅ Dropped Space: {self._space_name}")
+                            return {
+                                "status": "success",
+                                "message": f"workspace '{self._space_name}' data dropped",
+                            }
                         else:
+                            error_msg = result.error_msg()
                             logger.error(
                                 f"[{self.workspace}] Failed to drop Space {self._space_name}: "
-                                f"{result.error_msg()}"
+                                f"{error_msg}"
                             )
+                            return {"status": "error", "message": error_msg}
                     finally:
                         temp_session.release()
-                    
+                else:
+                    return {"status": "error", "message": "Connection pool not initialized"}
+
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error dropping Space {self._space_name}: {e}")
-                raise
+                return {"status": "error", "message": str(e)}

@@ -97,3 +97,13 @@ output*.txt
 nebula/nebula/kv_store_full_docs.json
 nebula/nebula/kv_store_doc_status.json
 .gitignore
+nebula/nebula/kv_store_full_entities.json
+nebula/nebula/kv_store_full_relations.json
+.gitignore
+.gitignore
+nebula/nebula/kv_store_llm_response_cache.json
+nebula_wx.txt
+mid_output.txt
+nebula/nebula/kv_store_text_chunks.json
+.gitignore
+.gitignore
