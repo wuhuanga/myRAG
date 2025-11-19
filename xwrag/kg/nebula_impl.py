@@ -717,11 +717,6 @@ class NebulaGraphStorage(BaseGraphStorage):
                     f'INSERT VERTEX IF NOT EXISTS {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
                     f'VALUES "{self._escape_string(node_id)}": ({props_str})'
                 )
-                # 添加调试日志（仅首次）
-                if not hasattr(self, '_logged_first_insert'):
-                    logger.info(f"[{self.workspace}] First node insert query: {query[:200]}...")
-                    self._logged_first_insert = True
-
                 await self._execute_query(query)
                 return {"status": "success", "message": "node upserted"}
             except Exception as e:
