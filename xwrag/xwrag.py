@@ -2428,7 +2428,8 @@ class xwrag:
                 }
 
             # Extract structured data from query result
-            raw_data = query_result.raw_data if query_result else {}
+            # Fix: Ensure raw_data is a dict even when query_result.raw_data is None
+            raw_data = (query_result.raw_data if query_result else None) or {}
             raw_data["llm_response"] = {
                 "content": query_result.content
                 if not query_result.is_streaming
