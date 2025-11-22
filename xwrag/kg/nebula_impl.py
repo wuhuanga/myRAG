@@ -841,171 +841,165 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def get_all_labels(self) -> List[str]:
         """获取所有节点标签"""
-        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
-            try:
-                tag = self._tag_name
-                # 使用id(n)获取节点VID作为标签，与其他查询保持一致
-                query = f'MATCH (n:{tag}) RETURN DISTINCT id(n) AS label'
-                result = await self._execute_query(query)
-                labels: List[str] = []
-                for i in range(result.row_size()):
-                    val = self._value_to_python(result.row_values(i)[0])
-                    if isinstance(val, str):
-                        labels.append(val)
-                return sorted(labels)
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting all labels: {e}")
-                return []
+        try:
+            tag = self._tag_name
+            # 使用id(n)获取节点VID作为标签，与其他查询保持一致
+            query = f'MATCH (n:{tag}) RETURN DISTINCT id(n) AS label'
+            result = await self._execute_query(query)
+            labels: List[str] = []
+            for i in range(result.row_size()):
+                val = self._value_to_python(result.row_values(i)[0])
+                if isinstance(val, str):
+                    labels.append(val)
+            return sorted(labels)
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting all labels: {e}")
+            return []
 
     async def get_all_nodes(self) -> List[Dict[str, Any]]:
         """获取所有节点"""
-        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
-            try:
-                tag = self._tag_name
-                # 修复：使用id(n)和properties(n)
-                query = f'MATCH (n:{tag}) RETURN id(n) AS id, properties(n)'
-                result = await self._execute_query(query)
-                nodes = []
-                for i in range(result.row_size()):
-                    row = result.row_values(i)
-                    node_id = self._value_to_python(row[0])
-                    props_value = row[1]
+        try:
+            tag = self._tag_name
+            # 修复：使用id(n)和properties(n)
+            query = f'MATCH (n:{tag}) RETURN id(n) AS id, properties(n)'
+            result = await self._execute_query(query)
+            nodes = []
+            for i in range(result.row_size()):
+                row = result.row_values(i)
+                node_id = self._value_to_python(row[0])
+                props_value = row[1]
 
-                    node_data = {"id": node_id}
-                    # _value_to_python 可以直接处理 Map 类型
-                    props = self._value_to_python(props_value)
-                    if isinstance(props, dict):
-                        node_data.update(props)
+                node_data = {"id": node_id}
+                # _value_to_python 可以直接处理 Map 类型
+                props = self._value_to_python(props_value)
+                if isinstance(props, dict):
+                    node_data.update(props)
 
-                    nodes.append(node_data)
-                return nodes
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting all nodes: {e}")
-                return []
+                nodes.append(node_data)
+            return nodes
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting all nodes: {e}")
+            return []
 
     async def get_all_edges(self) -> List[Dict[str, Any]]:
         """获取所有边"""
-        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
-            try:
-                tag = self._tag_name
-                # 修复：使用properties(r)来获取边属性
-                query = f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) RETURN id(a) AS src, id(b) AS tgt, properties(r)'
-                result = await self._execute_query(query)
-                edges = []
-                for i in range(result.row_size()):
-                    row = result.row_values(i)
-                    src = self._value_to_python(row[0])
-                    tgt = self._value_to_python(row[1])
-                    props_value = row[2]
+        try:
+            tag = self._tag_name
+            # 修复：使用properties(r)来获取边属性
+            query = f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) RETURN id(a) AS src, id(b) AS tgt, properties(r)'
+            result = await self._execute_query(query)
+            edges = []
+            for i in range(result.row_size()):
+                row = result.row_values(i)
+                src = self._value_to_python(row[0])
+                tgt = self._value_to_python(row[1])
+                props_value = row[2]
 
-                    edge_data = {"source": src, "target": tgt}
-                    # _value_to_python 可以直接处理 Map 类型
-                    props = self._value_to_python(props_value)
-                    if isinstance(props, dict):
-                        edge_data.update(props)
+                edge_data = {"source": src, "target": tgt}
+                # _value_to_python 可以直接处理 Map 类型
+                props = self._value_to_python(props_value)
+                if isinstance(props, dict):
+                    edge_data.update(props)
 
-                    edges.append(edge_data)
-                return edges
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting all edges: {e}")
-                return []
+                edges.append(edge_data)
+            return edges
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting all edges: {e}")
+            return []
 
     # 🔥 修复6: 实现缺失的抽象方法
     async def get_nodes_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
         """根据 chunk_ids 获取相关节点"""
-        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
-            try:
-                if not chunk_ids:
-                    return []
-
-                tag = self._tag_name
-                # 转义并构建查询
-                safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
-                chunk_ids_str = ", ".join(safe_chunk_ids)
-
-                # 使用LOOKUP ON来利用source_id索引进行高效查询
-                query = (
-                    f'LOOKUP ON {tag} '
-                    f'WHERE {tag}.source_id IN [{chunk_ids_str}] '
-                    f'YIELD properties(vertex) AS props'
-                )
-                result = await self._execute_query(query)
-
-                nodes = []
-                for i in range(result.row_size()):
-                    props_value = result.row_values(i)[0]
-
-                    # _value_to_python 可以直接处理 Map 类型
-                    node_data = self._value_to_python(props_value)
-                    if isinstance(node_data, dict):
-                        nodes.append(node_data)
-
-                return nodes
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting nodes by chunk_ids: {e}")
+        try:
+            if not chunk_ids:
                 return []
+
+            tag = self._tag_name
+            # 转义并构建查询
+            safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
+            chunk_ids_str = ", ".join(safe_chunk_ids)
+
+            # 使用LOOKUP ON来利用source_id索引进行高效查询
+            query = (
+                f'LOOKUP ON {tag} '
+                f'WHERE {tag}.source_id IN [{chunk_ids_str}] '
+                f'YIELD properties(vertex) AS props'
+            )
+            result = await self._execute_query(query)
+
+            nodes = []
+            for i in range(result.row_size()):
+                props_value = result.row_values(i)[0]
+
+                # _value_to_python 可以直接处理 Map 类型
+                node_data = self._value_to_python(props_value)
+                if isinstance(node_data, dict):
+                    nodes.append(node_data)
+
+            return nodes
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting nodes by chunk_ids: {e}")
+            return []
 
     async def get_edges_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
         """根据 chunk_ids 获取相关边"""
-        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
-            try:
-                if not chunk_ids:
-                    return []
-
-                tag = self._tag_name
-                # 转义并构建查询
-                safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
-                chunk_ids_str = ", ".join(safe_chunk_ids)
-
-                # 修复：使用properties(r)来获取边属性，使用id()来获取节点ID
-                query = (
-                    f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                    f'WHERE r.source_id IN [{chunk_ids_str}] '
-                    f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
-                )
-                result = await self._execute_query(query)
-
-                edges = []
-                for i in range(result.row_size()):
-                    row = result.row_values(i)
-                    src = self._value_to_python(row[0])
-                    tgt = self._value_to_python(row[1])
-                    props_value = row[2]
-
-                    edge_data = {"source": src, "target": tgt}
-                    # _value_to_python 可以直接处理 Map 类型
-                    props = self._value_to_python(props_value)
-                    if isinstance(props, dict):
-                        edge_data.update(props)
-
-                    edges.append(edge_data)
-
-                return edges
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting edges by chunk_ids: {e}")
+        try:
+            if not chunk_ids:
                 return []
+
+            tag = self._tag_name
+            # 转义并构建查询
+            safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
+            chunk_ids_str = ", ".join(safe_chunk_ids)
+
+            # 修复：使用properties(r)来获取边属性，使用id()来获取节点ID
+            query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE r.source_id IN [{chunk_ids_str}] '
+                f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
+            )
+            result = await self._execute_query(query)
+
+            edges = []
+            for i in range(result.row_size()):
+                row = result.row_values(i)
+                src = self._value_to_python(row[0])
+                tgt = self._value_to_python(row[1])
+                props_value = row[2]
+
+                edge_data = {"source": src, "target": tgt}
+                # _value_to_python 可以直接处理 Map 类型
+                props = self._value_to_python(props_value)
+                if isinstance(props, dict):
+                    edge_data.update(props)
+
+                edges.append(edge_data)
+
+            return edges
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting edges by chunk_ids: {e}")
+            return []
 
     async def get_popular_labels(self, limit: int = 300) -> List[str]:
         """获取热门标签"""
-        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
-            try:
-                tag = self._tag_name
-                # 修复：使用id(n)并添加GROUP BY子句用于聚合
-                query = (
-                    f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
-                    f'RETURN id(n) AS label, count(r) AS degree '
-                    f'ORDER BY degree DESC LIMIT {limit}'
-                )
-                result = await self._execute_query(query)
-                labels: List[str] = []
-                for i in range(result.row_size()):
-                    val = self._value_to_python(result.row_values(i)[0])
-                    if isinstance(val, str):
-                        labels.append(val)
-                return labels
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting popular labels: {e}")
-                return []
+        try:
+            tag = self._tag_name
+            # 修复：使用id(n)并添加GROUP BY子句用于聚合
+            query = (
+                f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
+                f'RETURN id(n) AS label, count(r) AS degree '
+                f'ORDER BY degree DESC LIMIT {limit}'
+            )
+            result = await self._execute_query(query)
+            labels: List[str] = []
+            for i in range(result.row_size()):
+                val = self._value_to_python(result.row_values(i)[0])
+                if isinstance(val, str):
+                    labels.append(val)
+            return labels
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting popular labels: {e}")
+            return []
 
     async def search_labels(self, query: str, limit: int = 50) -> List[str]:
         """搜索标签"""
@@ -1017,130 +1011,128 @@ class NebulaGraphStorage(BaseGraphStorage):
         query_lower = query_strip.lower()
         is_chinese = self._is_chinese_text(query_strip)
 
-        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
-            try:
-                # 获取所有标签（使用id(n)），然后在客户端过滤
-                # 这样避免了在属性上使用CONTAINS的问题
-                nql = f'MATCH (n:{tag}) RETURN id(n) AS label LIMIT 1000'
-                result = await self._execute_query(nql)
+        try:
+            # 获取所有标签（使用id(n)），然后在客户端过滤
+            # 这样避免了在属性上使用CONTAINS的问题
+            nql = f'MATCH (n:{tag}) RETURN id(n) AS label LIMIT 1000'
+            result = await self._execute_query(nql)
 
-                all_labels = []
-                for i in range(result.row_size()):
-                    label = self._value_to_python(result.row_values(i)[0])
-                    if isinstance(label, str):
-                        all_labels.append(label)
+            all_labels = []
+            for i in range(result.row_size()):
+                label = self._value_to_python(result.row_values(i)[0])
+                if isinstance(label, str):
+                    all_labels.append(label)
 
-                # 客户端过滤
-                if is_chinese:
-                    # 中文搜索：查找包含搜索词的标签
-                    matched_labels = [label for label in all_labels if query_strip in label]
+            # 客户端过滤
+            if is_chinese:
+                # 中文搜索：查找包含搜索词的标签
+                matched_labels = [label for label in all_labels if query_strip in label]
 
-                    def chinese_score(label):
-                        if label == query_strip:
-                            return 1000
-                        elif label.startswith(query_strip):
-                            return 500
-                        else:
-                            return 100 - len(label)
+                def chinese_score(label):
+                    if label == query_strip:
+                        return 1000
+                    elif label.startswith(query_strip):
+                        return 500
+                    else:
+                        return 100 - len(label)
 
-                    matched_labels.sort(key=chinese_score, reverse=True)
-                    return matched_labels[:limit]
-                else:
-                    # 拉丁文搜索：不区分大小写
-                    matched_labels = [label for label in all_labels if query_lower in label.lower()]
+                matched_labels.sort(key=chinese_score, reverse=True)
+                return matched_labels[:limit]
+            else:
+                # 拉丁文搜索：不区分大小写
+                matched_labels = [label for label in all_labels if query_lower in label.lower()]
 
-                    def latin_score(label):
-                        label_lower = label.lower()
-                        if label_lower == query_lower:
-                            return 1000
-                        elif label_lower.startswith(query_lower):
-                            return 500
-                        elif ' ' + query_lower in label_lower or '_' + query_lower in label_lower:
-                            return 50
-                        else:
-                            return 100 - len(label)
+                def latin_score(label):
+                    label_lower = label.lower()
+                    if label_lower == query_lower:
+                        return 1000
+                    elif label_lower.startswith(query_lower):
+                        return 500
+                    elif ' ' + query_lower in label_lower or '_' + query_lower in label_lower:
+                        return 50
+                    else:
+                        return 100 - len(label)
 
-                    matched_labels.sort(key=latin_score, reverse=True)
-                    return matched_labels[:limit]
-                    
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error searching labels: {e}")
-                return []
+                matched_labels.sort(key=latin_score, reverse=True)
+                return matched_labels[:limit]
+
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error searching labels: {e}")
+            return []
 
     async def get_knowledge_graph(self, node_label: str, max_depth: int = 3, max_nodes: int = 1000) -> KnowledgeGraph:
         """获取知识图谱"""
-        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
-            try:
-                tag = self._tag_name
-                nodes = []
-                node_ids = set()
+        try:
+            tag = self._tag_name
+            nodes = []
+            node_ids = set()
 
-                # 使用id(n)和properties(n)获取节点，然后客户端过滤
-                nodes_query = f'MATCH (n:{tag}) RETURN id(n) AS id, properties(n) AS props LIMIT {max_nodes * 2}'
-                nodes_result = await self._execute_query(nodes_query)
+            # 使用id(n)和properties(n)获取节点，然后客户端过滤
+            nodes_query = f'MATCH (n:{tag}) RETURN id(n) AS id, properties(n) AS props LIMIT {max_nodes * 2}'
+            nodes_result = await self._execute_query(nodes_query)
 
-                for i in range(nodes_result.row_size()):
-                    row = nodes_result.row_values(i)
-                    node_id = self._value_to_python(row[0])
-                    props_value = row[1]
+            for i in range(nodes_result.row_size()):
+                row = nodes_result.row_values(i)
+                node_id = self._value_to_python(row[0])
+                props_value = row[1]
 
-                    # 客户端过滤：如果不是 "*"，只包含匹配的节点
-                    if node_label != "*" and node_label not in node_id:
-                        continue
+                # 客户端过滤：如果不是 "*"，只包含匹配的节点
+                if node_label != "*" and node_label not in node_id:
+                    continue
 
-                    # 转换属性
-                    node_data = self._value_to_python(props_value)
-                    if isinstance(node_data, dict):
-                        # KnowledgeGraphNode 需要 labels 和 properties 字段
-                        nodes.append(KnowledgeGraphNode(
-                            id=node_id,
-                            labels=[node_data.get("entity_id", node_id)],
-                            properties=node_data
+                # 转换属性
+                node_data = self._value_to_python(props_value)
+                if isinstance(node_data, dict):
+                    # KnowledgeGraphNode 需要 labels 和 properties 字段
+                    nodes.append(KnowledgeGraphNode(
+                        id=node_id,
+                        labels=[node_data.get("entity_id", node_id)],
+                        properties=node_data
+                    ))
+                    node_ids.add(node_id)
+                    if len(nodes) >= max_nodes:
+                        break
+
+            edges = []
+            if node_ids:
+                node_list = ", ".join(f'"{self._escape_string(nid)}"' for nid in node_ids)
+                # 使用id(a), id(b)和properties(r)
+                edges_query = (
+                    f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                    f'WHERE id(a) IN [{node_list}] AND id(b) IN [{node_list}] '
+                    f'RETURN id(a) AS src, id(b) AS tgt, properties(r) AS props'
+                )
+                edges_result = await self._execute_query(edges_query)
+                for i in range(edges_result.row_size()):
+                    row = edges_result.row_values(i)
+                    src = self._value_to_python(row[0])
+                    tgt = self._value_to_python(row[1])
+                    props_value = row[2]
+
+                    # 转换边属性
+                    edge_data = self._value_to_python(props_value)
+                    if isinstance(edge_data, dict):
+                        # KnowledgeGraphEdge 需要 id, type, source, target, properties
+                        edges.append(KnowledgeGraphEdge(
+                            id=f"{src}_{tgt}",
+                            type="relationship",
+                            source=src,
+                            target=tgt,
+                            properties=edge_data
                         ))
-                        node_ids.add(node_id)
-                        if len(nodes) >= max_nodes:
-                            break
+                    else:
+                        edges.append(KnowledgeGraphEdge(
+                            id=f"{src}_{tgt}",
+                            type="relationship",
+                            source=src,
+                            target=tgt,
+                            properties={}
+                        ))
 
-                edges = []
-                if node_ids:
-                    node_list = ", ".join(f'"{self._escape_string(nid)}"' for nid in node_ids)
-                    # 使用id(a), id(b)和properties(r)
-                    edges_query = (
-                        f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                        f'WHERE id(a) IN [{node_list}] AND id(b) IN [{node_list}] '
-                        f'RETURN id(a) AS src, id(b) AS tgt, properties(r) AS props'
-                    )
-                    edges_result = await self._execute_query(edges_query)
-                    for i in range(edges_result.row_size()):
-                        row = edges_result.row_values(i)
-                        src = self._value_to_python(row[0])
-                        tgt = self._value_to_python(row[1])
-                        props_value = row[2]
-
-                        # 转换边属性
-                        edge_data = self._value_to_python(props_value)
-                        if isinstance(edge_data, dict):
-                            # KnowledgeGraphEdge 需要 id, type, source, target, properties
-                            edges.append(KnowledgeGraphEdge(
-                                id=f"{src}_{tgt}",
-                                type="relationship",
-                                source=src,
-                                target=tgt,
-                                properties=edge_data
-                            ))
-                        else:
-                            edges.append(KnowledgeGraphEdge(
-                                id=f"{src}_{tgt}",
-                                type="relationship",
-                                source=src,
-                                target=tgt,
-                                properties={}
-                            ))
-
-                return KnowledgeGraph(nodes=nodes, edges=edges)
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting knowledge graph: {e}")
-                return KnowledgeGraph(nodes=[], edges=[])
+            return KnowledgeGraph(nodes=nodes, edges=edges)
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting knowledge graph: {e}")
+            return KnowledgeGraph(nodes=[], edges=[])
 
     async def embed_nodes(self, algorithm: str) -> tuple[KnowledgeGraph, dict]:
         """对节点进行嵌入"""
