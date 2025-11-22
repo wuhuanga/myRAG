@@ -32,7 +32,8 @@ BASE_URL = "http://localhost:8000"
 API_PREFIX = "/api"
 
 # 测试数据
-WORKING_DIR = "./test_rag_storage"
+WORKING_DIR_1 = "./test_rag_storage_1"
+WORKING_DIR_2 = "./test_rag_storage_2"
 RAG_1_ID = "rag_1"
 RAG_2_ID = "rag_2"
 RAG_1_WORKSPACE = "workspace_1"
@@ -55,7 +56,8 @@ class TestConcurrentAPI:
     async def setup(self):
         """测试前准备"""
         # 创建测试目录
-        Path(WORKING_DIR).mkdir(exist_ok=True)
+        Path(WORKING_DIR_1).mkdir(exist_ok=True)
+        Path(WORKING_DIR_2).mkdir(exist_ok=True)
 
         # 创建测试文档（如果不存在）
         self._ensure_test_files_exist()
@@ -83,13 +85,13 @@ class TestConcurrentAPI:
         print("="*60)
 
         async with aiohttp.ClientSession() as session:
-            # 准备创建请求
+            # 准备创建请求（使用不同的 working_dir）
             create_tasks = [
                 self._create_rag_instance(
-                    session, RAG_1_ID, RAG_1_WORKSPACE, "知识库1"
+                    session, RAG_1_ID, RAG_1_WORKSPACE, WORKING_DIR_1, "知识库1"
                 ),
                 self._create_rag_instance(
-                    session, RAG_2_ID, RAG_2_WORKSPACE, "知识库2"
+                    session, RAG_2_ID, RAG_2_WORKSPACE, WORKING_DIR_2, "知识库2"
                 ),
             ]
 
@@ -248,6 +250,7 @@ class TestConcurrentAPI:
         session: aiohttp.ClientSession,
         rag_id: str,
         workspace: str,
+        working_dir: str,
         description: str = ""
     ) -> dict:
         """创建 RAG 实例"""
@@ -255,7 +258,7 @@ class TestConcurrentAPI:
         data = {
             "rag_id": rag_id,
             "workspace": workspace,
-            "working_dir": WORKING_DIR,
+            "working_dir": working_dir,
             "description": description,
         }
 
@@ -375,6 +378,10 @@ async def run_all_tests():
     print(f"测试文档: {DOC_1_PATH}, {DOC_2_PATH}")
 
     test = TestConcurrentAPI()
+
+    # 创建测试目录
+    Path(WORKING_DIR_1).mkdir(exist_ok=True)
+    Path(WORKING_DIR_2).mkdir(exist_ok=True)
 
     # 确保测试文件存在
     test._ensure_test_files_exist()
