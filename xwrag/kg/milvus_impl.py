@@ -1035,34 +1035,24 @@ class MilvusVectorDBStorage(BaseVectorStorage):
                 )
 
         # ==================== 多租户数据库隔离 ====================
-        # 检查是否启用多租户模式（每个 workspace 使用独立的 database）
-        self._multi_tenant_mode = os.environ.get("MILVUS_MULTI_TENANT", "false").lower() == "true"
-
-        if self._multi_tenant_mode and effective_workspace:
+        # 有 workspace 时自动使用独立 database，实现物理隔离
+        if effective_workspace:
             # 多租户模式：每个 workspace 使用独立的 database
             self._db_name = f"xwrag_{effective_workspace}"
-            # collection 名称不再需要 workspace 前缀
+            # collection 名称不再需要 workspace 前缀（因为已经在不同 database 中）
             self.final_namespace = self.namespace
             logger.info(
-                f"Multi-tenant mode: workspace '{effective_workspace}' -> database '{self._db_name}', collection '{self.final_namespace}'"
+                f"Multi-tenant: workspace '{effective_workspace}' -> database '{self._db_name}', collection '{self.final_namespace}'"
             )
         else:
-            # 传统模式：所有 workspace 共享同一个 database，通过 collection 前缀隔离
+            # 无 workspace：使用默认 database
             self._db_name = os.environ.get(
                 "MILVUS_DB_NAME",
                 config.get("milvus", "db_name", fallback=None),
             )
-            # Build final_namespace with workspace prefix for data isolation
-            if effective_workspace:
-                self.final_namespace = f"{effective_workspace}_{self.namespace}"
-                logger.debug(
-                    f"Final namespace with workspace prefix: '{self.final_namespace}'"
-                )
-            else:
-                # When workspace is empty, final_namespace equals original namespace
-                self.final_namespace = self.namespace
-                logger.debug(f"Final namespace (no workspace): '{self.final_namespace}'")
-                self.workspace = "_"
+            self.final_namespace = self.namespace
+            self.workspace = "_"
+            logger.debug(f"Default mode: database '{self._db_name}', collection '{self.final_namespace}'")
 
         # 保存 effective_workspace 用于后续操作
         self._effective_workspace = effective_workspace or "_"
