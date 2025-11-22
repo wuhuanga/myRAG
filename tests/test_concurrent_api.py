@@ -351,6 +351,70 @@ class TestConcurrentAPI:
             print(f"  [{timestamp()}] 删除 {rag_id} 失败: {e}")
             return {"status": "error", "message": str(e)}
 
+    async def _get_documents_status(
+        self,
+        session: aiohttp.ClientSession,
+        rag_id: str
+    ) -> dict:
+        """获取文档处理状态"""
+        url = f"{BASE_URL}{API_PREFIX}/documents/{rag_id}/status"
+
+        try:
+            async with session.get(url) as response:
+                result = await response.json()
+                return result
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    async def _wait_for_documents_processed(
+        self,
+        rag_ids: list,
+        timeout: int = 600,
+        poll_interval: int = 10
+    ):
+        """等待所有知识库的文档处理完成
+
+        Args:
+            rag_ids: 知识库 ID 列表
+            timeout: 超时时间（秒）
+            poll_interval: 轮询间隔（秒）
+        """
+        async with aiohttp.ClientSession() as session:
+            start_time = time.time()
+
+            while time.time() - start_time < timeout:
+                all_processed = True
+                status_info = []
+
+                for rag_id in rag_ids:
+                    result = await self._get_documents_status(session, rag_id)
+                    if result.get("status") == "success":
+                        counts = result.get("counts", {})
+                        pending = counts.get("pending", 0)
+                        processing = counts.get("processing", 0)
+                        processed = counts.get("processed", 0)
+                        failed = counts.get("failed", 0)
+
+                        status_info.append(f"{rag_id}: pending={pending}, processing={processing}, processed={processed}, failed={failed}")
+
+                        if pending > 0 or processing > 0:
+                            all_processed = False
+                    else:
+                        status_info.append(f"{rag_id}: 获取状态失败")
+                        all_processed = False
+
+                elapsed = int(time.time() - start_time)
+                print(f"  [{timestamp()}] 已等待 {elapsed}s - {', '.join(status_info)}")
+
+                if all_processed:
+                    print(f"  [{timestamp()}] 所有文档处理完成!")
+                    return True
+
+                await asyncio.sleep(poll_interval)
+
+            print(f"  [{timestamp()}] 等待超时 ({timeout}s)")
+            return False
+
     async def _list_instances(
         self,
         session: aiohttp.ClientSession
@@ -399,7 +463,7 @@ async def run_all_tests():
 
         # 等待文档处理完成
         print("\n等待文档处理...")
-        await asyncio.sleep(5)
+        await test._wait_for_documents_processed([RAG_1_ID, RAG_2_ID], timeout=600)
 
         # 测试 3a: 并发查询同一知识库
         await test.test_concurrent_query_same_kb()
