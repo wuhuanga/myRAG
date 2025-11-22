@@ -1,22 +1,128 @@
 import asyncio
 import os
-from typing import Any, final
-from dataclasses import dataclass
+from typing import Any, final, Dict
+from dataclasses import dataclass, field
 import numpy as np
 from xwrag.utils import logger, compute_mdhash_id
 from ..base import BaseVectorStorage
 from ..constants import DEFAULT_MAX_FILE_PATH_LENGTH
-from ..kg.shared_storage import get_data_init_lock, get_storage_lock
+from ..kg.shared_storage import get_data_init_lock, get_storage_lock, get_storage_keyed_lock
 import pipmaster as pm
 
 if not pm.is_installed("pymilvus"):
     pm.install("pymilvus==2.5.2")
 
 import configparser
-from pymilvus import MilvusClient, DataType, CollectionSchema, FieldSchema  # type: ignore
+from pymilvus import MilvusClient, DataType, CollectionSchema, FieldSchema, connections, db  # type: ignore
 
 config = configparser.ConfigParser()
 config.read("config.ini", "utf-8")
+
+
+# ==================== 连接池管理 ====================
+
+# 按 (uri, db_name) 缓存 MilvusClient 连接
+_milvus_client_cache: Dict[str, MilvusClient] = {}
+_client_cache_lock = asyncio.Lock()
+
+
+async def get_or_create_milvus_client(
+    uri: str,
+    db_name: str = None,
+    user: str = None,
+    password: str = None,
+    token: str = None,
+) -> MilvusClient:
+    """
+    获取或创建 MilvusClient 连接（连接池模式）
+
+    按 (uri, db_name) 缓存连接，避免重复创建
+
+    Args:
+        uri: Milvus 服务地址
+        db_name: 数据库名称
+        user: 用户名
+        password: 密码
+        token: 认证 token
+
+    Returns:
+        MilvusClient 实例
+    """
+    # 构建缓存键
+    cache_key = f"{uri}:{db_name or 'default'}"
+
+    if cache_key not in _milvus_client_cache:
+        async with _client_cache_lock:
+            # 双重检查
+            if cache_key not in _milvus_client_cache:
+                logger.info(f"Creating new MilvusClient for {cache_key}")
+
+                # 确保 database 存在（如果指定了 db_name）
+                if db_name and db_name != "default":
+                    await _ensure_database_exists(uri, db_name, user, password, token)
+
+                client = MilvusClient(
+                    uri=uri,
+                    user=user,
+                    password=password,
+                    token=token,
+                    db_name=db_name,
+                )
+                _milvus_client_cache[cache_key] = client
+                logger.info(f"MilvusClient created and cached for {cache_key}")
+
+    return _milvus_client_cache[cache_key]
+
+
+async def _ensure_database_exists(
+    uri: str,
+    db_name: str,
+    user: str = None,
+    password: str = None,
+    token: str = None,
+):
+    """
+    确保 Milvus database 存在，如果不存在则创建
+
+    Args:
+        uri: Milvus 服务地址
+        db_name: 数据库名称
+        user: 用户名
+        password: 密码
+        token: 认证 token
+    """
+    try:
+        # 使用临时连接检查/创建 database
+        alias = f"_db_check_{db_name}"
+
+        # 连接到 Milvus
+        connections.connect(
+            alias=alias,
+            uri=uri,
+            user=user or "",
+            password=password or "",
+            token=token or "",
+        )
+
+        try:
+            # 检查 database 是否存在
+            existing_dbs = db.list_database(using=alias)
+
+            if db_name not in existing_dbs:
+                logger.info(f"Creating Milvus database: {db_name}")
+                db.create_database(db_name, using=alias)
+                logger.info(f"Milvus database '{db_name}' created successfully")
+            else:
+                logger.debug(f"Milvus database '{db_name}' already exists")
+
+        finally:
+            # 断开临时连接
+            connections.disconnect(alias)
+
+    except Exception as e:
+        logger.warning(f"Failed to ensure database exists: {e}")
+        # 不抛出异常，让后续连接尝试处理
+        # 某些 Milvus 版本可能不支持多 database
 
 
 @final
@@ -928,18 +1034,59 @@ class MilvusVectorDBStorage(BaseVectorStorage):
                     f"Using passed workspace parameter: '{effective_workspace}'"
                 )
 
-        # Build final_namespace with workspace prefix for data isolation
-        # Keep original namespace unchanged for type detection logic
-        if effective_workspace:
-            self.final_namespace = f"{effective_workspace}_{self.namespace}"
-            logger.debug(
-                f"Final namespace with workspace prefix: '{self.final_namespace}'"
+        # ==================== 多租户数据库隔离 ====================
+        # 检查是否启用多租户模式（每个 workspace 使用独立的 database）
+        self._multi_tenant_mode = os.environ.get("MILVUS_MULTI_TENANT", "false").lower() == "true"
+
+        if self._multi_tenant_mode and effective_workspace:
+            # 多租户模式：每个 workspace 使用独立的 database
+            self._db_name = f"xwrag_{effective_workspace}"
+            # collection 名称不再需要 workspace 前缀
+            self.final_namespace = self.namespace
+            logger.info(
+                f"Multi-tenant mode: workspace '{effective_workspace}' -> database '{self._db_name}', collection '{self.final_namespace}'"
             )
         else:
-            # When workspace is empty, final_namespace equals original namespace
-            self.final_namespace = self.namespace
-            logger.debug(f"Final namespace (no workspace): '{self.final_namespace}'")
-            self.workspace = "_"
+            # 传统模式：所有 workspace 共享同一个 database，通过 collection 前缀隔离
+            self._db_name = os.environ.get(
+                "MILVUS_DB_NAME",
+                config.get("milvus", "db_name", fallback=None),
+            )
+            # Build final_namespace with workspace prefix for data isolation
+            if effective_workspace:
+                self.final_namespace = f"{effective_workspace}_{self.namespace}"
+                logger.debug(
+                    f"Final namespace with workspace prefix: '{self.final_namespace}'"
+                )
+            else:
+                # When workspace is empty, final_namespace equals original namespace
+                self.final_namespace = self.namespace
+                logger.debug(f"Final namespace (no workspace): '{self.final_namespace}'")
+                self.workspace = "_"
+
+        # 保存 effective_workspace 用于后续操作
+        self._effective_workspace = effective_workspace or "_"
+
+        # 保存 Milvus 连接配置
+        self._milvus_uri = os.environ.get(
+            "MILVUS_URI",
+            config.get(
+                "milvus",
+                "uri",
+                fallback=os.path.join(
+                    self.global_config["working_dir"], "milvus_lite.db"
+                ),
+            ),
+        )
+        self._milvus_user = os.environ.get(
+            "MILVUS_USER", config.get("milvus", "user", fallback=None)
+        )
+        self._milvus_password = os.environ.get(
+            "MILVUS_PASSWORD", config.get("milvus", "password", fallback=None)
+        )
+        self._milvus_token = os.environ.get(
+            "MILVUS_TOKEN", config.get("milvus", "token", fallback=None)
+        )
 
         kwargs = self.global_config.get("vector_db_storage_cls_kwargs", {})
         cosine_threshold = kwargs.get("cosine_better_than_threshold")
@@ -960,48 +1107,36 @@ class MilvusVectorDBStorage(BaseVectorStorage):
 
     async def initialize(self):
         """Initialize Milvus collection"""
-        async with get_data_init_lock(enable_logging=True):
+        # 使用 keyed lock 按 database + collection 加锁，允许不同租户并发初始化
+        lock_key = f"{self._db_name or 'default'}:{self.final_namespace}"
+
+        async with get_storage_keyed_lock(
+            keys=[lock_key],
+            namespace="milvus_init",
+            enable_logging=True
+        ):
             if self._initialized:
                 return
 
             try:
-                # Create MilvusClient if not already created
+                # 使用连接池获取或创建 MilvusClient
                 if self._client is None:
-                    self._client = MilvusClient(
-                        uri=os.environ.get(
-                            "MILVUS_URI",
-                            config.get(
-                                "milvus",
-                                "uri",
-                                fallback=os.path.join(
-                                    self.global_config["working_dir"], "milvus_lite.db"
-                                ),
-                            ),
-                        ),
-                        user=os.environ.get(
-                            "MILVUS_USER", config.get("milvus", "user", fallback=None)
-                        ),
-                        password=os.environ.get(
-                            "MILVUS_PASSWORD",
-                            config.get("milvus", "password", fallback=None),
-                        ),
-                        token=os.environ.get(
-                            "MILVUS_TOKEN", config.get("milvus", "token", fallback=None)
-                        ),
-                        db_name=os.environ.get(
-                            "MILVUS_DB_NAME",
-                            config.get("milvus", "db_name", fallback=None),
-                        ),
+                    self._client = await get_or_create_milvus_client(
+                        uri=self._milvus_uri,
+                        db_name=self._db_name,
+                        user=self._milvus_user,
+                        password=self._milvus_password,
+                        token=self._milvus_token,
                     )
                     logger.debug(
-                        f"[{self.workspace}] MilvusClient created successfully"
+                        f"[{self.workspace}] MilvusClient obtained from pool (db={self._db_name})"
                     )
 
                 # Create collection and check compatibility
                 self._create_collection_if_not_exist()
                 self._initialized = True
                 logger.info(
-                    f"[{self.workspace}] Milvus collection '{self.namespace}' initialized successfully"
+                    f"[{self.workspace}] Milvus collection '{self.namespace}' initialized successfully (db={self._db_name})"
                 )
             except Exception as e:
                 logger.error(
@@ -1014,74 +1149,88 @@ class MilvusVectorDBStorage(BaseVectorStorage):
         if not data:
             return
 
-        # Ensure collection is loaded before upserting
-        self._ensure_collection_loaded()
+        # 使用 keyed lock 按 collection 加锁，允许不同 collection 并发操作
+        lock_key = f"{self._db_name or 'default'}:{self.final_namespace}"
 
-        import time
+        async with get_storage_keyed_lock(
+            keys=[lock_key],
+            namespace="milvus_write"
+        ):
+            # Ensure collection is loaded before upserting
+            self._ensure_collection_loaded()
 
-        current_time = int(time.time())
+            import time
 
-        list_data: list[dict[str, Any]] = [
-            {
-                "id": k,
-                "created_at": current_time,
-                **{k1: v1 for k1, v1 in v.items() if k1 in self.meta_fields},
-            }
-            for k, v in data.items()
-        ]
-        contents = [v["content"] for v in data.values()]
-        batches = [
-            contents[i : i + self._max_batch_size]
-            for i in range(0, len(contents), self._max_batch_size)
-        ]
+            current_time = int(time.time())
 
-        embedding_tasks = [self.embedding_func(batch) for batch in batches]
-        embeddings_list = await asyncio.gather(*embedding_tasks)
+            list_data: list[dict[str, Any]] = [
+                {
+                    "id": k,
+                    "created_at": current_time,
+                    **{k1: v1 for k1, v1 in v.items() if k1 in self.meta_fields},
+                }
+                for k, v in data.items()
+            ]
+            contents = [v["content"] for v in data.values()]
+            batches = [
+                contents[i : i + self._max_batch_size]
+                for i in range(0, len(contents), self._max_batch_size)
+            ]
 
-        embeddings = np.concatenate(embeddings_list)
-        for i, d in enumerate(list_data):
-            d["vector"] = embeddings[i]
-        results = self._client.upsert(
-            collection_name=self.final_namespace, data=list_data
-        )
-        return results
+            embedding_tasks = [self.embedding_func(batch) for batch in batches]
+            embeddings_list = await asyncio.gather(*embedding_tasks)
+
+            embeddings = np.concatenate(embeddings_list)
+            for i, d in enumerate(list_data):
+                d["vector"] = embeddings[i]
+            results = self._client.upsert(
+                collection_name=self.final_namespace, data=list_data
+            )
+            return results
 
     async def query(
         self, query: str, top_k: int, query_embedding: list[float] = None
     ) -> list[dict[str, Any]]:
-        # Ensure collection is loaded before querying
-        self._ensure_collection_loaded()
+        # 使用 keyed lock 按 collection 加锁（读操作，可以考虑使用读写锁优化）
+        lock_key = f"{self._db_name or 'default'}:{self.final_namespace}"
 
-        # Use provided embedding or compute it
-        if query_embedding is not None:
-            embedding = [query_embedding]  # Milvus expects a list of embeddings
-        else:
-            embedding = await self.embedding_func(
-                [query], _priority=5
-            )  # higher priority for query
+        async with get_storage_keyed_lock(
+            keys=[lock_key],
+            namespace="milvus_read"
+        ):
+            # Ensure collection is loaded before querying
+            self._ensure_collection_loaded()
 
-        # Include all meta_fields (created_at is now always included)
-        output_fields = list(self.meta_fields)
+            # Use provided embedding or compute it
+            if query_embedding is not None:
+                embedding = [query_embedding]  # Milvus expects a list of embeddings
+            else:
+                embedding = await self.embedding_func(
+                    [query], _priority=5
+                )  # higher priority for query
 
-        results = self._client.search(
-            collection_name=self.final_namespace,
-            data=embedding,
-            limit=top_k,
-            output_fields=output_fields,
-            search_params={
-                "metric_type": "COSINE",
-                "params": {"radius": self.cosine_better_than_threshold},
-            },
-        )
-        return [
-            {
-                **dp["entity"],
-                "id": dp["id"],
-                "distance": dp["distance"],
-                "created_at": dp.get("created_at"),
-            }
-            for dp in results[0]
-        ]
+            # Include all meta_fields (created_at is now always included)
+            output_fields = list(self.meta_fields)
+
+            results = self._client.search(
+                collection_name=self.final_namespace,
+                data=embedding,
+                limit=top_k,
+                output_fields=output_fields,
+                search_params={
+                    "metric_type": "COSINE",
+                    "params": {"radius": self.cosine_better_than_threshold},
+                },
+            )
+            return [
+                {
+                    **dp["entity"],
+                    "id": dp["id"],
+                    "distance": dp["distance"],
+                    "created_at": dp.get("created_at"),
+                }
+                for dp in results[0]
+            ]
 
     async def index_done_callback(self) -> None:
         # Milvus handles persistence automatically
@@ -1168,26 +1317,33 @@ class MilvusVectorDBStorage(BaseVectorStorage):
         Args:
             ids: List of vector IDs to be deleted
         """
-        try:
-            # Ensure collection is loaded before deleting
-            self._ensure_collection_loaded()
+        # 使用 keyed lock 按 collection 加锁
+        lock_key = f"{self._db_name or 'default'}:{self.final_namespace}"
 
-            # Delete vectors by IDs
-            result = self._client.delete(collection_name=self.final_namespace, pks=ids)
+        async with get_storage_keyed_lock(
+            keys=[lock_key],
+            namespace="milvus_write"
+        ):
+            try:
+                # Ensure collection is loaded before deleting
+                self._ensure_collection_loaded()
 
-            if result and result.get("delete_count", 0) > 0:
-                logger.debug(
-                    f"[{self.workspace}] Successfully deleted {result.get('delete_count', 0)} vectors from {self.namespace}"
+                # Delete vectors by IDs
+                result = self._client.delete(collection_name=self.final_namespace, pks=ids)
+
+                if result and result.get("delete_count", 0) > 0:
+                    logger.debug(
+                        f"[{self.workspace}] Successfully deleted {result.get('delete_count', 0)} vectors from {self.namespace}"
+                    )
+                else:
+                    logger.debug(
+                        f"[{self.workspace}] No vectors were deleted from {self.namespace}"
+                    )
+
+            except Exception as e:
+                logger.error(
+                    f"[{self.workspace}] Error while deleting vectors from {self.namespace}: {e}"
                 )
-            else:
-                logger.debug(
-                    f"[{self.workspace}] No vectors were deleted from {self.namespace}"
-                )
-
-        except Exception as e:
-            logger.error(
-                f"[{self.workspace}] Error while deleting vectors from {self.namespace}: {e}"
-            )
 
     async def get_by_id(self, id: str) -> dict[str, Any] | None:
         """Get vector data by its ID
@@ -1313,7 +1469,14 @@ class MilvusVectorDBStorage(BaseVectorStorage):
             - On success: {"status": "success", "message": "data dropped"}
             - On failure: {"status": "error", "message": "<error details>"}
         """
-        async with get_storage_lock():
+        # 使用 keyed lock 按 collection 加锁
+        lock_key = f"{self._db_name or 'default'}:{self.final_namespace}"
+
+        async with get_storage_keyed_lock(
+            keys=[lock_key],
+            namespace="milvus_drop",
+            enable_logging=True
+        ):
             try:
                 # Drop the collection and recreate it
                 if self._client.has_collection(self.final_namespace):
@@ -1323,7 +1486,7 @@ class MilvusVectorDBStorage(BaseVectorStorage):
                 self._create_collection_if_not_exist()
 
                 logger.info(
-                    f"[{self.workspace}] Process {os.getpid()} drop Milvus collection {self.namespace}"
+                    f"[{self.workspace}] Process {os.getpid()} drop Milvus collection {self.namespace} (db={self._db_name})"
                 )
                 return {"status": "success", "message": "data dropped"}
             except Exception as e:
