@@ -182,6 +182,7 @@ class xwragProcessor:
             # 构建 xwrag 初始化参数
             rag_kwargs = {
                 "working_dir": str(self.working_dir),
+                "workspace": self.workspace,  # 传递 workspace 实现多租户隔离
                 "llm_model_func": self.llm_model_func,
                 "embedding_func": EmbeddingFunc(
                     embedding_dim=self.embedding_dim,
