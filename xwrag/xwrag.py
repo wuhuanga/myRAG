@@ -1372,22 +1372,22 @@ class xwrag:
         pipeline_status = await get_namespace_data(f"{workspace}_pipeline_status")
         pipeline_status_lock = get_storage_keyed_lock([workspace], namespace="pipeline_status")
 
-        # Initialize pipeline status fields if not present (lazy initialization)
-        if "busy" not in pipeline_status:
-            pipeline_status.update({
-                "busy": False,
-                "job_name": "-",
-                "job_start": None,
-                "docs": 0,
-                "batchs": 0,
-                "cur_batch": 0,
-                "request_pending": False,
-                "latest_message": "",
-                "history_messages": [],
-            })
-
         # Check if another process is already processing the queue
         async with pipeline_status_lock:
+            # Initialize pipeline status fields if not present (lazy initialization, inside lock)
+            if "busy" not in pipeline_status:
+                pipeline_status.update({
+                    "busy": False,
+                    "job_name": "-",
+                    "job_start": None,
+                    "docs": 0,
+                    "batchs": 0,
+                    "cur_batch": 0,
+                    "request_pending": False,
+                    "latest_message": "",
+                    "history_messages": [],
+                })
+
             # Ensure only one worker is processing documents
             if not pipeline_status.get("busy", False):
                 processing_docs, failed_docs, pending_docs = await asyncio.gather(
