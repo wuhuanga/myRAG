@@ -1203,7 +1203,10 @@ class MilvusVectorDBStorage(BaseVectorStorage):
             output_fields=output_fields,
             search_params={
                 "metric_type": "COSINE",
-                "params": {"radius": self.cosine_better_than_threshold},
+                "params": {
+                    "radius": self.cosine_better_than_threshold,
+                    "range_filter": 1.0,  # COSINE metric: radius < range_filter
+                },
             },
         )
         return [
