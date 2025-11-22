@@ -5,7 +5,7 @@ import asyncio
 from typing import Any, cast
 
 from .base import DeletionResult
-from .kg.shared_storage import get_graph_db_lock
+from .kg.shared_storage import get_storage_keyed_lock
 from .constants import GRAPH_FIELD_SEP
 from .utils import compute_mdhash_id, logger
 from .base import StorageNameSpace
@@ -22,9 +22,9 @@ async def adelete_by_entity(
         relationships_vdb: Vector database storage for relationships
         entity_name: Name of the entity to delete
     """
-    graph_db_lock = get_graph_db_lock(enable_logging=False)
-    # Use graph database lock to ensure atomic graph and vector db operations
-    async with graph_db_lock:
+    # Use keyed lock based on workspace to allow concurrent operations across different workspaces
+    workspace = getattr(chunk_entity_relation_graph, 'workspace', '_')
+    async with get_storage_keyed_lock(keys=[workspace], namespace="graph_entity_ops"):
         try:
             # Check if the entity exists
             if not await chunk_entity_relation_graph.has_node(entity_name):
@@ -96,9 +96,9 @@ async def adelete_by_relation(
         target_entity: Name of the target entity
     """
     relation_str = f"{source_entity} -> {target_entity}"
-    graph_db_lock = get_graph_db_lock(enable_logging=False)
-    # Use graph database lock to ensure atomic graph and vector db operations
-    async with graph_db_lock:
+    # Use keyed lock based on workspace to allow concurrent operations across different workspaces
+    workspace = getattr(chunk_entity_relation_graph, 'workspace', '_')
+    async with get_storage_keyed_lock(keys=[workspace], namespace="graph_relation_ops"):
         try:
             # Check if the relation exists
             edge_exists = await chunk_entity_relation_graph.has_edge(
@@ -183,9 +183,9 @@ async def aedit_entity(
     Returns:
         Dictionary containing updated entity information
     """
-    graph_db_lock = get_graph_db_lock(enable_logging=False)
-    # Use graph database lock to ensure atomic graph and vector db operations
-    async with graph_db_lock:
+    # Use keyed lock based on workspace to allow concurrent operations across different workspaces
+    workspace = getattr(chunk_entity_relation_graph, 'workspace', '_')
+    async with get_storage_keyed_lock(keys=[workspace], namespace="graph_entity_ops"):
         try:
             # 1. Get current entity information
             node_exists = await chunk_entity_relation_graph.has_node(entity_name)
@@ -395,9 +395,9 @@ async def aedit_relation(
     Returns:
         Dictionary containing updated relation information
     """
-    graph_db_lock = get_graph_db_lock(enable_logging=False)
-    # Use graph database lock to ensure atomic graph and vector db operations
-    async with graph_db_lock:
+    # Use keyed lock based on workspace to allow concurrent operations across different workspaces
+    workspace = getattr(chunk_entity_relation_graph, 'workspace', '_')
+    async with get_storage_keyed_lock(keys=[workspace], namespace="graph_relation_ops"):
         try:
             # 1. Get current relation information
             edge_exists = await chunk_entity_relation_graph.has_edge(
@@ -509,9 +509,9 @@ async def acreate_entity(
     Returns:
         Dictionary containing created entity information
     """
-    graph_db_lock = get_graph_db_lock(enable_logging=False)
-    # Use graph database lock to ensure atomic graph and vector db operations
-    async with graph_db_lock:
+    # Use keyed lock based on workspace to allow concurrent operations across different workspaces
+    workspace = getattr(chunk_entity_relation_graph, 'workspace', '_')
+    async with get_storage_keyed_lock(keys=[workspace], namespace="graph_entity_ops"):
         try:
             # Check if entity already exists
             existing_node = await chunk_entity_relation_graph.has_node(entity_name)
@@ -595,9 +595,9 @@ async def acreate_relation(
     Returns:
         Dictionary containing created relation information
     """
-    graph_db_lock = get_graph_db_lock(enable_logging=False)
-    # Use graph database lock to ensure atomic graph and vector db operations
-    async with graph_db_lock:
+    # Use keyed lock based on workspace to allow concurrent operations across different workspaces
+    workspace = getattr(chunk_entity_relation_graph, 'workspace', '_')
+    async with get_storage_keyed_lock(keys=[workspace], namespace="graph_relation_ops"):
         try:
             # Check if both entities exist
             source_exists = await chunk_entity_relation_graph.has_node(source_entity)
@@ -715,9 +715,9 @@ async def amerge_entities(
     Returns:
         Dictionary containing the merged entity information
     """
-    graph_db_lock = get_graph_db_lock(enable_logging=False)
-    # Use graph database lock to ensure atomic graph and vector db operations
-    async with graph_db_lock:
+    # Use keyed lock based on workspace to allow concurrent operations across different workspaces
+    workspace = getattr(chunk_entity_relation_graph, 'workspace', '_')
+    async with get_storage_keyed_lock(keys=[workspace], namespace="graph_entity_ops"):
         try:
             # Default merge strategy
             default_strategy = {

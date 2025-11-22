@@ -17,7 +17,7 @@ from ..utils import logger
 from ..base import BaseGraphStorage
 from ..types import KnowledgeGraph, KnowledgeGraphNode, KnowledgeGraphEdge
 from ..constants import GRAPH_FIELD_SEP
-from ..kg.shared_storage import get_data_init_lock, get_graph_db_lock
+from ..kg.shared_storage import get_data_init_lock, get_storage_keyed_lock
 import pipmaster as pm
 
 if not pm.is_installed("nebula3-python"):
@@ -707,7 +707,7 @@ class NebulaGraphStorage(BaseGraphStorage):
             - On success: {"status": "success", "message": "node upserted"}
             - On failure: {"status": "error", "message": "<error details>"}
         """
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_write"):
             try:
                 if "entity_id" not in node_data:
                     node_data["entity_id"] = node_id
@@ -726,7 +726,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def upsert_nodes(self, nodes: List[tuple]):
         """批量插入或更新节点"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_write"):
             if not nodes:
                 return
             try:
@@ -785,7 +785,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def upsert_edges(self, edges: List[tuple]):
         """批量插入或更新边"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_write"):
             if not edges:
                 return
             try:
@@ -802,7 +802,7 @@ class NebulaGraphStorage(BaseGraphStorage):
     )
     async def delete_node(self, node_id: str) -> None:
         """删除节点"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_write"):
             try:
                 query = f'DELETE VERTEX "{self._escape_string(node_id)}" WITH EDGE'
                 await self._execute_query(query)
@@ -812,7 +812,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def remove_nodes(self, nodes: List[str]):
         """批量删除节点"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_write"):
             if not nodes:
                 return
             try:
@@ -825,7 +825,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def remove_edges(self, edges: List[tuple]):
         """批量删除边"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_write"):
             try:
                 if not edges:
                     return
@@ -841,7 +841,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def get_all_labels(self) -> List[str]:
         """获取所有节点标签"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
             try:
                 tag = self._tag_name
                 # 使用id(n)获取节点VID作为标签，与其他查询保持一致
@@ -859,7 +859,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def get_all_nodes(self) -> List[Dict[str, Any]]:
         """获取所有节点"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
             try:
                 tag = self._tag_name
                 # 修复：使用id(n)和properties(n)
@@ -885,7 +885,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def get_all_edges(self) -> List[Dict[str, Any]]:
         """获取所有边"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
             try:
                 tag = self._tag_name
                 # 修复：使用properties(r)来获取边属性
@@ -913,7 +913,7 @@ class NebulaGraphStorage(BaseGraphStorage):
     # 🔥 修复6: 实现缺失的抽象方法
     async def get_nodes_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
         """根据 chunk_ids 获取相关节点"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
             try:
                 if not chunk_ids:
                     return []
@@ -947,7 +947,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def get_edges_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
         """根据 chunk_ids 获取相关边"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
             try:
                 if not chunk_ids:
                     return []
@@ -987,7 +987,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def get_popular_labels(self, limit: int = 300) -> List[str]:
         """获取热门标签"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
             try:
                 tag = self._tag_name
                 # 修复：使用id(n)并添加GROUP BY子句用于聚合
@@ -1017,7 +1017,7 @@ class NebulaGraphStorage(BaseGraphStorage):
         query_lower = query_strip.lower()
         is_chinese = self._is_chinese_text(query_strip)
 
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
             try:
                 # 获取所有标签（使用id(n)），然后在客户端过滤
                 # 这样避免了在属性上使用CONTAINS的问题
@@ -1069,7 +1069,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def get_knowledge_graph(self, node_label: str, max_depth: int = 3, max_nodes: int = 1000) -> KnowledgeGraph:
         """获取知识图谱"""
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_read"):
             try:
                 tag = self._tag_name
                 nodes = []
@@ -1158,7 +1158,7 @@ class NebulaGraphStorage(BaseGraphStorage):
             - On success: {"status": "success", "message": "workspace '<name>' data dropped"}
             - On failure: {"status": "error", "message": "<error details>"}
         """
-        async with get_graph_db_lock():
+        async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_drop", enable_logging=True):
             try:
                 logger.warning(
                     f"[{self.workspace}] Dropping entire Space: {self._space_name}"

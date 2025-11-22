@@ -55,7 +55,7 @@ from xwrag.kg import (
 from xwrag.kg.shared_storage import (
     get_namespace_data,
     get_pipeline_status_lock,
-    get_graph_db_lock,
+    get_storage_keyed_lock,
     get_data_init_lock,
 )
 
@@ -2799,9 +2799,9 @@ class xwrag:
                 logger.error(f"Failed to process graph analysis results: {e}")
                 raise Exception(f"Failed to process graph dependencies: {e}") from e
 
-            # Use graph database lock to prevent dirty read
-            graph_db_lock = get_graph_db_lock(enable_logging=False)
-            async with graph_db_lock:
+            # Use keyed lock based on workspace to prevent dirty read while allowing concurrent operations across workspaces
+            workspace = getattr(self.chunk_entity_relation_graph, 'workspace', '_')
+            async with get_storage_keyed_lock(keys=[workspace], namespace="graph_delete_ops"):
                 # 5. Delete chunks from storage
                 if chunk_ids:
                     try:
