@@ -128,13 +128,13 @@ manager = ConnectionManager()
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket 端点,用于实时通信"""
-    from .dependencies import get_rag_manager, get_ucd_builder
+    from .dependencies_concurrent import get_concurrent_rag_manager, get_ucd_builder
 
     await manager.connect(websocket)
     try:
         while True:
             data = await websocket.receive_json()
-            rag_manager = get_rag_manager()
+            rag_manager = get_concurrent_rag_manager()
 
             if data["type"] == "query":
                 rag_id = data.get("rag_id")

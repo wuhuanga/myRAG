@@ -9,7 +9,7 @@ from typing import Optional
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException
 import aiofiles
 
-from ..dependencies import get_rag_manager
+from ..dependencies_concurrent import get_concurrent_rag_manager
 from ..models import (
     InsertRequest,
     BatchInsertRequest,
@@ -36,7 +36,7 @@ async def upload_document(
     custom_id: Optional[str] = Form(None)
 ):
     """上传并处理文档"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(rag_id)
@@ -73,7 +73,7 @@ async def upload_document(
 @router.post("/insert")
 async def insert_document(request: InsertRequest):
     """直接插入文档内容"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -120,7 +120,7 @@ async def insert_document(request: InsertRequest):
 @router.post("/batch_insert")
 async def batch_insert_documents(request: BatchInsertRequest):
     """批量插入文档"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -166,7 +166,7 @@ async def batch_insert_documents(request: BatchInsertRequest):
 @router.get("/status/{rag_id}", response_model=DocumentStatusResponse)
 async def get_documents_status(rag_id: str):
     """获取所有文档的处理状态统计"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(rag_id)
@@ -207,7 +207,7 @@ async def get_documents_by_status(rag_id: str, status: str):
         rag_id: RAG 实例 ID
         status: PROCESSED, PENDING, 或 FAILED
     """
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(rag_id)

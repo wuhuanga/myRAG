@@ -7,7 +7,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 
-from ..dependencies import get_rag_manager
+from ..dependencies_concurrent import get_concurrent_rag_manager
 from ..models import (
     EntityCreateRequest,
     EntityEditRequest,
@@ -34,7 +34,7 @@ router = APIRouter(
 @router.post("/entities/create")
 async def create_entity(request: EntityCreateRequest):
     """创建新实体"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -72,7 +72,7 @@ async def create_entity(request: EntityCreateRequest):
 @router.post("/entities/edit")
 async def edit_entity(request: EntityEditRequest):
     """编辑实体"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -104,7 +104,7 @@ async def edit_entity(request: EntityEditRequest):
 @router.post("/entities/delete")
 async def delete_entity(request: EntityDeleteRequest):
     """删除实体"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -132,7 +132,7 @@ async def delete_entity(request: EntityDeleteRequest):
 @router.post("/entities/info")
 async def get_entity_info(request: EntityInfoRequest):
     """获取实体详细信息"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -162,7 +162,7 @@ async def get_entity_info(request: EntityInfoRequest):
 @router.post("/entities/merge")
 async def merge_entities(request: EntityMergeRequest):
     """合并多个实体"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -197,7 +197,7 @@ async def merge_entities(request: EntityMergeRequest):
 @router.post("/relations/create")
 async def create_relation(request: RelationCreateRequest):
     """创建新关系"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -237,7 +237,7 @@ async def create_relation(request: RelationCreateRequest):
 @router.post("/relations/edit")
 async def edit_relation(request: RelationEditRequest):
     """编辑关系"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -269,7 +269,7 @@ async def edit_relation(request: RelationEditRequest):
 @router.post("/relations/delete")
 async def delete_relation(request: RelationDeleteRequest):
     """删除关系"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -301,7 +301,7 @@ async def delete_relation(request: RelationDeleteRequest):
 @router.post("/relations/info")
 async def get_relation_info(request: RelationInfoRequest):
     """获取关系详细信息"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -334,7 +334,7 @@ async def get_relation_info(request: RelationInfoRequest):
 @router.post("/export")
 async def export_data(request: ExportDataRequest):
     """导出知识图谱数据"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)

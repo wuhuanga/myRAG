@@ -7,7 +7,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 
-from ..dependencies import get_rag_manager, get_ucd_builder
+from ..dependencies_concurrent import get_concurrent_rag_manager, get_ucd_builder
 from ..models import (
     QueryRequest,
     QueryResponse,
@@ -26,7 +26,7 @@ router = APIRouter(
 @router.post("/", response_model=QueryResponse)
 async def query_knowledge(request: QueryRequest):
     """查询知识库"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -63,7 +63,7 @@ async def query_knowledge(request: QueryRequest):
 @router.post("/ucd")
 async def query_with_ucd(request: UCDModelRequest):
     """执行查询并进行 UCD 建模"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)
@@ -113,7 +113,7 @@ async def query_with_ucd(request: UCDModelRequest):
 @router.post("/clear_cache")
 async def clear_cache(request: ClearCacheRequest):
     """清除 LLM 缓存"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(request.rag_id)

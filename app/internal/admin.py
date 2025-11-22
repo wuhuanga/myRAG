@@ -8,7 +8,7 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException
 
-from ..dependencies import get_rag_manager, get_ucd_builder, set_ucd_builder, UCBuilder
+from ..dependencies_concurrent import get_concurrent_rag_manager, get_ucd_builder, set_ucd_builder, UCBuilder
 from ..models import RAGInstanceCreate, RAGInstanceInfo
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ router = APIRouter(
 @router.get("/health")
 async def health_check():
     """健康检查端点"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
     ucd_builder = get_ucd_builder()
 
     return {
@@ -36,7 +36,7 @@ async def health_check():
 @router.post("/rag_instances/create")
 async def create_rag_instance(config: RAGInstanceCreate):
     """创建新的 RAG 实例"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = await manager.create_instance(config)
@@ -61,10 +61,10 @@ async def create_rag_instance(config: RAGInstanceCreate):
 @router.get("/rag_instances/list", response_model=List[RAGInstanceInfo])
 async def list_rag_instances():
     """列出所有 RAG 实例"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
-        instances = manager.list_instances()
+        instances = await manager.list_instances()
         return instances
 
     except Exception as e:
@@ -75,7 +75,7 @@ async def list_rag_instances():
 @router.get("/rag_instances/{rag_id}")
 async def get_rag_instance_info(rag_id: str):
     """获取指定 RAG 实例的详细信息"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
         processor = manager.get_instance(rag_id)
@@ -118,10 +118,10 @@ async def get_rag_instance_info(rag_id: str):
 @router.delete("/rag_instances/{rag_id}")
 async def delete_rag_instance(rag_id: str):
     """删除指定的 RAG 实例"""
-    manager = get_rag_manager()
+    manager = get_concurrent_rag_manager()
 
     try:
-        success = manager.delete_instance(rag_id)
+        success = await manager.delete_instance(rag_id)
 
         if success:
             return {
