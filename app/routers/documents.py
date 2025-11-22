@@ -184,14 +184,16 @@ async def get_documents_status(rag_id: str):
         total = sum(status_counts.values())
         processed = status_counts.get('PROCESSED', 0)
         pending = status_counts.get('PENDING', 0)
+        processing = status_counts.get('PROCESSING', 0)
         failed = status_counts.get('FAILED', 0)
 
-        logger.info(f"文档状态统计: 总计={total}, 已处理={processed}, 待处理={pending}, 失败={failed}")
+        logger.info(f"文档状态统计: 总计={total}, 已处理={processed}, 待处理={pending}, 处理中={processing}, 失败={failed}")
 
         return DocumentStatusResponse(
             total=total,
             processed=processed,
             pending=pending,
+            processing=processing,
             failed=failed,
             status_counts=status_counts
         )

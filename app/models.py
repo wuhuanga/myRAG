@@ -114,6 +114,7 @@ class DocumentStatusResponse(BaseModel):
     total: int
     processed: int
     pending: int
+    processing: int
     failed: int
     status_counts: dict
 
