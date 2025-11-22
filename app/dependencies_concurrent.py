@@ -195,9 +195,12 @@ class xwragProcessor:
                 ),
             }
 
-            # 固定使用 Neo4j 和 Faiss
-            rag_kwargs["graph_storage"] = "Neo4JStorage"
-            rag_kwargs["vector_storage"] = "FaissVectorDBStorage"
+            # 从环境变量读取存储配置（默认使用 NebulaGraph 和 Milvus）
+            graph_storage = os.environ.get("GRAPH_STORAGE", "NebulaGraphStorage")
+            vector_storage = os.environ.get("VECTOR_STORAGE", "MilvusVectorDBStorage")
+            rag_kwargs["graph_storage"] = graph_storage
+            rag_kwargs["vector_storage"] = vector_storage
+            logger.info(f"使用存储配置: graph={graph_storage}, vector={vector_storage}")
 
             # 向量数据库配置
             rag_kwargs["vector_db_storage_cls_kwargs"] = {
