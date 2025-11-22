@@ -1367,9 +1367,24 @@ class xwrag:
         5. Update the document status
         """
 
-        # Get pipeline status shared data and lock
-        pipeline_status = await get_namespace_data("pipeline_status")
-        pipeline_status_lock = get_pipeline_status_lock()
+        # Get pipeline status shared data and lock (workspace-specific to allow concurrent processing)
+        workspace = getattr(self, 'workspace', '_') or '_'
+        pipeline_status = await get_namespace_data(f"{workspace}_pipeline_status")
+        pipeline_status_lock = get_storage_keyed_lock([workspace], namespace="pipeline_status")
+
+        # Initialize pipeline status fields if not present (lazy initialization)
+        if "busy" not in pipeline_status:
+            pipeline_status.update({
+                "busy": False,
+                "job_name": "-",
+                "job_start": None,
+                "docs": 0,
+                "batchs": 0,
+                "cur_batch": 0,
+                "request_pending": False,
+                "latest_message": "",
+                "history_messages": [],
+            })
 
         # Check if another process is already processing the queue
         async with pipeline_status_lock:
@@ -2608,9 +2623,24 @@ class xwrag:
         deletion_operations_started = False
         original_exception = None
 
-        # Get pipeline status shared data and lock for status updates
-        pipeline_status = await get_namespace_data("pipeline_status")
-        pipeline_status_lock = get_pipeline_status_lock()
+        # Get pipeline status shared data and lock for status updates (workspace-specific)
+        workspace = getattr(self, 'workspace', '_') or '_'
+        pipeline_status = await get_namespace_data(f"{workspace}_pipeline_status")
+        pipeline_status_lock = get_storage_keyed_lock([workspace], namespace="pipeline_status")
+
+        # Initialize pipeline status fields if not present (lazy initialization)
+        if "busy" not in pipeline_status:
+            pipeline_status.update({
+                "busy": False,
+                "job_name": "-",
+                "job_start": None,
+                "docs": 0,
+                "batchs": 0,
+                "cur_batch": 0,
+                "request_pending": False,
+                "latest_message": "",
+                "history_messages": [],
+            })
 
         async with pipeline_status_lock:
             log_message = f"Starting deletion process for document {doc_id}"
