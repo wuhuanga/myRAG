@@ -1039,8 +1039,9 @@ class MilvusVectorDBStorage(BaseVectorStorage):
         if effective_workspace:
             # 多租户模式：每个 workspace 使用独立的 database
             self._db_name = f"xwrag_{effective_workspace}"
-            # collection 名称不再需要 workspace 前缀（因为已经在不同 database 中）
-            self.final_namespace = self.namespace
+            # 同时也添加 collection 前缀，确保即使数据库隔离失败也能通过 collection 名隔离
+            # 这对 Milvus Lite（不支持多数据库）尤其重要
+            self.final_namespace = f"{effective_workspace}_{self.namespace}"
             logger.info(
                 f"Multi-tenant: workspace '{effective_workspace}' -> database '{self._db_name}', collection '{self.final_namespace}'"
             )
