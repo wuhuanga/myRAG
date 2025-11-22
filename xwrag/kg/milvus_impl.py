@@ -91,10 +91,10 @@ async def _ensure_database_exists(
         password: 密码
         token: 认证 token
     """
-    try:
-        # 使用临时连接检查/创建 database
-        alias = f"_db_check_{db_name}"
+    # 使用临时连接检查/创建 database
+    alias = f"_db_check_{db_name}"
 
+    try:
         # 连接到 Milvus
         connections.connect(
             alias=alias,
@@ -104,25 +104,26 @@ async def _ensure_database_exists(
             token=token or "",
         )
 
-        try:
-            # 检查 database 是否存在
-            existing_dbs = db.list_database(using=alias)
+        # 检查 database 是否存在
+        existing_dbs = db.list_database(using=alias)
+        logger.info(f"Existing Milvus databases: {existing_dbs}")
 
-            if db_name not in existing_dbs:
-                logger.info(f"Creating Milvus database: {db_name}")
-                db.create_database(db_name, using=alias)
-                logger.info(f"Milvus database '{db_name}' created successfully")
-            else:
-                logger.debug(f"Milvus database '{db_name}' already exists")
-
-        finally:
-            # 断开临时连接
-            connections.disconnect(alias)
+        if db_name not in existing_dbs:
+            logger.info(f"🔨 Creating Milvus database: {db_name}")
+            db.create_database(db_name, using=alias)
+            logger.info(f"✅ Milvus database '{db_name}' created successfully")
+        else:
+            logger.info(f"✅ Milvus database '{db_name}' already exists")
 
     except Exception as e:
-        logger.warning(f"Failed to ensure database exists: {e}")
-        # 不抛出异常，让后续连接尝试处理
-        # 某些 Milvus 版本可能不支持多 database
+        logger.error(f"❌ Failed to ensure database '{db_name}' exists: {e}")
+        raise RuntimeError(f"Failed to create/check Milvus database '{db_name}': {e}") from e
+    finally:
+        # 断开临时连接
+        try:
+            connections.disconnect(alias)
+        except Exception:
+            pass
 
 
 @final
@@ -1039,9 +1040,8 @@ class MilvusVectorDBStorage(BaseVectorStorage):
         if effective_workspace:
             # 多租户模式：每个 workspace 使用独立的 database
             self._db_name = f"xwrag_{effective_workspace}"
-            # 同时也添加 collection 前缀，确保即使数据库隔离失败也能通过 collection 名隔离
-            # 这对 Milvus Lite（不支持多数据库）尤其重要
-            self.final_namespace = f"{effective_workspace}_{self.namespace}"
+            # collection 名称不需要 workspace 前缀（因为已经在不同 database 中）
+            self.final_namespace = self.namespace
             logger.info(
                 f"Multi-tenant: workspace '{effective_workspace}' -> database '{self._db_name}', collection '{self.final_namespace}'"
             )
