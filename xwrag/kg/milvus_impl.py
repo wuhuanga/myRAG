@@ -1181,46 +1181,39 @@ class MilvusVectorDBStorage(BaseVectorStorage):
     async def query(
         self, query: str, top_k: int, query_embedding: list[float] = None
     ) -> list[dict[str, Any]]:
-        # 使用 keyed lock 按 collection 加锁（读操作，可以考虑使用读写锁优化）
-        lock_key = f"{self._db_name or 'default'}:{self.final_namespace}"
+        # Ensure collection is loaded before querying
+        self._ensure_collection_loaded()
 
-        async with get_storage_keyed_lock(
-            keys=[lock_key],
-            namespace="milvus_read"
-        ):
-            # Ensure collection is loaded before querying
-            self._ensure_collection_loaded()
+        # Use provided embedding or compute it
+        if query_embedding is not None:
+            embedding = [query_embedding]  # Milvus expects a list of embeddings
+        else:
+            embedding = await self.embedding_func(
+                [query], _priority=5
+            )  # higher priority for query
 
-            # Use provided embedding or compute it
-            if query_embedding is not None:
-                embedding = [query_embedding]  # Milvus expects a list of embeddings
-            else:
-                embedding = await self.embedding_func(
-                    [query], _priority=5
-                )  # higher priority for query
+        # Include all meta_fields (created_at is now always included)
+        output_fields = list(self.meta_fields)
 
-            # Include all meta_fields (created_at is now always included)
-            output_fields = list(self.meta_fields)
-
-            results = self._client.search(
-                collection_name=self.final_namespace,
-                data=embedding,
-                limit=top_k,
-                output_fields=output_fields,
-                search_params={
-                    "metric_type": "COSINE",
-                    "params": {"radius": self.cosine_better_than_threshold},
-                },
-            )
-            return [
-                {
-                    **dp["entity"],
-                    "id": dp["id"],
-                    "distance": dp["distance"],
-                    "created_at": dp.get("created_at"),
-                }
-                for dp in results[0]
-            ]
+        results = self._client.search(
+            collection_name=self.final_namespace,
+            data=embedding,
+            limit=top_k,
+            output_fields=output_fields,
+            search_params={
+                "metric_type": "COSINE",
+                "params": {"radius": self.cosine_better_than_threshold},
+            },
+        )
+        return [
+            {
+                **dp["entity"],
+                "id": dp["id"],
+                "distance": dp["distance"],
+                "created_at": dp.get("created_at"),
+            }
+            for dp in results[0]
+        ]
 
     async def index_done_callback(self) -> None:
         # Milvus handles persistence automatically
