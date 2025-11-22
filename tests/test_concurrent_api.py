@@ -17,9 +17,15 @@ import asyncio
 import time
 import os
 from pathlib import Path
+from datetime import datetime
 
 import aiohttp
 import pytest
+
+
+def timestamp():
+    """返回当前时间戳字符串"""
+    return datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
 # 配置
 BASE_URL = "http://localhost:8000"
@@ -253,11 +259,14 @@ class TestConcurrentAPI:
             "description": description,
         }
 
+        print(f"  [{timestamp()}] 开始创建 {rag_id}...")
         try:
             async with session.post(url, json=data) as response:
                 result = await response.json()
+                print(f"  [{timestamp()}] 完成创建 {rag_id}: {result.get('status', 'unknown')}")
                 return result
         except Exception as e:
+            print(f"  [{timestamp()}] 创建 {rag_id} 失败: {e}")
             return {"status": "error", "message": str(e)}
 
     async def _upload_document(
@@ -271,8 +280,10 @@ class TestConcurrentAPI:
 
         # 检查文件是否存在
         if not os.path.exists(file_path):
+            print(f"  [{timestamp()}] {rag_id} 文件不存在: {file_path}")
             return {"status": "error", "message": f"文件不存在: {file_path}"}
 
+        print(f"  [{timestamp()}] 开始上传 {rag_id} <- {os.path.basename(file_path)}...")
         try:
             # 准备 multipart 表单数据
             data = aiohttp.FormData()
@@ -285,8 +296,10 @@ class TestConcurrentAPI:
 
             async with session.post(url, data=data) as response:
                 result = await response.json()
+                print(f"  [{timestamp()}] 完成上传 {rag_id}: {result.get('status', 'unknown')}")
                 return result
         except Exception as e:
+            print(f"  [{timestamp()}] 上传 {rag_id} 失败: {e}")
             return {"status": "error", "message": str(e)}
 
     async def _query(
@@ -305,11 +318,16 @@ class TestConcurrentAPI:
             "only_need_context": True,
         }
 
+        query_preview = question[:15] + "..." if len(question) > 15 else question
+        print(f"  [{timestamp()}] 开始查询 {rag_id} ({mode}): {query_preview}")
         try:
             async with session.post(url, json=data) as response:
                 result = await response.json()
+                status = "成功" if result.get('answer') else "无结果"
+                print(f"  [{timestamp()}] 完成查询 {rag_id} ({mode}): {status}")
                 return result
         except Exception as e:
+            print(f"  [{timestamp()}] 查询 {rag_id} 失败: {e}")
             return {"status": "error", "message": str(e)}
 
     async def _delete_rag_instance(
@@ -320,11 +338,14 @@ class TestConcurrentAPI:
         """删除 RAG 实例"""
         url = f"{BASE_URL}{API_PREFIX}/admin/rag_instances/{rag_id}"
 
+        print(f"  [{timestamp()}] 开始删除 {rag_id}...")
         try:
             async with session.delete(url) as response:
                 result = await response.json()
+                print(f"  [{timestamp()}] 完成删除 {rag_id}: {result.get('status', 'unknown')}")
                 return result
         except Exception as e:
+            print(f"  [{timestamp()}] 删除 {rag_id} 失败: {e}")
             return {"status": "error", "message": str(e)}
 
     async def _list_instances(
