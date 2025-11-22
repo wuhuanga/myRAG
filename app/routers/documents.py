@@ -44,8 +44,9 @@ async def upload_document(
         raise HTTPException(status_code=404, detail=str(e))
 
     try:
-        # 保存上传的文件
-        file_path = UPLOAD_DIR / file.filename
+        # 保存上传的文件（添加 rag_id 前缀避免文件名冲突）
+        safe_filename = f"{rag_id}_{file.filename}"
+        file_path = UPLOAD_DIR / safe_filename
         logger.info(f"正在保存文件: {file_path}")
 
         async with aiofiles.open(file_path, 'wb') as f:
