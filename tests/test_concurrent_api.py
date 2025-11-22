@@ -357,7 +357,7 @@ class TestConcurrentAPI:
         rag_id: str
     ) -> dict:
         """获取文档处理状态"""
-        url = f"{BASE_URL}{API_PREFIX}/documents/{rag_id}/status"
+        url = f"{BASE_URL}{API_PREFIX}/documents/status/{rag_id}"
 
         try:
             async with session.get(url) as response:
