@@ -388,12 +388,14 @@ class TestConcurrentAPI:
 
                 for rag_id in rag_ids:
                     result = await self._get_documents_status(session, rag_id)
-                    if result.get("status") == "success":
-                        counts = result.get("counts", {})
-                        pending = counts.get("pending", 0)
-                        processing = counts.get("processing", 0)
-                        processed = counts.get("processed", 0)
-                        failed = counts.get("failed", 0)
+                    # API 直接返回 total, processed, pending, failed, status_counts
+                    if "total" in result:
+                        # 从 status_counts 获取详细状态（大写）
+                        status_counts = result.get("status_counts", {})
+                        pending = status_counts.get("PENDING", 0)
+                        processing = status_counts.get("PROCESSING", 0)
+                        processed = status_counts.get("PROCESSED", 0)
+                        failed = status_counts.get("FAILED", 0)
 
                         status_info.append(f"{rag_id}: pending={pending}, processing={processing}, processed={processed}, failed={failed}")
 
