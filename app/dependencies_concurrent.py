@@ -363,15 +363,15 @@ class xwragProcessor:
         max_entity_tokens: Optional[int] = None,
         max_relation_tokens: Optional[int] = None,
         max_total_tokens: Optional[int] = None,
-        # 新增参数
-        stream: bool = False,
-        enable_rerank: bool = True,
-        response_type: str = "Multiple Paragraphs",
+        # 新增参数（None 表示使用 xwrag 默认值/环境变量）
+        stream: Optional[bool] = None,
+        enable_rerank: Optional[bool] = None,
+        response_type: Optional[str] = None,
         conversation_history: Optional[list] = None,
         hl_keywords: Optional[list] = None,
         ll_keywords: Optional[list] = None,
         user_prompt: Optional[str] = None,
-        include_references: bool = False,
+        include_references: Optional[bool] = None,
     ) -> str:
         """
         查询知识图谱
@@ -435,12 +435,15 @@ class xwragProcessor:
         elif self.max_total_tokens is not None:
             query_params["max_total_tokens"] = self.max_total_tokens
 
-        # 新增参数
-        query_params["stream"] = stream
-        query_params["enable_rerank"] = enable_rerank
-        query_params["response_type"] = response_type
-        query_params["include_references"] = include_references
-
+        # 新增参数 - 只有非 None 时才设置（使用 xwrag 默认值/环境变量）
+        if stream is not None:
+            query_params["stream"] = stream
+        if enable_rerank is not None:
+            query_params["enable_rerank"] = enable_rerank
+        if response_type is not None:
+            query_params["response_type"] = response_type
+        if include_references is not None:
+            query_params["include_references"] = include_references
         if conversation_history:
             query_params["conversation_history"] = conversation_history
         if hl_keywords:

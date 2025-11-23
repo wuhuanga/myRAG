@@ -72,20 +72,21 @@ class QueryRequest(BaseModel):
     question: str
     mode: str = "hybrid"
     only_need_context: bool = True
-    top_k: int = 20
-    chunk_top_k: int = 10
-    max_entity_tokens: int = 6000
-    max_relation_tokens: int = 8000
-    max_total_tokens: int = 16300
-    # 新增高优先级参数
-    stream: bool = False  # 是否启用流式输出
-    enable_rerank: bool = True  # 是否启用 Rerank
-    response_type: str = "Multiple Paragraphs"  # 响应格式
+    # 检索参数（None 表示使用 xwrag 默认值/环境变量）
+    top_k: Optional[int] = None  # 检索的实体/关系数量
+    chunk_top_k: Optional[int] = None  # 检索的文本块数量
+    max_entity_tokens: Optional[int] = None  # 实体最大 token 数
+    max_relation_tokens: Optional[int] = None  # 关系最大 token 数
+    max_total_tokens: Optional[int] = None  # 总最大 token 数
+    # 新增高优先级参数（None 表示使用 xwrag 默认值/环境变量）
+    stream: Optional[bool] = None  # 是否启用流式输出
+    enable_rerank: Optional[bool] = None  # 是否启用 Rerank
+    response_type: Optional[str] = None  # 响应格式
     conversation_history: Optional[List[Dict[str, str]]] = None  # 对话历史
     hl_keywords: Optional[List[str]] = None  # 高优先级关键词
     ll_keywords: Optional[List[str]] = None  # 低优先级关键词
     user_prompt: Optional[str] = None  # 用户自定义提示词
-    include_references: bool = False  # 是否包含引用列表
+    include_references: Optional[bool] = None  # 是否包含引用列表
 
 
 class QueryResponse(BaseModel):

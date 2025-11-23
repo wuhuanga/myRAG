@@ -26,8 +26,8 @@
 | `max_total_tokens` | int | None | 总的最大 token 数 |
 | `cosine_threshold` | float | 0.3 | 余弦相似度阈值 |
 | `related_chunk_number` | int | 5 | 每个实体/关系关联的文本块数量 |
-| `kg_chunk_pick_method` | str | "VECTOR" | 文本块选择方法（WEIGHT/VECTOR） |
-| `max_graph_nodes` | int | 1000 | 知识图谱返回最大节点数 |
+| `kg_chunk_pick_method` | str | None | 文本块选择方法（默认使用 xwrag 配置：VECTOR） |
+| `max_graph_nodes` | int | None | 知识图谱返回最大节点数（默认使用 xwrag 配置：1000） |
 
 ### 1.3 文本分块参数
 
@@ -40,17 +40,17 @@
 
 | 参数名 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `language` | str | "English" | 文档处理语言 |
+| `language` | str | None | 文档处理语言（默认使用 xwrag 配置：English） |
 | `entity_types` | list[str] | None | 要提取的实体类型（默认使用内置类型） |
-| `entity_extract_max_gleaning` | int | 1 | 实体提取最大尝试次数 |
+| `entity_extract_max_gleaning` | int | None | 实体提取最大尝试次数（默认使用 xwrag 配置：1） |
 
 ### 1.5 并发与性能参数
 
 | 参数名 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `llm_model_max_async` | int | 4 | 最大并发 LLM 调用数 |
-| `embedding_func_max_async` | int | 8 | 最大并发 Embedding 调用数 |
-| `max_parallel_insert` | int | 2 | 最大并行插入数 |
+| `llm_model_max_async` | int | None | 最大并发 LLM 调用数（默认使用 xwrag 配置：4） |
+| `embedding_func_max_async` | int | None | 最大并发 Embedding 调用数（默认使用 xwrag 配置：8） |
+| `max_parallel_insert` | int | None | 最大并行插入数（默认使用 xwrag 配置：2） |
 
 ### 1.6 缓存参数
 
@@ -81,26 +81,26 @@
 
 | 参数名 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `top_k` | int | 20 | 检索的实体/关系数量 |
-| `chunk_top_k` | int | 10 | 检索的文本块数量 |
-| `max_entity_tokens` | int | 6000 | 实体最大 token 数 |
-| `max_relation_tokens` | int | 8000 | 关系最大 token 数 |
-| `max_total_tokens` | int | 16300 | 总最大 token 数 |
+| `top_k` | int | None | 检索的实体/关系数量（默认使用 xwrag 配置：40） |
+| `chunk_top_k` | int | None | 检索的文本块数量（默认使用 xwrag 配置：20） |
+| `max_entity_tokens` | int | None | 实体最大 token 数（默认使用 xwrag 配置：6000） |
+| `max_relation_tokens` | int | None | 关系最大 token 数（默认使用 xwrag 配置：8000） |
+| `max_total_tokens` | int | None | 总最大 token 数（默认使用 xwrag 配置：30000） |
 
 ### 2.3 输出控制参数
 
 | 参数名 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `only_need_context` | bool | True | 是否只返回上下文 |
-| `response_type` | str | "Multiple Paragraphs" | 响应格式 |
-| `stream` | bool | False | 是否启用流式输出 |
-| `include_references` | bool | False | 是否包含引用列表 |
+| `response_type` | str | None | 响应格式（默认使用 xwrag 配置） |
+| `stream` | bool | None | 是否启用流式输出（默认使用 xwrag 配置） |
+| `include_references` | bool | None | 是否包含引用列表（默认使用 xwrag 配置） |
 
 ### 2.4 检索优化参数
 
 | 参数名 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `enable_rerank` | bool | True | 是否启用 Rerank |
+| `enable_rerank` | bool | None | 是否启用 Rerank（默认使用 xwrag 配置） |
 | `hl_keywords` | list[str] | None | 高优先级关键词 |
 | `ll_keywords` | list[str] | None | 低优先级关键词 |
 
