@@ -297,7 +297,9 @@ class TestConcurrentAPI:
                 filename=os.path.basename(file_path)
             )
 
-            async with session.post(url, data=data) as response:
+            # 设置较长的超时时间（文档处理可能需要10分钟以上）
+            timeout = aiohttp.ClientTimeout(total=900)  # 15分钟
+            async with session.post(url, data=data, timeout=timeout) as response:
                 result = await response.json()
                 print(f"  [{timestamp()}] 完成上传 {rag_id}: {result.get('status', 'unknown')}")
                 return result
@@ -388,8 +390,9 @@ class TestConcurrentAPI:
 
                 for rag_id in rag_ids:
                     result = await self._get_documents_status(session, rag_id)
-                    # API 直接返回 total, processed, pending, failed, status_counts
+                    # API 直接返回 total, processed, pending, processing, failed, status_counts
                     if "total" in result:
+                        total = result.get("total", 0)
                         # 从 status_counts 获取详细状态（大写）
                         status_counts = result.get("status_counts", {})
                         pending = status_counts.get("PENDING", 0)
@@ -397,9 +400,10 @@ class TestConcurrentAPI:
                         processed = status_counts.get("PROCESSED", 0)
                         failed = status_counts.get("FAILED", 0)
 
-                        status_info.append(f"{rag_id}: pending={pending}, processing={processing}, processed={processed}, failed={failed}")
+                        status_info.append(f"{rag_id}: total={total}, pending={pending}, processing={processing}, processed={processed}, failed={failed}")
 
-                        if pending > 0 or processing > 0:
+                        # 如果 total=0 说明没有文档，或者还有待处理/处理中的文档
+                        if total == 0 or pending > 0 or processing > 0:
                             all_processed = False
                     else:
                         status_info.append(f"{rag_id}: 获取状态失败")
