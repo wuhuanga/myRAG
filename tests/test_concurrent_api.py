@@ -116,7 +116,10 @@ class TestConcurrentAPI:
 
     @pytest.mark.asyncio
     async def test_concurrent_upload_documents(self):
-        """测试 2: 并发插入文档到不同知识库"""
+        """测试 2: 并发插入文档到不同知识库
+
+        返回: (all_success, results) - 是否全部成功，以及详细结果
+        """
         print("\n" + "="*60)
         print("测试 2: 并发插入文档")
         print("="*60)
@@ -135,16 +138,22 @@ class TestConcurrentAPI:
             print(f"\n并发上传完成，耗时: {elapsed:.2f}秒")
 
             # 检查结果
+            all_success = True
             for i, result in enumerate(results):
                 rag_id = RAG_1_ID if i == 0 else RAG_2_ID
                 doc_path = DOC_1_PATH if i == 0 else DOC_2_PATH
                 if isinstance(result, Exception):
                     print(f"  {rag_id} ({doc_path}): 失败 - {result}")
+                    all_success = False
                 else:
                     status = result.get('status', 'unknown')
                     print(f"  {rag_id} ({doc_path}): {status}")
+                    if status != 'success':
+                        all_success = False
                     if 'error' in str(result).lower():
                         print(f"    详情: {result}")
+
+            return all_success, results
 
     @pytest.mark.asyncio
     async def test_concurrent_query_same_kb(self):
@@ -465,11 +474,15 @@ async def run_all_tests():
         await asyncio.sleep(2)
 
         # 测试 2: 并发上传
-        await test.test_concurrent_upload_documents()
+        all_success, upload_results = await test.test_concurrent_upload_documents()
 
-        # 等待文档处理完成
-        print("\n等待文档处理...")
-        await test._wait_for_documents_processed([RAG_1_ID, RAG_2_ID], timeout=600)
+        # 如果上传成功（API是同步的，返回200=处理完成），直接查询
+        # 只有上传失败时才需要轮询等待
+        if not all_success:
+            print("\n上传未完全成功，等待文档处理...")
+            await test._wait_for_documents_processed([RAG_1_ID, RAG_2_ID], timeout=600)
+        else:
+            print("\n上传成功，文档处理已完成")
 
         # 测试 3a: 并发查询同一知识库
         await test.test_concurrent_query_same_kb()
