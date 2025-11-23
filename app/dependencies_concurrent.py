@@ -51,15 +51,15 @@ class xwragProcessor:
         enable_llm_cache_for_entity_extract: bool = True,
         # NebulaGraph 连接池配置（可选）
         nebula_max_connection_pool_size: Optional[int] = None,
-        # 新增高优先级参数
-        language: str = "English",
+        # 新增高优先级参数（None 表示使用 xwrag 默认值/环境变量）
+        language: Optional[str] = None,
         entity_types: Optional[list] = None,
-        entity_extract_max_gleaning: int = 1,
-        kg_chunk_pick_method: str = "VECTOR",
-        llm_model_max_async: int = 4,
-        embedding_func_max_async: int = 8,
-        max_parallel_insert: int = 2,
-        max_graph_nodes: int = 1000,
+        entity_extract_max_gleaning: Optional[int] = None,
+        kg_chunk_pick_method: Optional[str] = None,
+        llm_model_max_async: Optional[int] = None,
+        embedding_func_max_async: Optional[int] = None,
+        max_parallel_insert: Optional[int] = None,
+        max_graph_nodes: Optional[int] = None,
     ):
         """
         初始化 xwrag 处理器
@@ -229,23 +229,32 @@ class xwragProcessor:
             rag_kwargs["chunk_token_size"] = self.chunk_token_size
             rag_kwargs["chunk_overlap_token_size"] = self.chunk_overlap_token_size
 
-            # 新增参数
-            rag_kwargs["entity_extract_max_gleaning"] = self.entity_extract_max_gleaning
-            rag_kwargs["kg_chunk_pick_method"] = self.kg_chunk_pick_method
-            rag_kwargs["llm_model_max_async"] = self.llm_model_max_async
-            rag_kwargs["embedding_func_max_async"] = self.embedding_func_max_async
-            rag_kwargs["max_parallel_insert"] = self.max_parallel_insert
-            rag_kwargs["max_graph_nodes"] = self.max_graph_nodes
+            # 缓存参数（始终传递）
             rag_kwargs["enable_llm_cache"] = self.enable_llm_cache
             rag_kwargs["enable_llm_cache_for_entity_extract"] = self.enable_llm_cache_for_entity_extract
 
-            # 设置 addon_params（语言和实体类型）
-            addon_params = {
-                "language": self.language,
-            }
+            # 新增参数 - 只有非 None 时才设置（使用 xwrag 默认值/环境变量）
+            if self.entity_extract_max_gleaning is not None:
+                rag_kwargs["entity_extract_max_gleaning"] = self.entity_extract_max_gleaning
+            if self.kg_chunk_pick_method is not None:
+                rag_kwargs["kg_chunk_pick_method"] = self.kg_chunk_pick_method
+            if self.llm_model_max_async is not None:
+                rag_kwargs["llm_model_max_async"] = self.llm_model_max_async
+            if self.embedding_func_max_async is not None:
+                rag_kwargs["embedding_func_max_async"] = self.embedding_func_max_async
+            if self.max_parallel_insert is not None:
+                rag_kwargs["max_parallel_insert"] = self.max_parallel_insert
+            if self.max_graph_nodes is not None:
+                rag_kwargs["max_graph_nodes"] = self.max_graph_nodes
+
+            # 设置 addon_params（语言和实体类型）- 只有非 None 时才设置
+            addon_params = {}
+            if self.language is not None:
+                addon_params["language"] = self.language
             if self.entity_types:
                 addon_params["entity_types"] = self.entity_types
-            rag_kwargs["addon_params"] = addon_params
+            if addon_params:
+                rag_kwargs["addon_params"] = addon_params
 
             # 初始化 RAG
             self.rag = xwrag(**rag_kwargs)

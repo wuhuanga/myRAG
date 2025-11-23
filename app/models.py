@@ -42,15 +42,15 @@ class RAGInstanceCreate(BaseModel):
     enable_llm_cache_for_entity_extract: bool = True
     # NebulaGraph 连接池配置（可选，用于多实例场景）
     nebula_max_connection_pool_size: Optional[int] = None  # 如果不设置，使用环境变量 NEBULA_MAX_CONNECTION_POOL_SIZE（默认 10）
-    # 新增高优先级参数
-    language: str = "English"  # 文档处理语言
+    # 新增高优先级参数（None 表示使用 xwrag 默认值/环境变量）
+    language: Optional[str] = None  # 文档处理语言
     entity_types: Optional[List[str]] = None  # 要提取的实体类型
-    entity_extract_max_gleaning: int = 1  # 实体提取最大尝试次数
-    kg_chunk_pick_method: str = "VECTOR"  # 文本块选择方法（WEIGHT/VECTOR）
-    llm_model_max_async: int = 4  # 最大并发 LLM 调用数
-    embedding_func_max_async: int = 8  # 最大并发 Embedding 调用数
-    max_parallel_insert: int = 2  # 最大并行插入数
-    max_graph_nodes: int = 1000  # 知识图谱返回最大节点数
+    entity_extract_max_gleaning: Optional[int] = None  # 实体提取最大尝试次数
+    kg_chunk_pick_method: Optional[str] = None  # 文本块选择方法（WEIGHT/VECTOR）
+    llm_model_max_async: Optional[int] = None  # 最大并发 LLM 调用数
+    embedding_func_max_async: Optional[int] = None  # 最大并发 Embedding 调用数
+    max_parallel_insert: Optional[int] = None  # 最大并行插入数
+    max_graph_nodes: Optional[int] = None  # 知识图谱返回最大节点数
 
 
 class RAGInstanceInfo(BaseModel):
