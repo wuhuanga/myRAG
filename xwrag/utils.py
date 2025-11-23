@@ -1470,10 +1470,110 @@ async def aexport_data(
             else:
                 txtfile.write("No relationship data available\n\n")
 
+    elif file_format == "echarts":
+        # ECharts JSON export for graph visualization
+        import json
+
+        # Build categories from unique entity types
+        entity_types_set = set()
+        entity_type_map = {}  # entity_name -> entity_type
+
+        for entity in entities_data:
+            graph_data = entity.get("graph_data", "{}")
+            if isinstance(graph_data, str):
+                try:
+                    graph_data = eval(graph_data) if graph_data else {}
+                except Exception:
+                    graph_data = {}
+            entity_type = graph_data.get("entity_type", "UNKNOWN") if graph_data else "UNKNOWN"
+            entity_types_set.add(entity_type)
+            entity_type_map[entity["entity_name"]] = entity_type
+
+        # Create categories list
+        categories = [{"name": et} for et in sorted(entity_types_set)]
+        category_index = {et: i for i, et in enumerate(sorted(entity_types_set))}
+
+        # Calculate node degrees (number of connections)
+        node_degrees = {}
+        for entity in entities_data:
+            node_degrees[entity["entity_name"]] = 0
+
+        for relation in relations_data:
+            src = relation["src_entity"]
+            tgt = relation["tgt_entity"]
+            node_degrees[src] = node_degrees.get(src, 0) + 1
+            node_degrees[tgt] = node_degrees.get(tgt, 0) + 1
+
+        # Build nodes
+        nodes = []
+        for entity in entities_data:
+            entity_name = entity["entity_name"]
+            entity_type = entity_type_map.get(entity_name, "UNKNOWN")
+
+            # Parse graph_data for description
+            graph_data = entity.get("graph_data", "{}")
+            if isinstance(graph_data, str):
+                try:
+                    graph_data = eval(graph_data) if graph_data else {}
+                except Exception:
+                    graph_data = {}
+
+            node = {
+                "id": entity_name,
+                "name": entity_name,
+                "value": node_degrees.get(entity_name, 1),
+                "category": category_index.get(entity_type, 0),
+                "entity_type": entity_type,
+            }
+
+            # Add description if available
+            if graph_data and graph_data.get("description"):
+                node["description"] = graph_data.get("description", "")
+
+            nodes.append(node)
+
+        # Build links
+        links = []
+        for relation in relations_data:
+            # Parse graph_data for edge properties
+            graph_data = relation.get("graph_data", "{}")
+            if isinstance(graph_data, str):
+                try:
+                    graph_data = eval(graph_data) if graph_data else {}
+                except Exception:
+                    graph_data = {}
+
+            link = {
+                "source": relation["src_entity"],
+                "target": relation["tgt_entity"],
+            }
+
+            # Add edge properties if available
+            if graph_data:
+                if graph_data.get("description"):
+                    link["description"] = graph_data.get("description", "")
+                if graph_data.get("weight"):
+                    link["weight"] = graph_data.get("weight", 1.0)
+                if graph_data.get("keywords"):
+                    link["keywords"] = graph_data.get("keywords", "")
+
+            links.append(link)
+
+        # Build final ECharts data structure
+        echarts_data = {
+            "nodes": nodes,
+            "links": links,
+            "categories": categories,
+        }
+
+        # Write JSON file
+        with open(output_path, "w", encoding="utf-8") as jsonfile:
+            json.dump(echarts_data, jsonfile, ensure_ascii=False, indent=2)
+
     else:
         raise ValueError(
             f"Unsupported file format: {file_format}. "
-            f"Choose from: csv, excel, md, txt"
+            f"Choose from: csv, excel, md, txt, echarts"
         )
     if file_format is not None:
         print(f"Data exported to: {output_path} with format: {file_format}")

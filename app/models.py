@@ -230,7 +230,7 @@ class ExportDataRequest(BaseModel):
     """数据导出请求"""
     rag_id: str
     output_path: str
-    file_format: Literal["csv", "excel", "md", "txt"] = "csv"
+    file_format: Literal["csv", "excel", "md", "txt", "echarts"] = "csv"
     include_vector_data: bool = False
 
 
