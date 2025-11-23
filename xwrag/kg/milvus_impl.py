@@ -1223,6 +1223,36 @@ class MilvusVectorDBStorage(BaseVectorStorage):
         # Milvus handles persistence automatically
         pass
 
+    @property
+    async def client_storage(self):
+        """Return all data from the collection for export/debugging purposes"""
+        try:
+            # Ensure collection is loaded
+            self._ensure_collection_loaded()
+
+            # Get all output fields
+            output_fields = ["id"] + list(self.meta_fields)
+
+            # Query all data (up to a reasonable limit)
+            results = self._client.query(
+                collection_name=self.final_namespace,
+                filter="",  # No filter = all data
+                output_fields=output_fields,
+                limit=10000  # Reasonable limit for export
+            )
+
+            # Format data similar to other implementations
+            formatted_data = []
+            for item in results:
+                formatted_item = {"__id__": item.get("id", "")}
+                formatted_item.update(item)
+                formatted_data.append(formatted_item)
+
+            return {"data": formatted_data}
+        except Exception as e:
+            logger.warning(f"[{self.workspace}] Error getting client_storage: {e}")
+            return {"data": []}
+
     async def delete_entity(self, entity_name: str) -> None:
         """Delete an entity from the vector database
 
