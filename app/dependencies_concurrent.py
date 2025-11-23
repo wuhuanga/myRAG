@@ -51,6 +51,15 @@ class xwragProcessor:
         enable_llm_cache_for_entity_extract: bool = True,
         # NebulaGraph 连接池配置（可选）
         nebula_max_connection_pool_size: Optional[int] = None,
+        # 新增高优先级参数
+        language: str = "English",
+        entity_types: Optional[list] = None,
+        entity_extract_max_gleaning: int = 1,
+        kg_chunk_pick_method: str = "VECTOR",
+        llm_model_max_async: int = 4,
+        embedding_func_max_async: int = 8,
+        max_parallel_insert: int = 2,
+        max_graph_nodes: int = 1000,
     ):
         """
         初始化 xwrag 处理器
@@ -107,6 +116,15 @@ class xwragProcessor:
         self.enable_llm_cache = enable_llm_cache
         self.enable_llm_cache_for_entity_extract = enable_llm_cache_for_entity_extract
         self.nebula_max_connection_pool_size = nebula_max_connection_pool_size
+        # 新增参数
+        self.language = language
+        self.entity_types = entity_types
+        self.entity_extract_max_gleaning = entity_extract_max_gleaning
+        self.kg_chunk_pick_method = kg_chunk_pick_method
+        self.llm_model_max_async = llm_model_max_async
+        self.embedding_func_max_async = embedding_func_max_async
+        self.max_parallel_insert = max_parallel_insert
+        self.max_graph_nodes = max_graph_nodes
 
         # 创建工作目录
         self.working_dir.mkdir(exist_ok=True)
@@ -210,6 +228,24 @@ class xwragProcessor:
             # 分块配置
             rag_kwargs["chunk_token_size"] = self.chunk_token_size
             rag_kwargs["chunk_overlap_token_size"] = self.chunk_overlap_token_size
+
+            # 新增参数
+            rag_kwargs["entity_extract_max_gleaning"] = self.entity_extract_max_gleaning
+            rag_kwargs["kg_chunk_pick_method"] = self.kg_chunk_pick_method
+            rag_kwargs["llm_model_max_async"] = self.llm_model_max_async
+            rag_kwargs["embedding_func_max_async"] = self.embedding_func_max_async
+            rag_kwargs["max_parallel_insert"] = self.max_parallel_insert
+            rag_kwargs["max_graph_nodes"] = self.max_graph_nodes
+            rag_kwargs["enable_llm_cache"] = self.enable_llm_cache
+            rag_kwargs["enable_llm_cache_for_entity_extract"] = self.enable_llm_cache_for_entity_extract
+
+            # 设置 addon_params（语言和实体类型）
+            addon_params = {
+                "language": self.language,
+            }
+            if self.entity_types:
+                addon_params["entity_types"] = self.entity_types
+            rag_kwargs["addon_params"] = addon_params
 
             # 初始化 RAG
             self.rag = xwrag(**rag_kwargs)
@@ -318,6 +354,15 @@ class xwragProcessor:
         max_entity_tokens: Optional[int] = None,
         max_relation_tokens: Optional[int] = None,
         max_total_tokens: Optional[int] = None,
+        # 新增参数
+        stream: bool = False,
+        enable_rerank: bool = True,
+        response_type: str = "Multiple Paragraphs",
+        conversation_history: Optional[list] = None,
+        hl_keywords: Optional[list] = None,
+        ll_keywords: Optional[list] = None,
+        user_prompt: Optional[str] = None,
+        include_references: bool = False,
     ) -> str:
         """
         查询知识图谱
@@ -331,6 +376,14 @@ class xwragProcessor:
             max_entity_tokens: 实体的最大 token 数
             max_relation_tokens: 关系的最大 token 数
             max_total_tokens: 总的最大 token 数
+            stream: 是否启用流式输出
+            enable_rerank: 是否启用 Rerank
+            response_type: 响应格式
+            conversation_history: 对话历史
+            hl_keywords: 高优先级关键词
+            ll_keywords: 低优先级关键词
+            user_prompt: 用户自定义提示词
+            include_references: 是否包含引用列表
 
         Returns:
             查询结果
@@ -372,6 +425,21 @@ class xwragProcessor:
             query_params["max_total_tokens"] = max_total_tokens
         elif self.max_total_tokens is not None:
             query_params["max_total_tokens"] = self.max_total_tokens
+
+        # 新增参数
+        query_params["stream"] = stream
+        query_params["enable_rerank"] = enable_rerank
+        query_params["response_type"] = response_type
+        query_params["include_references"] = include_references
+
+        if conversation_history:
+            query_params["conversation_history"] = conversation_history
+        if hl_keywords:
+            query_params["hl_keywords"] = hl_keywords
+        if ll_keywords:
+            query_params["ll_keywords"] = ll_keywords
+        if user_prompt:
+            query_params["user_prompt"] = user_prompt
 
         result = self.rag.query(question, param=QueryParam(**query_params))
 
@@ -450,6 +518,15 @@ class ConcurrentRAGInstanceManager:
                 enable_llm_cache=config.enable_llm_cache,
                 enable_llm_cache_for_entity_extract=config.enable_llm_cache_for_entity_extract,
                 nebula_max_connection_pool_size=config.nebula_max_connection_pool_size,
+                # 新增参数
+                language=config.language,
+                entity_types=config.entity_types,
+                entity_extract_max_gleaning=config.entity_extract_max_gleaning,
+                kg_chunk_pick_method=config.kg_chunk_pick_method,
+                llm_model_max_async=config.llm_model_max_async,
+                embedding_func_max_async=config.embedding_func_max_async,
+                max_parallel_insert=config.max_parallel_insert,
+                max_graph_nodes=config.max_graph_nodes,
             )
 
             # 初始化 RAG

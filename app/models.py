@@ -42,6 +42,15 @@ class RAGInstanceCreate(BaseModel):
     enable_llm_cache_for_entity_extract: bool = True
     # NebulaGraph 连接池配置（可选，用于多实例场景）
     nebula_max_connection_pool_size: Optional[int] = None  # 如果不设置，使用环境变量 NEBULA_MAX_CONNECTION_POOL_SIZE（默认 10）
+    # 新增高优先级参数
+    language: str = "English"  # 文档处理语言
+    entity_types: Optional[List[str]] = None  # 要提取的实体类型
+    entity_extract_max_gleaning: int = 1  # 实体提取最大尝试次数
+    kg_chunk_pick_method: str = "VECTOR"  # 文本块选择方法（WEIGHT/VECTOR）
+    llm_model_max_async: int = 4  # 最大并发 LLM 调用数
+    embedding_func_max_async: int = 8  # 最大并发 Embedding 调用数
+    max_parallel_insert: int = 2  # 最大并行插入数
+    max_graph_nodes: int = 1000  # 知识图谱返回最大节点数
 
 
 class RAGInstanceInfo(BaseModel):
@@ -68,6 +77,15 @@ class QueryRequest(BaseModel):
     max_entity_tokens: int = 6000
     max_relation_tokens: int = 8000
     max_total_tokens: int = 16300
+    # 新增高优先级参数
+    stream: bool = False  # 是否启用流式输出
+    enable_rerank: bool = True  # 是否启用 Rerank
+    response_type: str = "Multiple Paragraphs"  # 响应格式
+    conversation_history: Optional[List[Dict[str, str]]] = None  # 对话历史
+    hl_keywords: Optional[List[str]] = None  # 高优先级关键词
+    ll_keywords: Optional[List[str]] = None  # 低优先级关键词
+    user_prompt: Optional[str] = None  # 用户自定义提示词
+    include_references: bool = False  # 是否包含引用列表
 
 
 class QueryResponse(BaseModel):

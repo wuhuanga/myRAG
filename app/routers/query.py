@@ -45,6 +45,15 @@ async def query_knowledge(request: QueryRequest):
             max_entity_tokens=request.max_entity_tokens,
             max_relation_tokens=request.max_relation_tokens,
             max_total_tokens=request.max_total_tokens,
+            # 新增参数
+            stream=request.stream,
+            enable_rerank=request.enable_rerank,
+            response_type=request.response_type,
+            conversation_history=request.conversation_history,
+            hl_keywords=request.hl_keywords,
+            ll_keywords=request.ll_keywords,
+            user_prompt=request.user_prompt,
+            include_references=request.include_references,
         )
 
         return QueryResponse(
