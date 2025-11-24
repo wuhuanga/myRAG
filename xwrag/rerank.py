@@ -290,6 +290,58 @@ async def ali_rerank(
     )
 
 
+async def local_rerank(
+    query: str,
+    documents: List[str],
+    top_n: Optional[int] = None,
+    api_key: Optional[str] = None,
+    model: Optional[str] = None,
+    base_url: Optional[str] = None,
+    extra_body: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Rerank documents using local rerank service (e.g., Qwen3-Reranker).
+
+    Environment variables:
+        LOCAL_RERANK_URL: API endpoint (default: http://localhost:7777/v1/rerank)
+        LOCAL_RERANK_MODEL: Model name (optional)
+        LOCAL_RERANK_API_KEY: API key (optional)
+
+    Args:
+        query: The search query
+        documents: List of strings to rerank
+        top_n: Number of top results to return
+        api_key: API key (optional for local service)
+        model: Model name (optional)
+        base_url: API endpoint
+        extra_body: Additional body for http request
+
+    Returns:
+        List of dictionary of ["index": int, "relevance_score": float]
+    """
+    if base_url is None:
+        base_url = os.getenv("LOCAL_RERANK_URL", "http://localhost:7777/v1/rerank")
+
+    if model is None:
+        model = os.getenv("LOCAL_RERANK_MODEL", "local-reranker")
+
+    if api_key is None:
+        api_key = os.getenv("LOCAL_RERANK_API_KEY")
+
+    return await generic_rerank_api(
+        query=query,
+        documents=documents,
+        model=model,
+        base_url=base_url,
+        api_key=api_key,
+        top_n=top_n,
+        return_documents=False,
+        extra_body=extra_body,
+        response_format="standard",
+        request_format="standard",
+    )
+
+
 """Please run this test as a module:
 python -m xwrag.rerank
 """
