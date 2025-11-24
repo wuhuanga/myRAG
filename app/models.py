@@ -51,6 +51,8 @@ class RAGInstanceCreate(BaseModel):
     embedding_func_max_async: Optional[int] = None  # 最大并发 Embedding 调用数
     max_parallel_insert: Optional[int] = None  # 最大并行插入数
     max_graph_nodes: Optional[int] = None  # 知识图谱返回最大节点数
+    # LLM 响应处理
+    strip_think_tags: bool = False  # 是否去除 LLM 响应中的 <think> 块
 
 
 class RAGInstanceInfo(BaseModel):

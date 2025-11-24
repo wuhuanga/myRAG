@@ -94,6 +94,12 @@
 | `enable_llm_cache` | bool | true | 启用 LLM 缓存 |
 | `enable_llm_cache_for_entity_extract` | bool | true | 实体提取时启用 LLM 缓存 |
 
+**LLM 响应处理参数**:
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `strip_think_tags` | bool | false | 去除 LLM 响应中的 `<think>` 块 |
+
 **请求示例**:
 ```bash
 curl -X POST "http://localhost:8000/api/admin/rag_instances/create" \

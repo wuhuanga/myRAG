@@ -60,6 +60,8 @@ class xwragProcessor:
         embedding_func_max_async: Optional[int] = None,
         max_parallel_insert: Optional[int] = None,
         max_graph_nodes: Optional[int] = None,
+        # LLM 响应处理
+        strip_think_tags: bool = False,
     ):
         """
         初始化 xwrag 处理器
@@ -125,6 +127,7 @@ class xwragProcessor:
         self.embedding_func_max_async = embedding_func_max_async
         self.max_parallel_insert = max_parallel_insert
         self.max_graph_nodes = max_graph_nodes
+        self.strip_think_tags = strip_think_tags
 
         # 创建工作目录
         self.working_dir.mkdir(exist_ok=True)
@@ -139,6 +142,24 @@ class xwragProcessor:
         logger.info(f"Embedding 维度: {self.embedding_dim}")
         logger.info(f"Embedding 最大 Token: {self.embedding_max_token}")
         logger.info(f"LiteLLM URL: {self.litellm_url}")
+
+    def _strip_think_tags(self, text: str) -> str:
+        """
+        去除文本中的 <think>...</think> 块
+
+        Args:
+            text: 原始文本
+
+        Returns:
+            去除 think 块后的文本
+        """
+        import re
+        # 匹配 <think>...</think> 块（包括换行符）
+        pattern = r'<think>.*?</think>'
+        result = re.sub(pattern, '', text, flags=re.DOTALL)
+        # 清理多余的空行
+        result = re.sub(r'\n\s*\n', '\n\n', result)
+        return result.strip()
 
     async def llm_model_func(self, prompt, system_prompt=None, history_messages=[], **kwargs):
         """
@@ -170,6 +191,11 @@ class xwragProcessor:
                 system_prompt=system_prompt,
                 history_messages=history_messages,
             )
+
+            # 如果启用了 strip_think_tags，去除 <think> 块
+            if self.strip_think_tags and isinstance(response, str):
+                response = self._strip_think_tags(response)
+
             return response
         except Exception as e:
             logger.error(f"LLM 请求失败: {str(e)}")
@@ -539,6 +565,7 @@ class ConcurrentRAGInstanceManager:
                 embedding_func_max_async=config.embedding_func_max_async,
                 max_parallel_insert=config.max_parallel_insert,
                 max_graph_nodes=config.max_graph_nodes,
+                strip_think_tags=config.strip_think_tags,
             )
 
             # 初始化 RAG
