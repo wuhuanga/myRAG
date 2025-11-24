@@ -1234,42 +1234,36 @@ async def aexport_data(
             entity_row["vector_data"] = str(entity_info["vector_data"])
         entities_data.append(entity_row)
 
-    # --- Relations ---
-    for src_entity in all_entities:
-        for tgt_entity in all_entities:
-            if src_entity == tgt_entity:
-                continue
+    # --- Relations (优化：直接获取所有边，避免 O(n²) 遍历) ---
+    all_edges = await chunk_entity_relation_graph.get_all_edges()
+    for edge in all_edges:
+        src_entity = edge.get("source", "")
+        tgt_entity = edge.get("target", "")
 
-            edge_exists = await chunk_entity_relation_graph.has_edge(
-                src_entity, tgt_entity
-            )
-            if edge_exists:
-                # Get edge information from graph
-                edge_data = await chunk_entity_relation_graph.get_edge(
-                    src_entity, tgt_entity
-                )
-                source_id = edge_data.get("source_id") if edge_data else None
+        # 构建 edge_data（排除 source 和 target 字段）
+        edge_data = {k: v for k, v in edge.items() if k not in ("source", "target")}
+        source_id = edge_data.get("source_id")
 
-                relation_info = {
-                    "graph_data": edge_data,
-                    "source_id": source_id,
-                }
+        relation_info = {
+            "graph_data": edge_data,
+            "source_id": source_id,
+        }
 
-                # Optional: Get vector database information
-                if include_vector_data:
-                    rel_id = compute_mdhash_id(src_entity + tgt_entity, prefix="rel-")
-                    vector_data = await relationships_vdb.get_by_id(rel_id)
-                    relation_info["vector_data"] = vector_data
+        # Optional: Get vector database information
+        if include_vector_data:
+            rel_id = compute_mdhash_id(src_entity + tgt_entity, prefix="rel-")
+            vector_data = await relationships_vdb.get_by_id(rel_id)
+            relation_info["vector_data"] = vector_data
 
-                relation_row = {
-                    "src_entity": src_entity,
-                    "tgt_entity": tgt_entity,
-                    "source_id": relation_info["source_id"],
-                    "graph_data": str(relation_info["graph_data"]),  # Convert to string
-                }
-                if include_vector_data and "vector_data" in relation_info:
-                    relation_row["vector_data"] = str(relation_info["vector_data"])
-                relations_data.append(relation_row)
+        relation_row = {
+            "src_entity": src_entity,
+            "tgt_entity": tgt_entity,
+            "source_id": relation_info["source_id"],
+            "graph_data": str(relation_info["graph_data"]),  # Convert to string
+        }
+        if include_vector_data and "vector_data" in relation_info:
+            relation_row["vector_data"] = str(relation_info["vector_data"])
+        relations_data.append(relation_row)
 
     # --- Relationships (from VectorDB) ---
     all_relationships = await relationships_vdb.client_storage
