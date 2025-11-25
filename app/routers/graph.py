@@ -331,9 +331,135 @@ async def get_relation_info(request: RelationInfoRequest):
 
 # ==================== 数据导出接口 ====================
 
+@router.get("/echarts/{rag_id}")
+async def get_echarts_graph(rag_id: str):
+    """
+    获取 ECharts 格式的知识图谱数据（直接返回 JSON）
+
+    返回格式：
+    {
+        "nodes": [...],
+        "links": [...],
+        "categories": [...]
+    }
+    """
+    manager = get_concurrent_rag_manager()
+
+    try:
+        processor = manager.get_instance(rag_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    if processor.rag is None:
+        raise HTTPException(status_code=400, detail="RAG 系统未初始化")
+
+    try:
+        # 获取原始数据
+        chunk_entity_relation_graph = processor.rag.chunk_entity_relation_graph
+
+        # 获取所有实体和关系
+        entities_data_tuple = await chunk_entity_relation_graph.get_all_entities()
+        entities_data = [
+            {
+                "entity_name": item[0],
+                "graph_data": item[1].get("entity_data", {})
+                if isinstance(item[1], dict)
+                else {},
+            }
+            for item in entities_data_tuple
+        ]
+
+        relations_data_raw = await chunk_entity_relation_graph.get_all_edges()
+        relations_data = [
+            {
+                "src_entity": edge.get("source", ""),
+                "tgt_entity": edge.get("target", ""),
+                "graph_data": edge.get("edge_data", {})
+                if isinstance(edge.get("edge_data"), dict)
+                else {},
+            }
+            for edge in relations_data_raw
+        ]
+
+        # 构建 ECharts 数据结构
+        # 1. 构建分类
+        entity_types_set = set()
+        entity_type_map = {}
+
+        for entity in entities_data:
+            graph_data = entity.get("graph_data", {})
+            entity_type = graph_data.get("entity_type", "UNKNOWN")
+            entity_types_set.add(entity_type)
+            entity_type_map[entity["entity_name"]] = entity_type
+
+        categories = [{"name": et} for et in sorted(entity_types_set)]
+        category_index = {et: i for i, et in enumerate(sorted(entity_types_set))}
+
+        # 2. 计算节点度数
+        node_degrees = {entity["entity_name"]: 0 for entity in entities_data}
+        for relation in relations_data:
+            src = relation["src_entity"]
+            tgt = relation["tgt_entity"]
+            node_degrees[src] = node_degrees.get(src, 0) + 1
+            node_degrees[tgt] = node_degrees.get(tgt, 0) + 1
+
+        # 3. 构建节点
+        nodes = []
+        for entity in entities_data:
+            entity_name = entity["entity_name"]
+            entity_type = entity_type_map.get(entity_name, "UNKNOWN")
+            graph_data = entity.get("graph_data", {})
+
+            node = {
+                "id": entity_name,
+                "name": entity_name,
+                "value": node_degrees.get(entity_name, 1),
+                "category": category_index.get(entity_type, 0),
+                "entity_type": entity_type,
+            }
+
+            if graph_data and graph_data.get("description"):
+                node["description"] = graph_data.get("description", "")
+
+            nodes.append(node)
+
+        # 4. 构建边
+        links = []
+        for relation in relations_data:
+            graph_data = relation.get("graph_data", {})
+
+            link = {
+                "source": relation["src_entity"],
+                "target": relation["tgt_entity"],
+            }
+
+            if graph_data:
+                if graph_data.get("description"):
+                    link["description"] = graph_data.get("description", "")
+                if graph_data.get("weight"):
+                    link["weight"] = graph_data.get("weight", 1.0)
+                if graph_data.get("keywords"):
+                    link["keywords"] = graph_data.get("keywords", "")
+
+            links.append(link)
+
+        # 返回 ECharts 数据
+        echarts_data = {"nodes": nodes, "links": links, "categories": categories}
+
+        return {
+            "status": "success",
+            "rag_id": rag_id,
+            "data": echarts_data,
+        }
+
+    except Exception as e:
+        logger.error(f"获取 ECharts 图谱数据失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取图谱数据失败: {str(e)}")
+
+
 @router.post("/export")
 async def export_data(request: ExportDataRequest):
-    """导出知识图谱数据"""
+    """导出知识图谱数据到文件"""
     manager = get_concurrent_rag_manager()
 
     try:
