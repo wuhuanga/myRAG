@@ -321,6 +321,51 @@ curl "http://localhost:8000/api/documents/list/rag_1/PROCESSED"
 
 ---
 
+### 2.6 删除文档
+
+**DELETE** `/api/documents/delete/{rag_id}/{doc_id}`
+
+删除指定文档及其所有关联数据（包括 chunks、entities、relationships、cache）。
+
+**路径参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `rag_id` | string | 是 | RAG 实例 ID |
+| `doc_id` | string | 是 | 文档 ID |
+
+**请求示例**:
+```bash
+curl -X DELETE "http://localhost:8000/api/documents/delete/rag_1/doc_001"
+```
+
+**响应示例 (成功)**:
+```json
+{
+  "status": "success",
+  "doc_id": "doc_001",
+  "file_path": "document.txt",
+  "message": "Document deleted successfully",
+  "rag_id": "rag_1"
+}
+```
+
+**响应示例 (未找到)**:
+```json
+{
+  "detail": "Document not found: doc_001"
+}
+```
+
+**响应示例 (失败)**:
+```json
+{
+  "detail": "Deletion failed: error details"
+}
+```
+
+---
+
 ## 3. 查询接口 (Query)
 
 ### 3.1 查询知识库
