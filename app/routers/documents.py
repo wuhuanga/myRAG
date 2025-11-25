@@ -271,3 +271,54 @@ async def get_documents_by_status(rag_id: str, status: str):
     except Exception as e:
         logger.error(f"获取文档列表失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取文档列表失败: {str(e)}")
+
+
+@router.delete("/delete/{rag_id}/{doc_id}")
+async def delete_document(rag_id: str, doc_id: str):
+    """删除指定文档及其所有关联数据
+
+    Args:
+        rag_id: RAG 实例 ID
+        doc_id: 文档 ID
+
+    Returns:
+        删除结果，包括状态和消息
+    """
+    manager = get_concurrent_rag_manager()
+
+    try:
+        processor = manager.get_instance(rag_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    if processor.rag is None:
+        raise HTTPException(status_code=400, detail="RAG 系统未初始化")
+
+    try:
+        logger.info(f"正在删除文档: {doc_id} (RAG ID: {rag_id})")
+
+        # 调用 xwrag 的删除方法
+        result = await processor.rag.adelete_by_doc_id(doc_id)
+
+        # 根据删除结果返回相应的 HTTP 状态码
+        if result.status == "success":
+            logger.info(f"文档删除成功: {doc_id}")
+            return {
+                "status": "success",
+                "doc_id": doc_id,
+                "file_path": result.file_path,
+                "message": result.message,
+                "rag_id": rag_id
+            }
+        elif result.status == "not_found":
+            logger.warning(f"文档未找到: {doc_id}")
+            raise HTTPException(status_code=404, detail=result.message)
+        else:  # failure
+            logger.error(f"文档删除失败: {doc_id} - {result.message}")
+            raise HTTPException(status_code=500, detail=result.message)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除文档时发生错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"删除文档失败: {str(e)}")
