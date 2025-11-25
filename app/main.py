@@ -10,6 +10,10 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 """
 import logging
 from typing import List
+from dotenv import load_dotenv
+
+# 加载 .env 文件中的环境变量
+load_dotenv()
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
