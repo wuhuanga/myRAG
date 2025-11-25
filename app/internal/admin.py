@@ -117,7 +117,7 @@ async def get_rag_instance_info(rag_id: str):
 
 @router.delete("/rag_instances/{rag_id}")
 async def delete_rag_instance(rag_id: str):
-    """删除指定的 RAG 实例"""
+    """删除指定的 RAG 实例（仅删除内存实例，不清理存储数据）"""
     manager = get_concurrent_rag_manager()
 
     try:
@@ -126,7 +126,7 @@ async def delete_rag_instance(rag_id: str):
         if success:
             return {
                 "status": "success",
-                "message": f"RAG 实例 '{rag_id}' 已删除",
+                "message": f"RAG 实例 '{rag_id}' 已删除（存储数据保留）",
                 "rag_id": rag_id
             }
         else:
@@ -135,6 +135,47 @@ async def delete_rag_instance(rag_id: str):
     except Exception as e:
         logger.error(f"删除 RAG 实例失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"删除 RAG 实例失败: {str(e)}")
+
+
+@router.delete("/rag_instances/{rag_id}/complete")
+async def delete_rag_instance_completely(rag_id: str, cleanup_storage: bool = True):
+    """
+    彻底删除 RAG 实例及其所有存储数据
+
+    Args:
+        rag_id: RAG 实例 ID
+        cleanup_storage: 是否清理存储数据（默认 true）
+
+    Warning:
+        此操作不可逆！将永久删除：
+        - NebulaGraph Space 和所有图数据
+        - Milvus Database 和所有向量数据
+        - 工作目录中的所有文件
+    """
+    manager = get_concurrent_rag_manager()
+
+    try:
+        result = await manager.delete_instance_completely(rag_id, cleanup_storage)
+
+        if not result["success"]:
+            if not result["cleaned"]:
+                raise HTTPException(status_code=404, detail=result["message"])
+
+        status_code = 200 if result["success"] else 207  # 207 Multi-Status for partial success
+
+        return {
+            "status": "success" if result["success"] else "partial",
+            "message": result["message"],
+            "rag_id": rag_id,
+            "cleaned_resources": result["cleaned"],
+            "errors": result.get("failed"),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"彻底删除 RAG 实例失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"彻底删除失败: {str(e)}")
 
 
 @router.post("/ucd/init")

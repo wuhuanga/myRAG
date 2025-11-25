@@ -634,6 +634,126 @@ class ConcurrentRAGInstanceManager:
                 return True
             return False
 
+    async def delete_instance_completely(
+        self, rag_id: str, cleanup_storage: bool = True
+    ) -> dict:
+        """
+        彻底删除 RAG 实例及其所有存储数据
+
+        Args:
+            rag_id: RAG 实例 ID
+            cleanup_storage: 是否清理底层存储数据
+
+        Returns:
+            删除结果详情
+        """
+        async with self._lock:
+            if rag_id not in self.instances:
+                return {
+                    "success": False,
+                    "message": f"RAG 实例 '{rag_id}' 不存在",
+                    "cleaned": [],
+                    "failed": None,
+                }
+
+            processor = self.instances[rag_id]
+            cleaned = []
+            failed = []
+
+            # 清理存储数据
+            if cleanup_storage and processor.rag:
+                workspace = processor.workspace
+                working_dir = processor.working_dir
+
+                # 1. 清理 NebulaGraph Space
+                try:
+                    # 使用 xwrag 的图存储删除 Space
+                    graph_storage = processor.rag.chunk_entity_relation_graph
+                    if hasattr(graph_storage, "_session_pool"):
+                        session = graph_storage._session_pool.get_session()
+                        drop_query = f"DROP SPACE IF EXISTS {workspace};"
+                        result = session.execute(drop_query)
+                        session.release()
+
+                        if result.is_succeeded():
+                            cleaned.append(f"NebulaGraph Space: {workspace}")
+                            logger.info(f"已删除 NebulaGraph Space: {workspace}")
+                        else:
+                            failed.append(
+                                {
+                                    "component": "NebulaGraph",
+                                    "error": result.error_msg(),
+                                }
+                            )
+                except Exception as e:
+                    failed.append({"component": "NebulaGraph", "error": str(e)})
+                    logger.error(f"NebulaGraph 清理失败: {str(e)}")
+
+                # 2. 清理 Milvus Database
+                try:
+                    from pymilvus import utility, connections
+
+                    milvus_host = os.getenv("MILVUS_HOST", "localhost")
+                    milvus_port = os.getenv("MILVUS_PORT", "19530")
+                    db_name = f"xwrag_{workspace}"
+
+                    # 临时连接
+                    alias = f"cleanup_{rag_id}"
+                    connections.connect(alias=alias, host=milvus_host, port=milvus_port)
+
+                    # 切换到目标 database 并删除所有 collections
+                    if db_name in utility.list_databases(using=alias):
+                        utility.using_database(db_name, using=alias)
+                        collections = utility.list_collections(using=alias)
+
+                        for coll in collections:
+                            utility.drop_collection(coll, using=alias)
+
+                        # 切换回 default
+                        utility.using_database("default", using=alias)
+
+                        # 删除 database (Milvus 2.3+)
+                        try:
+                            from pymilvus import db
+
+                            db.drop_database(db_name, using=alias)
+                            cleaned.append(f"Milvus Database: {db_name}")
+                            logger.info(f"已删除 Milvus Database: {db_name}")
+                        except Exception:
+                            # 旧版本 Milvus 可能不支持
+                            cleaned.append(f"Milvus Collections in {db_name}")
+
+                    connections.disconnect(alias)
+                except Exception as e:
+                    failed.append({"component": "Milvus", "error": str(e)})
+                    logger.error(f"Milvus 清理失败: {str(e)}")
+
+                # 3. 清理文件系统
+                try:
+                    import shutil
+
+                    if working_dir.exists():
+                        shutil.rmtree(working_dir)
+                        cleaned.append(f"工作目录: {working_dir}")
+                        logger.info(f"已删除工作目录: {working_dir}")
+                except Exception as e:
+                    failed.append({"component": "FileSystem", "error": str(e)})
+                    logger.error(f"文件系统清理失败: {str(e)}")
+
+            # 4. 从内存删除实例
+            del self.instances[rag_id]
+            cleaned.append(f"内存实例: {rag_id}")
+            logger.info(f"已从内存删除 RAG 实例: {rag_id}")
+
+            return {
+                "success": len(failed) == 0,
+                "message": f"RAG 实例 '{rag_id}' 已删除"
+                if len(failed) == 0
+                else "删除完成但部分资源清理失败",
+                "cleaned": cleaned,
+                "failed": failed if failed else None,
+            }
+
 
 # 全局 RAG 实例管理器（并发安全版本）
 concurrent_rag_manager = ConcurrentRAGInstanceManager()
