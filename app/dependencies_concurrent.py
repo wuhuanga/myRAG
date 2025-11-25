@@ -15,6 +15,7 @@ import textract
 from xwrag import xwrag, QueryParam
 from xwrag.llm.llama_index_impl import llama_index_complete_if_cache
 from xwrag.llm.hf import hf_embed
+from xwrag.rerank import local_rerank
 from transformers import AutoModel, AutoTokenizer
 from xwrag.utils import EmbeddingFunc
 from llama_index.llms.litellm import LiteLLM
@@ -237,6 +238,7 @@ class xwragProcessor:
                         embed_model=embed_model,
                     ),
                 ),
+                "rerank_model_func": local_rerank,  # 配置 rerank 函数
             }
 
             # 从环境变量读取存储配置（默认使用 NebulaGraph 和 Milvus）
