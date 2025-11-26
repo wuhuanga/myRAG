@@ -357,29 +357,31 @@ async def get_echarts_graph(rag_id: str):
         # 获取原始数据
         chunk_entity_relation_graph = processor.rag.chunk_entity_relation_graph
 
-        # 获取所有实体和关系
-        entities_data_tuple = await chunk_entity_relation_graph.get_all_entities()
-        entities_data = [
-            {
-                "entity_name": item[0],
-                "graph_data": item[1].get("entity_data", {})
-                if isinstance(item[1], dict)
-                else {},
-            }
-            for item in entities_data_tuple
-        ]
+        # 获取所有实体和关系（兼容 NebulaGraphStorage）
+        nodes_raw = await chunk_entity_relation_graph.get_all_nodes()
+        entities_data = []
+        for node in nodes_raw:
+            entity_name = node.get("id", "")
+            # NebulaGraphStorage 将所有属性直接存储在顶层
+            graph_data = {k: v for k, v in node.items() if k != "id"}
+            entities_data.append({
+                "entity_name": entity_name,
+                "graph_data": graph_data,
+            })
 
         relations_data_raw = await chunk_entity_relation_graph.get_all_edges()
-        relations_data = [
-            {
-                "src_entity": edge.get("source", ""),
-                "tgt_entity": edge.get("target", ""),
-                "graph_data": edge.get("edge_data", {})
-                if isinstance(edge.get("edge_data"), dict)
-                else {},
-            }
-            for edge in relations_data_raw
-        ]
+        relations_data = []
+        for edge in relations_data_raw:
+            # NebulaGraphStorage 返回 {"source": ..., "target": ..., ...其他属性...}
+            src_entity = edge.get("source", "")
+            tgt_entity = edge.get("target", "")
+            # 其他属性作为 graph_data
+            graph_data = {k: v for k, v in edge.items() if k not in ["source", "target"]}
+            relations_data.append({
+                "src_entity": src_entity,
+                "tgt_entity": tgt_entity,
+                "graph_data": graph_data,
+            })
 
         # 构建 ECharts 数据结构
         # 1. 构建分类
