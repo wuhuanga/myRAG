@@ -11,7 +11,9 @@
 2. [文档接口 (Documents)](#2-文档接口-documents)
 3. [查询接口 (Query)](#3-查询接口-query)
 4. [图操作接口 (Graph)](#4-图操作接口-graph)
+   - [4.11 获取 ECharts 图谱 JSON](#411-获取-echarts-图谱-json直接返回) ⭐ **推荐**
 5. [WebSocket 接口](#5-websocket-接口)
+6. [Rerank 配置](#6-rerank-配置) ⭐ **新增**
 
 ---
 
@@ -719,6 +721,182 @@ curl -X POST "http://localhost:8000/api/graph/export" \
 
 ---
 
+### 4.11 获取 ECharts 图谱 JSON（直接返回）
+
+**GET** `/api/graph/echarts/{rag_id}`
+
+直接返回 ECharts 格式的知识图谱 JSON 数据，无需指定输出路径。适用于前端直接获取并可视化。
+
+**路径参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `rag_id` | string | 是 | RAG 实例 ID |
+
+**请求示例**:
+```bash
+curl "http://localhost:8000/api/graph/echarts/rag_1"
+```
+
+**JavaScript/Fetch 示例**:
+```javascript
+// 获取并渲染 ECharts 图谱
+fetch('http://localhost:8000/api/graph/echarts/rag_1')
+  .then(response => response.json())
+  .then(result => {
+    const echarts_data = result.data;
+
+    // 使用 ECharts 渲染
+    const chart = echarts.init(document.getElementById('graph'));
+    chart.setOption({
+      series: [{
+        type: 'graph',
+        layout: 'force',
+        data: echarts_data.nodes,
+        links: echarts_data.links,
+        categories: echarts_data.categories,
+        roam: true,
+        label: {
+          show: true,
+          position: 'right'
+        },
+        force: {
+          repulsion: 1000,
+          edgeLength: 150
+        }
+      }]
+    });
+  });
+```
+
+**响应示例**:
+```json
+{
+  "status": "success",
+  "rag_id": "rag_1",
+  "data": {
+    "nodes": [
+      {
+        "id": "知识图谱",
+        "name": "知识图谱",
+        "value": 15,
+        "category": 0,
+        "entity_type": "CONCEPT",
+        "description": "一种结构化的知识表示方式"
+      },
+      {
+        "id": "人工智能",
+        "name": "人工智能",
+        "value": 8,
+        "category": 1,
+        "entity_type": "TECHNOLOGY"
+      }
+    ],
+    "links": [
+      {
+        "source": "知识图谱",
+        "target": "人工智能",
+        "description": "是...的一部分",
+        "weight": 1.0,
+        "keywords": "应用,技术"
+      }
+    ],
+    "categories": [
+      {"name": "CONCEPT"},
+      {"name": "TECHNOLOGY"}
+    ]
+  }
+}
+```
+
+**数据结构说明**:
+
+**nodes** (节点数组):
+- `id`: 节点唯一标识（实体名称）
+- `name`: 显示名称
+- `value`: 节点大小值（基于度数计算）
+- `category`: 分类索引
+- `entity_type`: 实体类型
+- `description`: 实体描述（可选）
+
+**links** (边数组):
+- `source`: 源节点 ID
+- `target`: 目标节点 ID
+- `description`: 关系描述（可选）
+- `weight`: 关系权重（可选）
+- `keywords`: 关键词（可选）
+
+**categories** (分类数组):
+- `name`: 分类名称
+
+**完整 ECharts 配置示例**:
+```javascript
+const option = {
+  title: {
+    text: 'Knowledge Graph',
+    top: 'top',
+    left: 'center'
+  },
+  tooltip: {
+    formatter: function(params) {
+      if (params.dataType === 'node') {
+        return `<b>${params.data.name}</b><br/>
+                类型: ${params.data.entity_type}<br/>
+                连接数: ${params.data.value}<br/>
+                ${params.data.description || ''}`;
+      } else {
+        return `${params.data.source} → ${params.data.target}<br/>
+                ${params.data.description || ''}<br/>
+                权重: ${params.data.weight || 'N/A'}`;
+      }
+    }
+  },
+  legend: [{
+    data: echarts_data.categories.map(c => c.name),
+    orient: 'vertical',
+    left: 'left'
+  }],
+  series: [{
+    type: 'graph',
+    layout: 'force',
+    data: echarts_data.nodes,
+    links: echarts_data.links,
+    categories: echarts_data.categories,
+    roam: true,
+    label: {
+      show: true,
+      position: 'right',
+      formatter: '{b}'
+    },
+    labelLayout: {
+      hideOverlap: true
+    },
+    scaleLimit: {
+      min: 0.4,
+      max: 2
+    },
+    lineStyle: {
+      color: 'source',
+      curveness: 0.3
+    },
+    emphasis: {
+      focus: 'adjacency',
+      lineStyle: {
+        width: 10
+      }
+    },
+    force: {
+      repulsion: 1000,
+      gravity: 0.1,
+      edgeLength: [100, 200],
+      layoutAnimation: true
+    }
+  }]
+};
+```
+
+---
+
 ## 5. WebSocket 接口
 
 **WebSocket** `ws://localhost:8000/ws`
@@ -788,9 +966,107 @@ curl -X POST "http://localhost:8000/api/graph/export" \
 
 ---
 
+## 6. Rerank 配置
+
+### 6.1 什么是 Rerank？
+
+Rerank（重排序）是一种检索优化技术，在初步检索后使用专门的模型对结果进行重新排序，提高相关性最高的文档的排名。
+
+**使用场景**：
+- 提高检索准确率
+- 优化搜索结果排序
+- 支持多语言语义匹配
+
+### 6.2 启动本地 Rerank 服务
+
+使用提供的 CPU rerank 服务器：
+
+```bash
+# 运行 rerank 服务（默认监听 7777 端口）
+python cpu_rerank_server.py
+```
+
+**模型**：Qwen3-Reranker-0.6B（CPU 友好）
+
+### 6.3 环境变量配置
+
+在 `.env` 文件中配置 rerank 相关变量：
+
+```bash
+# Rerank 服务配置
+LOCAL_RERANK_URL=http://localhost:7777/v1/rerank
+LOCAL_RERANK_MODEL=local-reranker
+LOCAL_RERANK_API_KEY=  # 本地服务可选
+```
+
+**重要**：配置后需要重启 API 服务器：
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 6.4 在查询中使用 Rerank
+
+**方法 1：查询时启用**
+```bash
+curl -X POST "http://localhost:8000/api/query/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rag_id": "rag_1",
+    "question": "什么是知识图谱？",
+    "enable_rerank": true,
+    "chunk_top_k": 20
+  }'
+```
+
+**方法 2：在 RAG 实例创建时配置默认行为**
+
+通过 `addon_params` 或环境变量配置全局 rerank 行为。
+
+### 6.5 Rerank 工作流程
+
+1. **初步检索**：向量检索获取 `chunk_top_k` 个候选文档（如 20 个）
+2. **Rerank 重排**：使用 rerank 模型计算相关性分数
+3. **结果排序**：按相关性分数重新排序
+4. **返回结果**：返回排序后的 top-k 结果
+
+### 6.6 故障排查
+
+**问题 1：WARNING: Rerank is enabled but no rerank model is configured**
+
+**原因**：
+- `.env` 文件未被加载
+- `rerank_model_func` 未配置
+
+**解决方案**：
+1. 确保 `cpu_rerank_server.py` 正在运行
+2. 检查 `.env` 文件中的 `LOCAL_RERANK_URL` 配置
+3. 重启 API 服务器
+
+**问题 2：Cannot handle batch sizes > 1 if no padding token is defined**
+
+**原因**：旧版本 rerank 服务器缺少 padding token 配置
+
+**解决方案**：使用仓库中提供的修复版 `cpu_rerank_server.py`
+
+**问题 3：Rerank API error 500**
+
+**原因**：
+- Rerank 服务未启动
+- 端口被占用
+- 模型加载失败
+
+**解决方案**：
+1. 检查 rerank 服务日志
+2. 确认端口 7777 可用
+3. 确保有足够的内存加载模型
+
+---
+
 ## 环境变量配置
 
-以下环境变量用于配置 LLM 和 Embedding：
+以下环境变量用于配置 LLM、Embedding 和 Rerank：
+
+### LLM 和 Embedding 配置
 
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
@@ -800,8 +1076,21 @@ curl -X POST "http://localhost:8000/api/graph/export" \
 | `EMBEDDING_MAX_TOKEN` | 5000 | 最大 token 数 |
 | `LITELLM_URL` | http://localhost:4000 | LiteLLM 服务地址 |
 | `LITELLM_KEY` | sk-1234 | API 密钥 |
+
+### 存储配置
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
 | `GRAPH_STORAGE` | NebulaGraphStorage | 图存储类型 |
 | `VECTOR_STORAGE` | MilvusVectorDBStorage | 向量存储类型 |
+
+### Rerank 配置
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| `LOCAL_RERANK_URL` | http://localhost:7777/v1/rerank | Rerank 服务地址 |
+| `LOCAL_RERANK_MODEL` | local-reranker | Rerank 模型名称 |
+| `LOCAL_RERANK_API_KEY` | - | API 密钥（本地服务可选） |
 
 ---
 
