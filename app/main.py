@@ -39,8 +39,12 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("关闭 RAG Backend API,等待异步任务完成...")
 
-    # 等待所有待处理的异步任务完成
-    tasks = [task for task in asyncio.all_tasks() if not task.done()]
+    # 等待所有待处理的异步任务完成（排除当前任务）
+    current_task = asyncio.current_task()
+    tasks = [
+        task for task in asyncio.all_tasks()
+        if task != current_task and not task.done()
+    ]
     if tasks:
         logger.info(f"等待 {len(tasks)} 个异步任务完成...")
         await asyncio.gather(*tasks, return_exceptions=True)
