@@ -9,7 +9,9 @@ pip install fastapi uvicorn python-multipart aiofiles
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 """
 import logging
+import asyncio
 from typing import List
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # 加载 .env 文件中的环境变量
@@ -28,11 +30,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+# 生命周期管理
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理,确保异步资源正确清理"""
+    logger.info("启动 RAG Backend API...")
+    yield
+    logger.info("关闭 RAG Backend API,等待异步任务完成...")
+
+    # 等待所有待处理的异步任务完成
+    tasks = [task for task in asyncio.all_tasks() if not task.done()]
+    if tasks:
+        logger.info(f"等待 {len(tasks)} 个异步任务完成...")
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    # 等待一小段时间确保所有连接关闭
+    await asyncio.sleep(0.5)
+    logger.info("所有资源已清理")
+
+
 # FastAPI 应用
 app = FastAPI(
     title="RAG Backend API",
     description="Modular RAG backend with multi-instance support",
-    version="3.0.0"
+    version="3.0.0",
+    lifespan=lifespan
 )
 
 # 配置 CORS
