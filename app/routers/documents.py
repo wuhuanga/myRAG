@@ -56,7 +56,7 @@ async def upload_document(
         logger.info(f"文件保存成功,开始处理...")
 
         # 插入到知识图谱
-        processor.insert_document(str(file_path), custom_id)
+        await processor.insert_document(str(file_path), custom_id)
 
         return {
             "status": "success",
@@ -147,7 +147,7 @@ async def batch_insert_documents(request: BatchInsertRequest):
         logger.info(f"批量插入 {len(documents_data)} 个文档")
 
         # 批量插入
-        processor.insert_documents_batch(documents_data)
+        await processor.insert_documents_batch(documents_data)
 
         return {
             "status": "success",

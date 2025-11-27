@@ -300,7 +300,7 @@ class xwragProcessor:
                 else:
                     os.environ.pop("NEBULA_MAX_CONNECTION_POOL_SIZE", None)
 
-    def insert_document(self, document_path: str, custom_id: Optional[str] = None):
+    async def insert_document(self, document_path: str, custom_id: Optional[str] = None):
         """
         插入文档到知识图谱,支持多种格式(PDF、DOCX、TXT等)
 
@@ -341,14 +341,15 @@ class xwragProcessor:
 
         logger.info(f"正在插入文档到知识图谱...")
         # 使用文件名作为 file_path,支持自定义 ID
+        # 使用异步方法避免事件循环嵌套
         file_name = doc_path.name
         if custom_id:
-            self.rag.insert(content, ids=[custom_id], file_paths=[file_name])
+            await self.rag.ainsert(content, ids=[custom_id], file_paths=[file_name])
         else:
-            self.rag.insert(content, file_paths=[file_name])
+            await self.rag.ainsert(content, file_paths=[file_name])
         logger.info(f"文档插入完成: {file_name}")
 
-    def insert_documents_batch(self, documents_data: list):
+    async def insert_documents_batch(self, documents_data: list):
         """批量插入文档到知识图谱
 
         Args:
@@ -373,11 +374,11 @@ class xwragProcessor:
 
         logger.info(f"正在批量插入 {len(contents)} 个文档到知识图谱...")
 
-        # 批量插入
+        # 批量插入 - 使用异步方法避免事件循环嵌套
         if doc_ids and len(doc_ids) == len(contents):
-            self.rag.insert(contents, ids=doc_ids, file_paths=file_paths)
+            await self.rag.ainsert(contents, ids=doc_ids, file_paths=file_paths)
         else:
-            self.rag.insert(contents, file_paths=file_paths)
+            await self.rag.ainsert(contents, file_paths=file_paths)
 
         logger.info(f"批量插入完成: {len(contents)} 个文档")
 
