@@ -9,7 +9,10 @@
 | `local` | 本地 HuggingFace 模型 (默认) | - | `sentence-transformers/all-MiniLM-L6-v2` | 384 |
 | `openai` | OpenAI Embedding API | `OPENAI_API_KEY` | `text-embedding-3-small` | 1536 |
 | `openai` | OpenAI Embedding API (大模型) | `OPENAI_API_KEY` | `text-embedding-3-large` | 3072 |
+| `openai` | **智谱 AI (GLM)** | `EMBEDDING_API_KEY` | `embedding-3` | 2-2048 可配置 |
 | `jina` | Jina AI Embedding API | `JINA_API_KEY` | `jina-embeddings-v4` | 1024-2048 |
+
+> **注意**: 智谱 AI、硅基流动、DeepSeek 等国内服务商提供的 OpenAI 兼容 API，都使用 `EMBEDDING_TYPE=openai` + `EMBEDDING_BASE_URL`
 
 ## 配置方法
 
@@ -42,6 +45,23 @@ EMBEDDING_API_KEY=jina_your-api-key
 
 # 或者使用 Jina 官方环境变量
 JINA_API_KEY=jina_your-api-key
+```
+
+#### 使用智谱 AI Embedding
+
+```bash
+# Embedding 配置
+EMBEDDING_TYPE=openai
+EMBEDDING_MODEL=embedding-3
+EMBEDDING_DIM=1024
+EMBEDDING_MAX_TOKEN=512
+EMBEDDING_API_KEY=your-zhipu-api-key
+EMBEDDING_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+
+# 说明：
+# - EMBEDDING_TYPE 设为 openai (智谱兼容 OpenAI 格式)
+# - EMBEDDING_BASE_URL 指向智谱 API 地址
+# - EMBEDDING_DIM 可设置 2-2048 之间的任意值
 ```
 
 #### 使用本地模型 (默认)
@@ -135,6 +155,37 @@ MILVUS_URI=http://localhost:19530
 MILVUS_DB_NAME=default
 ```
 
+### .env 文件示例 (智谱 AI)
+
+```bash
+# ==================== Embedding 配置 ====================
+EMBEDDING_TYPE=openai
+EMBEDDING_MODEL=embedding-3
+EMBEDDING_DIM=1024
+EMBEDDING_MAX_TOKEN=512
+EMBEDDING_API_KEY=your-zhipu-api-key
+EMBEDDING_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+
+# ==================== LLM 配置 ====================
+LITELLM_URL=http://localhost:4000
+LITELLM_KEY=sk-1234
+LLM_MODEL=gpt-4o-mini
+
+# ==================== 存储配置 ====================
+GRAPH_STORAGE=NebulaGraphStorage
+VECTOR_STORAGE=MilvusVectorDBStorage
+
+# NebulaGraph 配置
+NEBULA_HOSTS=127.0.0.1:9669
+NEBULA_USER=root
+NEBULA_PASSWORD=nebula
+NEBULA_WORKSPACE=default
+
+# Milvus 配置
+MILVUS_URI=http://localhost:19530
+MILVUS_DB_NAME=default
+```
+
 ## API Key 获取方式
 
 ### OpenAI API Key
@@ -150,6 +201,14 @@ MILVUS_DB_NAME=default
 2. 注册并登录
 3. 进入 API Keys 管理页面
 4. 创建新的 API key (格式: `jina_...`)
+
+### 智谱 AI API Key
+
+1. 访问 [智谱 AI 开放平台](https://open.bigmodel.cn/)
+2. 注册并登录
+3. 进入 API Keys 管理页面
+4. 创建新的 API key
+5. 充值（新用户有免费额度）
 
 ## 重要说明
 

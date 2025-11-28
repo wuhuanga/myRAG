@@ -109,7 +109,8 @@ class xwragProcessor:
         )
         self.embedding_dim = int(os.environ.get("EMBEDDING_DIM", "384"))
         self.embedding_max_token = int(os.environ.get("EMBEDDING_MAX_TOKEN", "5000"))
-        self.embedding_api_key = os.environ.get("EMBEDDING_API_KEY")  # API key (OpenAI/Jina)
+        self.embedding_api_key = os.environ.get("EMBEDDING_API_KEY")  # API key (OpenAI/Jina/智谱)
+        self.embedding_base_url = os.environ.get("EMBEDDING_BASE_URL")  # 自定义 API 地址（支持智谱等）
         self.litellm_url = os.environ.get("LITELLM_URL", "http://localhost:4000")
         self.litellm_key = os.environ.get("LITELLM_KEY", "sk-1234")
         self.top_k = top_k
@@ -222,8 +223,13 @@ class xwragProcessor:
             logger.info(f"Embedding 类型: {self.embedding_type}")
 
             if self.embedding_type == "openai":
-                # OpenAI Embedding API
-                logger.info(f"使用 OpenAI Embedding API: {self.embedding_model}")
+                # OpenAI Embedding API (兼容智谱等 OpenAI 格式的服务)
+                if self.embedding_base_url:
+                    logger.info(f"使用自定义 Embedding API: {self.embedding_base_url}")
+                    logger.info(f"模型: {self.embedding_model}")
+                else:
+                    logger.info(f"使用 OpenAI Embedding API: {self.embedding_model}")
+
                 embedding_func = EmbeddingFunc(
                     embedding_dim=self.embedding_dim,
                     max_token_size=self.embedding_max_token,
@@ -231,6 +237,7 @@ class xwragProcessor:
                         texts,
                         model=self.embedding_model,
                         api_key=self.embedding_api_key,
+                        base_url=self.embedding_base_url,
                     ),
                 )
 
