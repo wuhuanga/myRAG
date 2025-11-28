@@ -585,6 +585,7 @@ async def openai_embed(
     base_url: str = None,
     api_key: str = None,
     client_configs: dict[str, Any] = None,
+    dimensions: int = None,
 ) -> np.ndarray:
     """Generate embeddings for a list of texts using OpenAI's API.
 
@@ -596,6 +597,7 @@ async def openai_embed(
         client_configs: Additional configuration options for the AsyncOpenAI client.
             These will override any default configurations but will be overridden by
             explicit parameters (api_key, base_url).
+        dimensions: Optional output dimensions for the embedding (supported by text-embedding-3-* models and compatible APIs like 智谱).
 
     Returns:
         A numpy array of embeddings, one per input text.
@@ -611,9 +613,18 @@ async def openai_embed(
     )
 
     async with openai_async_client:
-        response = await openai_async_client.embeddings.create(
-            model=model, input=texts, encoding_format="base64"
-        )
+        # Build the request parameters
+        request_params = {
+            "model": model,
+            "input": texts,
+            "encoding_format": "base64",
+        }
+
+        # Add dimensions parameter if specified
+        if dimensions is not None:
+            request_params["dimensions"] = dimensions
+
+        response = await openai_async_client.embeddings.create(**request_params)
         return np.array(
             [
                 np.array(dp.embedding, dtype=np.float32)

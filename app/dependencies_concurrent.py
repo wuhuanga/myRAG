@@ -226,9 +226,9 @@ class xwragProcessor:
                 # OpenAI Embedding API (兼容智谱等 OpenAI 格式的服务)
                 if self.embedding_base_url:
                     logger.info(f"使用自定义 Embedding API: {self.embedding_base_url}")
-                    logger.info(f"模型: {self.embedding_model}")
+                    logger.info(f"模型: {self.embedding_model}, 维度: {self.embedding_dim}")
                 else:
-                    logger.info(f"使用 OpenAI Embedding API: {self.embedding_model}")
+                    logger.info(f"使用 OpenAI Embedding API: {self.embedding_model}, 维度: {self.embedding_dim}")
 
                 embedding_func = EmbeddingFunc(
                     embedding_dim=self.embedding_dim,
@@ -238,6 +238,7 @@ class xwragProcessor:
                         model=self.embedding_model,
                         api_key=self.embedding_api_key,
                         base_url=self.embedding_base_url,
+                        dimensions=self.embedding_dim,  # ← 添加 dimensions 参数
                     ),
                 )
 
