@@ -717,6 +717,11 @@ class NebulaGraphStorage(BaseGraphStorage):
                 f'RETURN id(a) AS src, id(b) AS tgt'
             )
 
+            # 打印查询语句用于验证
+            logger.info(f"[{self.workspace}] 🔍 Executing batch edges query:")
+            logger.info(f"[{self.workspace}] Query: {query[:500]}{'...' if len(query) > 500 else ''}")
+            logger.info(f"[{self.workspace}] Node count: {len(node_ids)}")
+
             result = await self._execute_query(query)
 
             # 初始化结果字典 - 确保所有节点都有对应的列表（即使没有边）
@@ -759,6 +764,11 @@ class NebulaGraphStorage(BaseGraphStorage):
                 f'WHERE id(a) IN [{ids_str}] '
                 f'RETURN id(a) AS node_id, COUNT(r) AS degree'
             )
+
+            # 打印查询语句用于验证
+            logger.info(f"[{self.workspace}] 🔍 Executing batch degrees query:")
+            logger.info(f"[{self.workspace}] Query: {query[:500]}{'...' if len(query) > 500 else ''}")
+            logger.info(f"[{self.workspace}] Node count: {len(node_ids)}")
 
             result = await self._execute_query(query)
 
