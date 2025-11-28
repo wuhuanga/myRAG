@@ -37,21 +37,12 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理,确保异步资源正确清理"""
     logger.info("启动 RAG Backend API...")
     yield
-    logger.info("关闭 RAG Backend API,等待异步任务完成...")
+    logger.info("关闭 RAG Backend API,清理资源...")
 
-    # 等待所有待处理的异步任务完成（排除当前任务）
-    current_task = asyncio.current_task()
-    tasks = [
-        task for task in asyncio.all_tasks()
-        if task != current_task and not task.done()
-    ]
-    if tasks:
-        logger.info(f"等待 {len(tasks)} 个异步任务完成...")
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-    # 等待一小段时间确保所有连接关闭
-    await asyncio.sleep(0.5)
-    logger.info("所有资源已清理")
+    # 给正在处理的请求一个短暂的时间完成
+    # 不等待所有任务（避免等待后台守护任务如 WatchFiles）
+    await asyncio.sleep(1.0)
+    logger.info("资源清理完成")
 
 
 # FastAPI 应用
