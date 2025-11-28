@@ -694,6 +694,94 @@ class NebulaGraphStorage(BaseGraphStorage):
             logger.error(f"[{self.workspace}] Error getting node edges: {e}")
             return None
 
+    async def get_nodes_edges_batch(
+        self, node_ids: list[str]
+    ) -> dict[str, list[tuple[str, str]]]:
+        """批量获取多个节点的边（优化版）- 使用单个查询替代多次查询
+
+        性能优化：从 N 次查询降为 1 次查询，大幅提升批量边检索性能
+        """
+        if not node_ids:
+            return {}
+
+        try:
+            tag = self._tag_name
+            # 构建 WHERE 条件：id(a) IN ["node1", "node2", ...]
+            escaped_ids = [f'"{self._escape_string(nid)}"' for nid in node_ids]
+            ids_str = ", ".join(escaped_ids)
+
+            # 单个查询获取所有节点的边
+            query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE id(a) IN [{ids_str}] '
+                f'RETURN id(a) AS src, id(b) AS tgt'
+            )
+
+            result = await self._execute_query(query)
+
+            # 初始化结果字典 - 确保所有节点都有对应的列表（即使没有边）
+            edges_dict = {nid: [] for nid in node_ids}
+
+            # 解析结果
+            for i in range(result.row_size()):
+                row = result.row_values(i)
+                src_val = self._value_to_python(row[0])
+                tgt_val = self._value_to_python(row[1])
+                if src_val in edges_dict:
+                    edges_dict[src_val].append((src_val, tgt_val))
+
+            logger.debug(f"[{self.workspace}] Batch fetched edges for {len(node_ids)} nodes in single query")
+            return edges_dict
+
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error in get_nodes_edges_batch: {e}")
+            # 降级到逐个查询（基类的默认实现）
+            logger.warning(f"[{self.workspace}] Falling back to sequential edge queries")
+            return await super().get_nodes_edges_batch(node_ids)
+
+    async def node_degrees_batch(self, node_ids: list[str]) -> dict[str, int]:
+        """批量获取多个节点的度数（优化版）- 使用单个查询替代多次查询
+
+        性能优化：从 N 次查询降为 1 次查询，大幅提升批量度数查询性能
+        """
+        if not node_ids:
+            return {}
+
+        try:
+            tag = self._tag_name
+            escaped_ids = [f'"{self._escape_string(nid)}"' for nid in node_ids]
+            ids_str = ", ".join(escaped_ids)
+
+            # 单个查询获取所有节点的度数
+            # 使用 GROUP BY 聚合每个节点的边数量
+            query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE id(a) IN [{ids_str}] '
+                f'RETURN id(a) AS node_id, COUNT(r) AS degree'
+            )
+
+            result = await self._execute_query(query)
+
+            # 初始化所有节点度数为 0（对于没有边的节点）
+            degrees_dict = {nid: 0 for nid in node_ids}
+
+            # 解析结果
+            for i in range(result.row_size()):
+                row = result.row_values(i)
+                node_id = self._value_to_python(row[0])
+                degree = self._value_to_python(row[1])
+                if node_id in degrees_dict:
+                    degrees_dict[node_id] = degree
+
+            logger.debug(f"[{self.workspace}] Batch fetched degrees for {len(node_ids)} nodes in single query")
+            return degrees_dict
+
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error in node_degrees_batch: {e}")
+            # 降级到逐个查询（基类的默认实现）
+            logger.warning(f"[{self.workspace}] Falling back to sequential degree queries")
+            return await super().node_degrees_batch(node_ids)
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
