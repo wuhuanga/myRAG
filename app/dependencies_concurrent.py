@@ -15,6 +15,8 @@ import textract
 from xwrag import xwrag, QueryParam
 from xwrag.llm.llama_index_impl import llama_index_complete_if_cache
 from xwrag.llm.hf import hf_embed
+from xwrag.llm.openai import openai_embed
+from xwrag.llm.jina import jina_embed
 from xwrag.rerank import local_rerank
 from transformers import AutoModel, AutoTokenizer
 from xwrag.utils import EmbeddingFunc
@@ -99,12 +101,15 @@ class xwragProcessor:
 
         # 从环境变量获取 LLM 和 Embedding 配置（与 xwrag_cli.py 一致）
         self.llm_model = os.environ.get("LLM_MODEL", "gpt-4")
+        # Embedding 配置
+        self.embedding_type = os.environ.get("EMBEDDING_TYPE", "local")  # local, openai, jina
         self.embedding_model = os.environ.get(
             "EMBEDDING_MODEL",
-            "sentence-transformers/all-MiniLM-L6-v2"
+            "sentence-transformers/all-MiniLM-L6-v2"  # 本地模型默认值
         )
         self.embedding_dim = int(os.environ.get("EMBEDDING_DIM", "384"))
         self.embedding_max_token = int(os.environ.get("EMBEDDING_MAX_TOKEN", "5000"))
+        self.embedding_api_key = os.environ.get("EMBEDDING_API_KEY")  # API key (OpenAI/Jina)
         self.litellm_url = os.environ.get("LITELLM_URL", "http://localhost:4000")
         self.litellm_key = os.environ.get("LITELLM_KEY", "sk-1234")
         self.top_k = top_k
@@ -213,23 +218,48 @@ class xwragProcessor:
             logger.info(f"设置实例 NebulaGraph 连接池大小: {self.nebula_max_connection_pool_size}")
 
         try:
-            # 加载 Embedding 模型
-            logger.info(f"正在加载 Embedding 模型: {self.embedding_model}")
-            try:
-                tokenizer = AutoTokenizer.from_pretrained(self.embedding_model)
-                embed_model = AutoModel.from_pretrained(self.embedding_model)
-                logger.info("Embedding 模型加载完成")
-            except Exception as e:
-                logger.error(f"加载 Embedding 模型失败: {e}")
-                logger.info(f"请确保 EMBEDDING_MODEL 环境变量或 --embedding_model 参数配置正确")
-                raise
+            # 根据 embedding_type 选择 embedding 函数
+            logger.info(f"Embedding 类型: {self.embedding_type}")
 
-            # 构建 xwrag 初始化参数
-            rag_kwargs = {
-                "working_dir": str(self.working_dir),
-                "workspace": self.workspace,  # 传递 workspace 实现多租户隔离
-                "llm_model_func": self.llm_model_func,
-                "embedding_func": EmbeddingFunc(
+            if self.embedding_type == "openai":
+                # OpenAI Embedding API
+                logger.info(f"使用 OpenAI Embedding API: {self.embedding_model}")
+                embedding_func = EmbeddingFunc(
+                    embedding_dim=self.embedding_dim,
+                    max_token_size=self.embedding_max_token,
+                    func=lambda texts: openai_embed(
+                        texts,
+                        model=self.embedding_model,
+                        api_key=self.embedding_api_key,
+                    ),
+                )
+
+            elif self.embedding_type == "jina":
+                # Jina AI Embedding API
+                logger.info(f"使用 Jina AI Embedding API (dimensions: {self.embedding_dim})")
+                embedding_func = EmbeddingFunc(
+                    embedding_dim=self.embedding_dim,
+                    max_token_size=self.embedding_max_token,
+                    func=lambda texts: jina_embed(
+                        texts,
+                        dimensions=self.embedding_dim,
+                        api_key=self.embedding_api_key,
+                    ),
+                )
+
+            else:
+                # 本地 HuggingFace 模型 (默认)
+                logger.info(f"正在加载本地 Embedding 模型: {self.embedding_model}")
+                try:
+                    tokenizer = AutoTokenizer.from_pretrained(self.embedding_model)
+                    embed_model = AutoModel.from_pretrained(self.embedding_model)
+                    logger.info("Embedding 模型加载完成")
+                except Exception as e:
+                    logger.error(f"加载 Embedding 模型失败: {e}")
+                    logger.info(f"请确保 EMBEDDING_MODEL 环境变量或 --embedding_model 参数配置正确")
+                    raise
+
+                embedding_func = EmbeddingFunc(
                     embedding_dim=self.embedding_dim,
                     max_token_size=self.embedding_max_token,
                     func=lambda texts: hf_embed(
@@ -237,7 +267,14 @@ class xwragProcessor:
                         tokenizer=tokenizer,
                         embed_model=embed_model,
                     ),
-                ),
+                )
+
+            # 构建 xwrag 初始化参数
+            rag_kwargs = {
+                "working_dir": str(self.working_dir),
+                "workspace": self.workspace,  # 传递 workspace 实现多租户隔离
+                "llm_model_func": self.llm_model_func,
+                "embedding_func": embedding_func,
                 "rerank_model_func": local_rerank,  # 配置 rerank 函数
             }
 
