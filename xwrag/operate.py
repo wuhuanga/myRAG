@@ -3442,11 +3442,18 @@ async def _get_node_data(
         f"Query nodes: {query} (top_k:{query_param.top_k}, cosine:{entities_vdb.cosine_better_than_threshold})"
     )
 
-    # Time entity vector DB query
+    # Time embedding generation separately
+    embedding_start_time = time.time()
+    query_embedding = await entities_vdb.embedding_func([query], _priority=5)
+    query_embedding = query_embedding[0]  # Extract single embedding
+    embedding_time = time.time() - embedding_start_time
+    logger.info(f"⏱️      [Embedding] Entity query embedding: {embedding_time:.3f}s")
+
+    # Time vector search (without embedding generation)
     vdb_start_time = time.time()
-    results = await entities_vdb.query(query, top_k=query_param.top_k)
+    results = await entities_vdb.query(query, top_k=query_param.top_k, query_embedding=query_embedding)
     vdb_query_time = time.time() - vdb_start_time
-    logger.info(f"⏱️      [VectorDB] Entity vector query: {vdb_query_time:.3f}s ({len(results)} results)")
+    logger.info(f"⏱️      [VectorDB] Entity similarity search: {vdb_query_time:.3f}s ({len(results)} results)")
 
     if not len(results):
         return [], []
@@ -3729,11 +3736,18 @@ async def _get_edge_data(
         f"Query edges: {keywords} (top_k:{query_param.top_k}, cosine:{relationships_vdb.cosine_better_than_threshold})"
     )
 
-    # Time relation vector DB query
+    # Time embedding generation separately
+    embedding_start_time = time.time()
+    query_embedding = await relationships_vdb.embedding_func([keywords], _priority=5)
+    query_embedding = query_embedding[0]  # Extract single embedding
+    embedding_time = time.time() - embedding_start_time
+    logger.info(f"⏱️      [Embedding] Relation query embedding: {embedding_time:.3f}s")
+
+    # Time vector search (without embedding generation)
     vdb_start_time = time.time()
-    results = await relationships_vdb.query(keywords, top_k=query_param.top_k)
+    results = await relationships_vdb.query(keywords, top_k=query_param.top_k, query_embedding=query_embedding)
     vdb_query_time = time.time() - vdb_start_time
-    logger.info(f"⏱️      [VectorDB] Relation vector query: {vdb_query_time:.3f}s ({len(results)} results)")
+    logger.info(f"⏱️      [VectorDB] Relation similarity search: {vdb_query_time:.3f}s ({len(results)} results)")
 
     if not len(results):
         return [], []
