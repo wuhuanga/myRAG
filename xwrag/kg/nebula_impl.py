@@ -792,6 +792,111 @@ class NebulaGraphStorage(BaseGraphStorage):
             logger.warning(f"[{self.workspace}] Falling back to sequential degree queries")
             return await super().node_degrees_batch(node_ids)
 
+    async def get_edges_batch(
+        self, pairs: list[dict[str, str]]
+    ) -> dict[tuple[str, str], dict]:
+        """批量获取多条边的属性（优化版）- 使用单个查询替代多次查询
+
+        性能优化：从 N 次查询降为 1 次查询，大幅提升批量边属性查询性能
+        """
+        if not pairs:
+            return {}
+
+        try:
+            tag = self._tag_name
+
+            # 构建边查询条件
+            # 方法：使用 MATCH 模式匹配多条边
+            edge_conditions = []
+            for pair in pairs:
+                src = self._escape_string(pair["src"])
+                tgt = self._escape_string(pair["tgt"])
+                edge_conditions.append(f'(id(a) == "{src}" AND id(b) == "{tgt}")')
+
+            conditions_str = " OR ".join(edge_conditions)
+
+            # 批量查询所有边的属性
+            query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE {conditions_str} '
+                f'RETURN id(a) AS src, id(b) AS tgt, '
+                f'r.keywords AS keywords, r.weight AS weight, r.description AS description, '
+                f'r.source_id AS source_id, r.file_path AS file_path, r.created_at AS created_at'
+            )
+
+            # 打印查询语句用于验证
+            logger.info(f"[{self.workspace}] 🔍 Executing batch edges properties query:")
+            logger.info(f"[{self.workspace}] Query: {query[:500]}{'...' if len(query) > 500 else ''}")
+            logger.info(f"[{self.workspace}] Edge count: {len(pairs)}")
+
+            result = await self._execute_query(query)
+
+            # 解析结果
+            edges_dict = {}
+            for i in range(result.row_size()):
+                row = result.row_values(i)
+                src = self._value_to_python(row[0])
+                tgt = self._value_to_python(row[1])
+
+                edge_props = {
+                    "keywords": self._value_to_python(row[2]) if not row[2].is_null() else "",
+                    "weight": self._value_to_python(row[3]) if not row[3].is_null() else 1.0,
+                    "description": self._value_to_python(row[4]) if not row[4].is_null() else "",
+                    "source_id": self._value_to_python(row[5]) if not row[5].is_null() else "",
+                    "file_path": self._value_to_python(row[6]) if not row[6].is_null() else "",
+                    "created_at": self._value_to_python(row[7]) if not row[7].is_null() else None,
+                }
+
+                edges_dict[(src, tgt)] = edge_props
+
+            logger.debug(f"[{self.workspace}] Batch fetched properties for {len(edges_dict)} edges in single query")
+            return edges_dict
+
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error in get_edges_batch: {e}")
+            # 降级到逐个查询
+            logger.warning(f"[{self.workspace}] Falling back to sequential edge queries")
+            return await super().get_edges_batch(pairs)
+
+    async def edge_degrees_batch(
+        self, edge_pairs: list[tuple[str, str]]
+    ) -> dict[tuple[str, str], int]:
+        """批量获取多条边的度数（优化版）- 使用单个查询替代多次查询
+
+        性能优化：从 N 次查询降为 1 次查询，大幅提升批量边度数查询性能
+        边的度数 = 源节点度数 + 目标节点度数
+        """
+        if not edge_pairs:
+            return {}
+
+        try:
+            tag = self._tag_name
+
+            # 收集所有涉及的节点ID（去重）
+            node_ids = set()
+            for src, tgt in edge_pairs:
+                node_ids.add(src)
+                node_ids.add(tgt)
+
+            # 批量获取所有节点的度数
+            node_degrees = await self.node_degrees_batch(list(node_ids))
+
+            # 计算每条边的度数（源节点度数 + 目标节点度数）
+            edge_degrees = {}
+            for src, tgt in edge_pairs:
+                src_degree = node_degrees.get(src, 0)
+                tgt_degree = node_degrees.get(tgt, 0)
+                edge_degrees[(src, tgt)] = src_degree + tgt_degree
+
+            logger.debug(f"[{self.workspace}] Batch calculated degrees for {len(edge_degrees)} edges")
+            return edge_degrees
+
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error in edge_degrees_batch: {e}")
+            # 降级到逐个查询
+            logger.warning(f"[{self.workspace}] Falling back to sequential edge degree queries")
+            return await super().edge_degrees_batch(edge_pairs)
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
