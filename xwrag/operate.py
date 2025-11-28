@@ -4,6 +4,7 @@ from functools import partial
 import asyncio
 import json
 import json_repair
+import time
 from typing import Any, AsyncIterator, overload, Literal
 from collections import Counter, defaultdict
 
@@ -2276,6 +2277,9 @@ async def kg_query(
         - stream=True: response_iterator contains streaming response, raw_data contains complete data
         - default: content contains LLM response text, raw_data contains complete data
     """
+    # Start overall query timer
+    query_start_time = time.time()
+
     if not query:
         return QueryResult(content=PROMPTS["fail_response"])
 
@@ -2286,9 +2290,13 @@ async def kg_query(
         # Apply higher priority (5) to query relation LLM function
         use_model_func = partial(use_model_func, _priority=5)
 
+    # Time keyword extraction
+    keyword_start_time = time.time()
     hl_keywords, ll_keywords = await get_keywords_from_query(
         query, query_param, global_config, hashing_kv
     )
+    keyword_extraction_time = time.time() - keyword_start_time
+    logger.info(f"⏱️  [Timing] LLM keyword extraction: {keyword_extraction_time:.3f}s")
 
     logger.debug(f"High-level keywords: {hl_keywords}")
     logger.debug(f"Low-level  keywords: {ll_keywords}")
@@ -2309,6 +2317,7 @@ async def kg_query(
     hl_keywords_str = ", ".join(hl_keywords) if hl_keywords else ""
 
     # Build query context (unified interface)
+    context_start_time = time.time()
     context_result = await _build_query_context(
         query,
         ll_keywords_str,
@@ -2320,6 +2329,8 @@ async def kg_query(
         query_param,
         chunks_vdb,
     )
+    context_building_time = time.time() - context_start_time
+    logger.info(f"⏱️  [Timing] Context building (search + merge): {context_building_time:.3f}s")
 
     if context_result is None:
         return QueryResult(content=PROMPTS["fail_response"])
@@ -2384,7 +2395,10 @@ async def kg_query(
             " == LLM cache == Query cache hit, using cached response as query result"
         )
         response = cached_response
+        llm_generation_time = 0.0
     else:
+        # Time final LLM generation
+        llm_start_time = time.time()
         response = await use_model_func(
             user_query,
             system_prompt=sys_prompt,
@@ -2392,6 +2406,8 @@ async def kg_query(
             enable_cot=True,
             stream=query_param.stream,
         )
+        llm_generation_time = time.time() - llm_start_time
+        logger.info(f"⏱️  [Timing] Final LLM response generation: {llm_generation_time:.3f}s")
 
         if hashing_kv and hashing_kv.global_config.get("enable_llm_cache"):
             queryparam_dict = {
@@ -2433,9 +2449,22 @@ async def kg_query(
                 .strip()
             )
 
+        # Log total query time
+        total_query_time = time.time() - query_start_time
+        logger.info(f"⏱️  [Timing] === Total query time: {total_query_time:.3f}s ===")
+        logger.info(f"⏱️  [Breakdown] Keyword extraction: {keyword_extraction_time:.3f}s ({keyword_extraction_time/total_query_time*100:.1f}%)")
+        logger.info(f"⏱️  [Breakdown] Context building: {context_building_time:.3f}s ({context_building_time/total_query_time*100:.1f}%)")
+        logger.info(f"⏱️  [Breakdown] LLM generation: {llm_generation_time:.3f}s ({llm_generation_time/total_query_time*100:.1f}%)")
+
         return QueryResult(content=response, raw_data=context_result.raw_data)
     else:
         # Streaming response (AsyncIterator)
+        # Note: For streaming, we can't measure LLM generation time accurately
+        total_query_time = time.time() - query_start_time
+        logger.info(f"⏱️  [Timing] === Total query time (before streaming): {total_query_time:.3f}s ===")
+        logger.info(f"⏱️  [Breakdown] Keyword extraction: {keyword_extraction_time:.3f}s")
+        logger.info(f"⏱️  [Breakdown] Context building: {context_building_time:.3f}s")
+
         return QueryResult(
             response_iterator=response,
             raw_data=context_result.raw_data,
@@ -2689,46 +2718,64 @@ async def _perform_kg_search(
                 query_embedding = None
 
     # Handle local and global modes
+    search_start_time = time.time()
+
     if query_param.mode == "local" and len(ll_keywords) > 0:
+        entity_search_start = time.time()
         local_entities, local_relations = await _get_node_data(
             ll_keywords,
             knowledge_graph_inst,
             entities_vdb,
             query_param,
         )
+        entity_search_time = time.time() - entity_search_start
+        logger.info(f"⏱️    [Search] Local entity search: {entity_search_time:.3f}s")
 
     elif query_param.mode == "global" and len(hl_keywords) > 0:
+        relation_search_start = time.time()
         global_relations, global_entities = await _get_edge_data(
             hl_keywords,
             knowledge_graph_inst,
             relationships_vdb,
             query_param,
         )
+        relation_search_time = time.time() - relation_search_start
+        logger.info(f"⏱️    [Search] Global relation search: {relation_search_time:.3f}s")
 
     else:  # hybrid or mix mode
         if len(ll_keywords) > 0:
+            entity_search_start = time.time()
             local_entities, local_relations = await _get_node_data(
                 ll_keywords,
                 knowledge_graph_inst,
                 entities_vdb,
                 query_param,
             )
+            entity_search_time = time.time() - entity_search_start
+            logger.info(f"⏱️    [Search] Entity search: {entity_search_time:.3f}s")
+
         if len(hl_keywords) > 0:
+            relation_search_start = time.time()
             global_relations, global_entities = await _get_edge_data(
                 hl_keywords,
                 knowledge_graph_inst,
                 relationships_vdb,
                 query_param,
             )
+            relation_search_time = time.time() - relation_search_start
+            logger.info(f"⏱️    [Search] Relation search: {relation_search_time:.3f}s")
 
         # Get vector chunks for mix mode
         if query_param.mode == "mix" and chunks_vdb:
+            vector_chunk_start = time.time()
             vector_chunks = await _get_vector_context(
                 query,
                 chunks_vdb,
                 query_param,
                 query_embedding,
             )
+            vector_chunk_time = time.time() - vector_chunk_start
+            logger.info(f"⏱️    [Search] Vector chunk search: {vector_chunk_time:.3f}s")
             # Track vector chunks with source metadata
             for i, chunk in enumerate(vector_chunks):
                 chunk_id = chunk.get("chunk_id") or chunk.get("id")
@@ -2797,9 +2844,11 @@ async def _perform_kg_search(
                 final_relations.append(relation)
                 seen_relations.add(rel_key)
 
+    total_search_time = time.time() - search_start_time
     logger.info(
         f"Raw search results: {len(final_entities)} entities, {len(final_relations)} relations, {len(vector_chunks)} vector chunks"
     )
+    logger.info(f"⏱️    [Search] Total search time: {total_search_time:.3f}s")
 
     return {
         "final_entities": final_entities,
@@ -3393,7 +3442,11 @@ async def _get_node_data(
         f"Query nodes: {query} (top_k:{query_param.top_k}, cosine:{entities_vdb.cosine_better_than_threshold})"
     )
 
+    # Time entity vector DB query
+    vdb_start_time = time.time()
     results = await entities_vdb.query(query, top_k=query_param.top_k)
+    vdb_query_time = time.time() - vdb_start_time
+    logger.info(f"⏱️      [VectorDB] Entity vector query: {vdb_query_time:.3f}s ({len(results)} results)")
 
     if not len(results):
         return [], []
@@ -3402,10 +3455,13 @@ async def _get_node_data(
     node_ids = [r["entity_name"] for r in results]
 
     # Call the batch node retrieval and degree functions concurrently.
+    graph_start_time = time.time()
     nodes_dict, degrees_dict = await asyncio.gather(
         knowledge_graph_inst.get_nodes_batch(node_ids),
         knowledge_graph_inst.node_degrees_batch(node_ids),
     )
+    graph_query_time = time.time() - graph_start_time
+    logger.info(f"⏱️      [GraphDB] Entity batch retrieval: {graph_query_time:.3f}s ({len(node_ids)} entities)")
 
     # Now, if you need the node data and degree in order:
     node_datas = [nodes_dict.get(nid) for nid in node_ids]
@@ -3425,11 +3481,15 @@ async def _get_node_data(
         if n is not None
     ]
 
+    # Time relation edge retrieval
+    edges_start_time = time.time()
     use_relations = await _find_most_related_edges_from_entities(
         node_datas,
         query_param,
         knowledge_graph_inst,
     )
+    edges_query_time = time.time() - edges_start_time
+    logger.info(f"⏱️      [GraphDB] Related edges retrieval: {edges_query_time:.3f}s ({len(use_relations)} relations)")
 
     logger.info(
         f"Local query: {len(node_datas)} entites, {len(use_relations)} relations"
@@ -3669,7 +3729,11 @@ async def _get_edge_data(
         f"Query edges: {keywords} (top_k:{query_param.top_k}, cosine:{relationships_vdb.cosine_better_than_threshold})"
     )
 
+    # Time relation vector DB query
+    vdb_start_time = time.time()
     results = await relationships_vdb.query(keywords, top_k=query_param.top_k)
+    vdb_query_time = time.time() - vdb_start_time
+    logger.info(f"⏱️      [VectorDB] Relation vector query: {vdb_query_time:.3f}s ({len(results)} results)")
 
     if not len(results):
         return [], []
@@ -3677,7 +3741,12 @@ async def _get_edge_data(
     # Prepare edge pairs in two forms:
     # For the batch edge properties function, use dicts.
     edge_pairs_dicts = [{"src": r["src_id"], "tgt": r["tgt_id"]} for r in results]
+
+    # Time graph DB edge properties retrieval
+    graph_start_time = time.time()
     edge_data_dict = await knowledge_graph_inst.get_edges_batch(edge_pairs_dicts)
+    graph_query_time = time.time() - graph_start_time
+    logger.info(f"⏱️      [GraphDB] Edge properties retrieval: {graph_query_time:.3f}s ({len(edge_pairs_dicts)} edges)")
 
     # Reconstruct edge_datas list in the same order as results.
     edge_datas = []
@@ -3702,11 +3771,15 @@ async def _get_edge_data(
 
     # Relations maintain vector search order (sorted by similarity)
 
+    # Time related entities retrieval
+    entities_start_time = time.time()
     use_entities = await _find_most_related_entities_from_relationships(
         edge_datas,
         query_param,
         knowledge_graph_inst,
     )
+    entities_query_time = time.time() - entities_start_time
+    logger.info(f"⏱️      [GraphDB] Related entities retrieval: {entities_query_time:.3f}s ({len(use_entities)} entities)")
 
     logger.info(
         f"Global query: {len(use_entities)} entites, {len(edge_datas)} relations"
