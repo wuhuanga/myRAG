@@ -12,6 +12,12 @@
 - [应用服务部署](#应用服务部署)
   - [Docker Compose 部署（推荐）](#docker-compose-部署推荐)
   - [本地源码部署](#本地源码部署)
+- [工业化部署方案（非 Docker）](#工业化部署方案非-docker)
+  - [Systemd 服务部署](#systemd-服务部署)
+  - [Kubernetes 部署](#kubernetes-部署)
+  - [云服务托管部署](#云服务托管部署)
+  - [自动化部署（Ansible）](#自动化部署ansible)
+  - [高可用集群部署](#高可用集群部署)
 - [配置说明](#配置说明)
 - [验证部署](#验证部署)
 - [性能优化](#性能优化)
@@ -984,6 +990,1501 @@ gunicorn app.main:app \
   --access-logfile - \
   --error-logfile -
 ```
+
+---
+
+## 工业化部署方案（非 Docker）
+
+对于生产环境，除了 Docker，还有多种成熟的工业化部署方案。本节介绍几种常见的企业级部署架构。
+
+---
+
+### Systemd 服务部署
+
+Systemd 是 Linux 系统的标准服务管理器，适合在单机或多机环境下管理服务。
+
+#### 1. NebulaGraph Systemd 部署
+
+NebulaGraph 官方包已经包含 systemd 服务脚本。
+
+**安装 NebulaGraph**:
+
+```bash
+# Ubuntu/Debian
+wget https://oss-cdn.nebula-graph.com.cn/package/3.6.0/nebula-graph-3.6.0.ubuntu2004.amd64.deb
+sudo dpkg -i nebula-graph-3.6.0.ubuntu2004.amd64.deb
+
+# CentOS/RHEL
+wget https://oss-cdn.nebula-graph.com.cn/package/3.6.0/nebula-graph-3.6.0.el8.x86_64.rpm
+sudo rpm -ivh nebula-graph-3.6.0.el8.x86_64.rpm
+```
+
+**配置 Systemd 服务**:
+
+```bash
+# NebulaGraph 安装后会自动创建 systemd 服务
+# 服务文件位置：/usr/lib/systemd/system/
+
+# 启动所有服务
+sudo systemctl start nebula-metad
+sudo systemctl start nebula-storaged
+sudo systemctl start nebula-graphd
+
+# 设置开机自启
+sudo systemctl enable nebula-metad
+sudo systemctl enable nebula-storaged
+sudo systemctl enable nebula-graphd
+
+# 查看服务状态
+sudo systemctl status nebula-metad
+sudo systemctl status nebula-storaged
+sudo systemctl status nebula-graphd
+
+# 查看日志
+sudo journalctl -u nebula-graphd -f
+```
+
+**配置文件优化** (`/usr/local/nebula/etc/nebula-graphd.conf`):
+
+```ini
+# 网络配置
+--port=9669
+--ws_http_port=19669
+--ws_h2_port=19670
+
+# 性能配置
+--num_accept_threads=4
+--num_netio_threads=4
+--num_worker_threads=4
+
+# 会话配置
+--session_idle_timeout_secs=28800
+--max_allowed_connections=10000
+
+# 日志配置
+--log_dir=/var/log/nebula
+--minloglevel=1
+--v=0
+```
+
+#### 2. Milvus Systemd 部署
+
+**安装依赖服务**:
+
+```bash
+# 安装 etcd
+sudo apt-get install -y etcd
+
+# 启动 etcd
+sudo systemctl start etcd
+sudo systemctl enable etcd
+
+# 安装 MinIO（对象存储）
+wget https://dl.min.io/server/minio/release/linux-amd64/minio
+sudo mv minio /usr/local/bin/
+sudo chmod +x /usr/local/bin/minio
+
+# 创建 MinIO 数据目录
+sudo mkdir -p /data/minio
+sudo chown -R milvus:milvus /data/minio
+```
+
+**创建 MinIO Systemd 服务** (`/etc/systemd/system/minio.service`):
+
+```ini
+[Unit]
+Description=MinIO Object Storage
+After=network.target
+
+[Service]
+Type=simple
+User=milvus
+Group=milvus
+Environment="MINIO_ROOT_USER=minioadmin"
+Environment="MINIO_ROOT_PASSWORD=minioadmin"
+ExecStart=/usr/local/bin/minio server /data/minio --console-address ":9001"
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**安装 Milvus**:
+
+```bash
+# 下载 Milvus 二进制文件
+wget https://github.com/milvus-io/milvus/releases/download/v2.3.3/milvus-standalone-linux-amd64.tar.gz
+tar -xzf milvus-standalone-linux-amd64.tar.gz
+sudo mv milvus /usr/local/bin/
+
+# 创建配置文件目录
+sudo mkdir -p /etc/milvus
+sudo mkdir -p /var/lib/milvus
+sudo mkdir -p /var/log/milvus
+```
+
+**创建 Milvus Systemd 服务** (`/etc/systemd/system/milvus.service`):
+
+```ini
+[Unit]
+Description=Milvus Vector Database
+After=network.target etcd.service minio.service
+Requires=etcd.service minio.service
+
+[Service]
+Type=simple
+User=milvus
+Group=milvus
+WorkingDirectory=/var/lib/milvus
+Environment="ETCD_ENDPOINTS=localhost:2379"
+Environment="MINIO_ADDRESS=localhost:9000"
+ExecStart=/usr/local/bin/milvus run standalone --config-file /etc/milvus/milvus.yaml
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**启动服务**:
+
+```bash
+# 重新加载 systemd
+sudo systemctl daemon-reload
+
+# 启动 MinIO
+sudo systemctl start minio
+sudo systemctl enable minio
+
+# 启动 Milvus
+sudo systemctl start milvus
+sudo systemctl enable milvus
+
+# 查看状态
+sudo systemctl status minio
+sudo systemctl status milvus
+```
+
+#### 3. RAG API Systemd 部署
+
+**创建专用用户**:
+
+```bash
+# 创建运行用户
+sudo useradd -r -s /bin/bash -m -d /opt/xwrag xwrag
+
+# 部署代码
+sudo mkdir -p /opt/xwrag
+sudo chown xwrag:xwrag /opt/xwrag
+sudo -u xwrag git clone https://github.com/your-org/myRAG.git /opt/xwrag
+```
+
+**安装 Python 环境**:
+
+```bash
+# 切换到应用用户
+sudo su - xwrag
+
+# 创建虚拟环境
+cd /opt/xwrag
+python3.10 -m venv venv
+source venv/bin/activate
+
+# 安装依赖
+pip install -e ".[api]"
+pip install gunicorn uvicorn[standard]
+```
+
+**创建 Systemd 服务** (`/etc/systemd/system/xwrag-api.service`):
+
+```ini
+[Unit]
+Description=xwRAG API Service
+After=network.target nebula-graphd.service milvus.service
+Requires=nebula-graphd.service milvus.service
+
+[Service]
+Type=notify
+User=xwrag
+Group=xwrag
+WorkingDirectory=/opt/xwrag
+Environment="PATH=/opt/xwrag/venv/bin"
+EnvironmentFile=/opt/xwrag/.env
+
+# Gunicorn 配置
+ExecStart=/opt/xwrag/venv/bin/gunicorn app.main:app \
+  --workers 4 \
+  --worker-class uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000 \
+  --timeout 300 \
+  --max-requests 1000 \
+  --max-requests-jitter 100 \
+  --access-logfile /var/log/xwrag/access.log \
+  --error-logfile /var/log/xwrag/error.log \
+  --log-level info
+
+Restart=always
+RestartSec=10
+
+# 安全配置
+NoNewPrivileges=true
+PrivateTmp=true
+
+# 资源限制
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**创建日志目录**:
+
+```bash
+sudo mkdir -p /var/log/xwrag
+sudo chown xwrag:xwrag /var/log/xwrag
+```
+
+**启动服务**:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start xwrag-api
+sudo systemctl enable xwrag-api
+sudo systemctl status xwrag-api
+```
+
+#### 4. Nginx 反向代理配置
+
+**安装 Nginx**:
+
+```bash
+sudo apt-get install -y nginx
+```
+
+**创建配置文件** (`/etc/nginx/sites-available/xwrag`):
+
+```nginx
+upstream xwrag_backend {
+    # 负载均衡配置
+    least_conn;
+    server 127.0.0.1:8000 max_fails=3 fail_timeout=30s;
+    # 如果有多个实例，添加更多后端
+    # server 127.0.0.1:8001 max_fails=3 fail_timeout=30s;
+    # server 127.0.0.1:8002 max_fails=3 fail_timeout=30s;
+}
+
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # 重定向到 HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    # SSL 证书配置
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+
+    # SSL 安全配置
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # 请求体大小限制（文件上传）
+    client_max_body_size 100M;
+
+    # 超时配置
+    proxy_connect_timeout 300s;
+    proxy_send_timeout 300s;
+    proxy_read_timeout 300s;
+    send_timeout 300s;
+
+    # 日志配置
+    access_log /var/log/nginx/xwrag-access.log;
+    error_log /var/log/nginx/xwrag-error.log;
+
+    # API 路由
+    location / {
+        proxy_pass http://xwrag_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket 支持
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # 缓冲配置
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+
+    # 静态文件缓存
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        proxy_pass http://xwrag_backend;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # 健康检查端点
+    location /api/admin/health {
+        proxy_pass http://xwrag_backend;
+        access_log off;
+    }
+}
+```
+
+**启用配置**:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/xwrag /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+**配置 SSL 证书（Let's Encrypt）**:
+
+```bash
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+---
+
+### Kubernetes 部署
+
+Kubernetes（K8s）是企业级容器编排平台，适合大规模、高可用部署。
+
+#### 1. 架构设计
+
+```
+┌─────────────────────────────────────────────────┐
+│              Kubernetes Cluster                 │
+│                                                 │
+│  ┌──────────────┐  ┌──────────────┐            │
+│  │   Ingress    │  │ LoadBalancer │            │
+│  └──────┬───────┘  └──────┬───────┘            │
+│         │                 │                     │
+│  ┌──────▼─────────────────▼───────────┐        │
+│  │      xwRAG API Service (3 Pods)    │        │
+│  └──┬───────────────────────────────┬─┘        │
+│     │                               │           │
+│  ┌──▼──────────────┐  ┌────────────▼────┐     │
+│  │ NebulaGraph     │  │    Milvus        │     │
+│  │ StatefulSet     │  │  StatefulSet     │     │
+│  │ (3 replicas)    │  │  (Standalone)    │     │
+│  └─────────────────┘  └──────────────────┘     │
+│                                                 │
+│  ┌─────────────────────────────────────────┐   │
+│  │   Persistent Volumes (NFS/Ceph/EBS)     │   │
+│  └─────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────┘
+```
+
+#### 2. NebulaGraph Kubernetes 部署
+
+**使用 Helm Chart 安装**:
+
+```bash
+# 添加 NebulaGraph Helm 仓库
+helm repo add nebula-graph https://vesoft-inc.github.io/nebula-helm-chart/
+helm repo update
+
+# 创建 namespace
+kubectl create namespace nebula-graph
+
+# 安装 NebulaGraph Operator
+helm install nebula-operator nebula-graph/nebula-operator \
+  --namespace nebula-graph \
+  --set image.nebulaOperator.version=v1.7.0
+
+# 创建 NebulaGraph 集群配置
+cat > nebula-cluster.yaml <<EOF
+apiVersion: apps.nebula-graph.io/v1alpha1
+kind: NebulaCluster
+metadata:
+  name: nebula
+  namespace: nebula-graph
+spec:
+  graphd:
+    replicas: 3
+    image: vesoft/nebula-graphd
+    version: v3.6.0
+    resources:
+      requests:
+        cpu: "1"
+        memory: "2Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+    storageClaim:
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: standard
+
+  metad:
+    replicas: 3
+    image: vesoft/nebula-metad
+    version: v3.6.0
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+    storageClaim:
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: standard
+
+  storaged:
+    replicas: 3
+    image: vesoft/nebula-storaged
+    version: v3.6.0
+    resources:
+      requests:
+        cpu: "1"
+        memory: "2Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+    storageClaim:
+      resources:
+        requests:
+          storage: 100Gi
+      storageClassName: standard
+
+  reference:
+    name: statefulsets.apps
+    version: v1
+  schedulerName: default-scheduler
+  imagePullPolicy: IfNotPresent
+EOF
+
+# 部署集群
+kubectl apply -f nebula-cluster.yaml
+
+# 查看部署状态
+kubectl get nebulacluster -n nebula-graph
+kubectl get pods -n nebula-graph
+```
+
+#### 3. Milvus Kubernetes 部署
+
+**使用 Helm Chart 安装**:
+
+```bash
+# 添加 Milvus Helm 仓库
+helm repo add milvus https://milvus-io.github.io/milvus-helm/
+helm repo update
+
+# 创建 namespace
+kubectl create namespace milvus
+
+# 创建配置文件
+cat > milvus-values.yaml <<EOF
+cluster:
+  enabled: false  # Standalone 模式
+
+standalone:
+  replicas: 1
+  resources:
+    limits:
+      cpu: "4"
+      memory: 8Gi
+    requests:
+      cpu: "2"
+      memory: 4Gi
+
+persistence:
+  persistentVolumeClaim:
+    enabled: true
+    storageClass: standard
+    size: 100Gi
+
+etcd:
+  replicaCount: 1
+  persistence:
+    storageClass: standard
+    size: 10Gi
+
+minio:
+  mode: standalone
+  persistence:
+    storageClass: standard
+    size: 100Gi
+
+service:
+  type: ClusterIP
+  port: 19530
+EOF
+
+# 安装 Milvus
+helm install milvus milvus/milvus \
+  --namespace milvus \
+  -f milvus-values.yaml
+
+# 查看部署状态
+kubectl get pods -n milvus
+```
+
+#### 4. xwRAG API Kubernetes 部署
+
+**创建 ConfigMap**:
+
+```yaml
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: xwrag-config
+  namespace: default
+data:
+  # 应用配置
+  HOST: "0.0.0.0"
+  PORT: "8000"
+  LOG_LEVEL: "INFO"
+
+  # NebulaGraph 配置
+  xwrag_GRAPH_STORAGE: "NebulaGraphStorage"
+  NEBULA_HOST: "nebula-graphd.nebula-graph.svc.cluster.local"
+  NEBULA_PORT: "9669"
+  NEBULA_USER: "root"
+  NEBULA_SPACE: "xwrag"
+
+  # Milvus 配置
+  xwrag_VECTOR_STORAGE: "MilvusVectorDBStorage"
+  MILVUS_URI: "http://milvus.milvus.svc.cluster.local:19530"
+  MILVUS_DB_NAME: "xwrag"
+
+  # 查询配置
+  ENABLE_LLM_CACHE: "true"
+  TOP_K: "40"
+  CHUNK_TOP_K: "20"
+  MAX_ASYNC: "4"
+```
+
+**创建 Secret**:
+
+```bash
+# 创建 Secret 存储敏感信息
+kubectl create secret generic xwrag-secrets \
+  --from-literal=LLM_BINDING_API_KEY='sk-your-api-key' \
+  --from-literal=EMBEDDING_BINDING_API_KEY='sk-your-api-key' \
+  --from-literal=NEBULA_PASSWORD='nebula' \
+  --namespace=default
+```
+
+**创建 Deployment**:
+
+```yaml
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xwrag-api
+  namespace: default
+  labels:
+    app: xwrag-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: xwrag-api
+  template:
+    metadata:
+      labels:
+        app: xwrag-api
+    spec:
+      containers:
+      - name: xwrag-api
+        image: your-registry/xwrag-api:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+
+        # 环境变量（从 ConfigMap）
+        envFrom:
+        - configMapRef:
+            name: xwrag-config
+
+        # 敏感信息（从 Secret）
+        env:
+        - name: LLM_BINDING_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: xwrag-secrets
+              key: LLM_BINDING_API_KEY
+        - name: EMBEDDING_BINDING_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: xwrag-secrets
+              key: EMBEDDING_BINDING_API_KEY
+        - name: NEBULA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: xwrag-secrets
+              key: NEBULA_PASSWORD
+
+        # 资源限制
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+
+        # 健康检查
+        livenessProbe:
+          httpGet:
+            path: /api/admin/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /api/admin/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        # 持久化存储
+        volumeMounts:
+        - name: data
+          mountPath: /app/rag_storage
+
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: xwrag-data
+
+      # Pod 调度策略
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - xwrag-api
+              topologyKey: kubernetes.io/hostname
+```
+
+**创建 PVC**:
+
+```yaml
+# pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: xwrag-data
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: nfs-client  # 或其他支持 RWX 的存储类
+```
+
+**创建 Service**:
+
+```yaml
+# service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: xwrag-api
+  namespace: default
+  labels:
+    app: xwrag-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: xwrag-api
+```
+
+**创建 Ingress**:
+
+```yaml
+# ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: xwrag-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+spec:
+  tls:
+  - hosts:
+    - xwrag.your-domain.com
+    secretName: xwrag-tls
+  rules:
+  - host: xwrag.your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: xwrag-api
+            port:
+              number: 80
+```
+
+**部署应用**:
+
+```bash
+# 部署所有资源
+kubectl apply -f configmap.yaml
+kubectl apply -f pvc.yaml
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+kubectl apply -f ingress.yaml
+
+# 查看部署状态
+kubectl get pods -l app=xwrag-api
+kubectl get svc xwrag-api
+kubectl get ingress xwrag-ingress
+
+# 查看日志
+kubectl logs -f -l app=xwrag-api
+
+# 扩缩容
+kubectl scale deployment xwrag-api --replicas=5
+```
+
+#### 5. HPA（水平自动扩缩）
+
+```yaml
+# hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: xwrag-api-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: xwrag-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 2
+        periodSeconds: 30
+      selectPolicy: Max
+```
+
+---
+
+### 云服务托管部署
+
+使用云服务商的托管服务，最小化运维成本。
+
+#### 1. NebulaGraph 云服务
+
+**NebulaGraph Cloud（推荐）**:
+
+```bash
+# 配置环境变量
+xwrag_GRAPH_STORAGE=NebulaGraphStorage
+NEBULA_HOST=your-instance.nebula-cloud.com
+NEBULA_PORT=9669
+NEBULA_USER=your-username
+NEBULA_PASSWORD=your-password
+NEBULA_SPACE=xwrag
+
+# 使用 TLS 连接
+NEBULA_USE_SSL=true
+```
+
+**阿里云图数据库 GDB**:
+
+```bash
+# GDB 兼容 NebulaGraph 协议
+NEBULA_HOST=gdb-xxxxxx.graphdatabase.rds.aliyuncs.com
+NEBULA_PORT=8669
+NEBULA_USER=root
+NEBULA_PASSWORD=your-password
+```
+
+#### 2. Milvus 云服务
+
+**Zilliz Cloud（Milvus 官方云服务）**:
+
+```bash
+# 注册账号: https://cloud.zilliz.com/
+
+# 配置环境变量
+xwrag_VECTOR_STORAGE=MilvusVectorDBStorage
+MILVUS_URI=https://your-cluster.api.gcp-us-west1.zillizcloud.com
+MILVUS_TOKEN=your-api-key
+MILVUS_DB_NAME=xwrag
+```
+
+**阿里云向量检索服务**:
+
+```bash
+MILVUS_URI=https://your-instance.milvus.aliyuncs.com:443
+MILVUS_USER=root
+MILVUS_PASSWORD=your-password
+```
+
+#### 3. 应用服务云部署
+
+**AWS ECS 部署**:
+
+```bash
+# 1. 构建并推送镜像到 ECR
+aws ecr create-repository --repository-name xwrag-api
+docker build -t xwrag-api .
+docker tag xwrag-api:latest 123456789012.dkr.ecr.us-east-1.amazonaws.com/xwrag-api:latest
+aws ecr get-login-password | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
+docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/xwrag-api:latest
+
+# 2. 创建 ECS 任务定义
+# task-definition.json
+{
+  "family": "xwrag-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "2048",
+  "memory": "4096",
+  "containerDefinitions": [
+    {
+      "name": "xwrag-api",
+      "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/xwrag-api:latest",
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "NEBULA_HOST", "value": "your-nebula-host"},
+        {"name": "MILVUS_URI", "value": "your-milvus-uri"}
+      ],
+      "secrets": [
+        {"name": "LLM_BINDING_API_KEY", "valueFrom": "arn:aws:secretsmanager:..."},
+        {"name": "NEBULA_PASSWORD", "valueFrom": "arn:aws:secretsmanager:..."}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/xwrag-api",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+
+# 3. 创建 ECS 服务
+aws ecs create-service \
+  --cluster xwrag-cluster \
+  --service-name xwrag-api \
+  --task-definition xwrag-api \
+  --desired-count 3 \
+  --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx],assignPublicIp=ENABLED}" \
+  --load-balancers "targetGroupArn=arn:aws:elasticloadbalancing:...,containerName=xwrag-api,containerPort=8000"
+```
+
+**Google Cloud Run 部署**:
+
+```bash
+# 1. 构建并推送镜像
+gcloud builds submit --tag gcr.io/your-project/xwrag-api
+
+# 2. 部署到 Cloud Run
+gcloud run deploy xwrag-api \
+  --image gcr.io/your-project/xwrag-api \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --memory 4Gi \
+  --cpu 2 \
+  --max-instances 10 \
+  --set-env-vars="NEBULA_HOST=your-host,MILVUS_URI=your-uri" \
+  --set-secrets="LLM_BINDING_API_KEY=llm-key:latest,NEBULA_PASSWORD=nebula-pwd:latest"
+```
+
+**Azure Container Instances 部署**:
+
+```bash
+# 创建资源组
+az group create --name xwrag-rg --location eastus
+
+# 部署容器
+az container create \
+  --resource-group xwrag-rg \
+  --name xwrag-api \
+  --image your-registry/xwrag-api:latest \
+  --cpu 2 \
+  --memory 4 \
+  --port 8000 \
+  --environment-variables \
+    NEBULA_HOST=your-host \
+    MILVUS_URI=your-uri \
+  --secure-environment-variables \
+    LLM_BINDING_API_KEY=sk-xxx \
+    NEBULA_PASSWORD=xxx \
+  --dns-name-label xwrag-api
+```
+
+---
+
+### 自动化部署（Ansible）
+
+使用 Ansible 实现基础设施即代码（IaC）。
+
+#### 1. Ansible 项目结构
+
+```
+ansible/
+├── inventory/
+│   ├── production
+│   └── staging
+├── group_vars/
+│   ├── all.yml
+│   └── production.yml
+├── roles/
+│   ├── nebulagraph/
+│   │   ├── tasks/
+│   │   ├── templates/
+│   │   └── handlers/
+│   ├── milvus/
+│   │   ├── tasks/
+│   │   ├── templates/
+│   │   └── handlers/
+│   └── xwrag_api/
+│       ├── tasks/
+│       ├── templates/
+│       └── handlers/
+└── site.yml
+```
+
+#### 2. Inventory 配置
+
+**inventory/production**:
+
+```ini
+[nebulagraph]
+nebula-1 ansible_host=192.168.1.101
+nebula-2 ansible_host=192.168.1.102
+nebula-3 ansible_host=192.168.1.103
+
+[milvus]
+milvus-1 ansible_host=192.168.1.201
+
+[xwrag_api]
+api-1 ansible_host=192.168.1.301
+api-2 ansible_host=192.168.1.302
+api-3 ansible_host=192.168.1.303
+
+[all:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+```
+
+#### 3. 变量配置
+
+**group_vars/all.yml**:
+
+```yaml
+---
+# NebulaGraph 配置
+nebula_version: "3.6.0"
+nebula_install_dir: "/usr/local/nebula"
+nebula_data_dir: "/data/nebula"
+nebula_log_dir: "/var/log/nebula"
+
+# Milvus 配置
+milvus_version: "2.3.3"
+milvus_install_dir: "/usr/local/milvus"
+milvus_data_dir: "/data/milvus"
+
+# xwRAG 配置
+xwrag_version: "latest"
+xwrag_install_dir: "/opt/xwrag"
+xwrag_user: "xwrag"
+xwrag_group: "xwrag"
+
+# LLM 配置
+llm_binding: "openai"
+llm_model: "gpt-4o"
+```
+
+#### 4. NebulaGraph Role
+
+**roles/nebulagraph/tasks/main.yml**:
+
+```yaml
+---
+- name: 安装系统依赖
+  apt:
+    name:
+      - wget
+      - curl
+      - gnupg
+    state: present
+    update_cache: yes
+
+- name: 创建数据目录
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - "{{ nebula_data_dir }}"
+    - "{{ nebula_log_dir }}"
+
+- name: 下载 NebulaGraph 包
+  get_url:
+    url: "https://oss-cdn.nebula-graph.com.cn/package/{{ nebula_version }}/nebula-graph-{{ nebula_version }}.ubuntu2004.amd64.deb"
+    dest: "/tmp/nebula-graph.deb"
+
+- name: 安装 NebulaGraph
+  apt:
+    deb: "/tmp/nebula-graph.deb"
+    state: present
+
+- name: 配置 NebulaGraph
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ nebula_install_dir }}/etc/{{ item.dest }}"
+    mode: '0644'
+  loop:
+    - { src: "nebula-graphd.conf.j2", dest: "nebula-graphd.conf" }
+    - { src: "nebula-metad.conf.j2", dest: "nebula-metad.conf" }
+    - { src: "nebula-storaged.conf.j2", dest: "nebula-storaged.conf" }
+  notify: restart nebulagraph
+
+- name: 启动 NebulaGraph 服务
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - nebula-metad
+    - nebula-storaged
+    - nebula-graphd
+```
+
+#### 5. xwRAG API Role
+
+**roles/xwrag_api/tasks/main.yml**:
+
+```yaml
+---
+- name: 创建应用用户
+  user:
+    name: "{{ xwrag_user }}"
+    system: yes
+    home: "{{ xwrag_install_dir }}"
+    shell: /bin/bash
+
+- name: 克隆代码仓库
+  git:
+    repo: "https://github.com/your-org/myRAG.git"
+    dest: "{{ xwrag_install_dir }}"
+    version: "{{ xwrag_version }}"
+  become: yes
+  become_user: "{{ xwrag_user }}"
+
+- name: 安装 Python 依赖
+  pip:
+    requirements: "{{ xwrag_install_dir }}/requirements.txt"
+    virtualenv: "{{ xwrag_install_dir }}/venv"
+    virtualenv_python: python3.10
+  become: yes
+  become_user: "{{ xwrag_user }}"
+
+- name: 配置环境变量
+  template:
+    src: env.j2
+    dest: "{{ xwrag_install_dir }}/.env"
+    owner: "{{ xwrag_user }}"
+    group: "{{ xwrag_group }}"
+    mode: '0600'
+
+- name: 配置 Systemd 服务
+  template:
+    src: xwrag-api.service.j2
+    dest: /etc/systemd/system/xwrag-api.service
+    mode: '0644'
+  notify: restart xwrag-api
+
+- name: 启动服务
+  systemd:
+    name: xwrag-api
+    state: started
+    enabled: yes
+    daemon_reload: yes
+```
+
+#### 6. 主 Playbook
+
+**site.yml**:
+
+```yaml
+---
+- name: 部署 NebulaGraph
+  hosts: nebulagraph
+  become: yes
+  roles:
+    - nebulagraph
+
+- name: 部署 Milvus
+  hosts: milvus
+  become: yes
+  roles:
+    - milvus
+
+- name: 部署 xwRAG API
+  hosts: xwrag_api
+  become: yes
+  roles:
+    - xwrag_api
+
+- name: 配置负载均衡
+  hosts: loadbalancer
+  become: yes
+  roles:
+    - nginx
+```
+
+#### 7. 执行部署
+
+```bash
+# 检查语法
+ansible-playbook site.yml --syntax-check
+
+# 模拟运行（Dry run）
+ansible-playbook site.yml --check
+
+# 执行部署
+ansible-playbook -i inventory/production site.yml
+
+# 仅部署特定角色
+ansible-playbook site.yml --tags "xwrag_api"
+
+# 滚动更新
+ansible-playbook site.yml --limit "api-1" && \
+ansible-playbook site.yml --limit "api-2" && \
+ansible-playbook site.yml --limit "api-3"
+```
+
+---
+
+### 高可用集群部署
+
+企业级高可用架构设计。
+
+#### 1. 架构设计
+
+```
+                    ┌─────────────────┐
+                    │   DNS / CDN     │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │  Load Balancer  │
+                    │  (HAProxy/LVS)  │
+                    └────────┬────────┘
+                             │
+         ┌───────────────────┼───────────────────┐
+         │                   │                   │
+    ┌────▼────┐         ┌────▼────┐        ┌────▼────┐
+    │ API-1   │         │ API-2   │        │ API-3   │
+    │ Active  │         │ Active  │        │ Active  │
+    └────┬────┘         └────┬────┘        └────┬────┘
+         │                   │                   │
+         └───────────────────┼───────────────────┘
+                             │
+         ┌───────────────────┴───────────────────┐
+         │                                       │
+    ┌────▼─────────────┐              ┌─────────▼──────────┐
+    │ NebulaGraph      │              │    Milvus          │
+    │ 3-Node Cluster   │              │  Distributed       │
+    │ Meta x3          │              │  (etcd + MinIO)    │
+    │ Storage x3       │              └────────────────────┘
+    │ Graph x3         │
+    └──────────────────┘
+```
+
+#### 2. HAProxy 负载均衡配置
+
+**/etc/haproxy/haproxy.cfg**:
+
+```
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    log global
+    mode http
+    option httplog
+    option dontlognull
+    timeout connect 10s
+    timeout client 300s
+    timeout server 300s
+    errorfile 400 /etc/haproxy/errors/400.http
+    errorfile 403 /etc/haproxy/errors/403.http
+    errorfile 408 /etc/haproxy/errors/408.http
+    errorfile 500 /etc/haproxy/errors/500.http
+    errorfile 502 /etc/haproxy/errors/502.http
+    errorfile 503 /etc/haproxy/errors/503.http
+    errorfile 504 /etc/haproxy/errors/504.http
+
+# 统计页面
+listen stats
+    bind *:8404
+    stats enable
+    stats uri /stats
+    stats refresh 30s
+    stats admin if TRUE
+
+# xwRAG API 后端
+backend xwrag_api_backend
+    balance roundrobin
+    option httpchk GET /api/admin/health
+    http-check expect status 200
+
+    server api1 192.168.1.301:8000 check inter 5s fall 3 rise 2
+    server api2 192.168.1.302:8000 check inter 5s fall 3 rise 2
+    server api3 192.168.1.303:8000 check inter 5s fall 3 rise 2
+
+# 前端配置
+frontend xwrag_api_frontend
+    bind *:80
+    bind *:443 ssl crt /etc/haproxy/certs/xwrag.pem
+
+    # 重定向 HTTP 到 HTTPS
+    redirect scheme https code 301 if !{ ssl_fc }
+
+    # CORS 配置
+    http-response set-header Access-Control-Allow-Origin "*"
+    http-response set-header Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+    http-response set-header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+
+    # 使用后端
+    default_backend xwrag_api_backend
+
+    # 请求限流
+    stick-table type ip size 100k expire 30s store http_req_rate(10s)
+    http-request track-sc0 src
+    http-request deny deny_status 429 if { sc_http_req_rate(0) gt 100 }
+```
+
+**启动 HAProxy**:
+
+```bash
+sudo systemctl start haproxy
+sudo systemctl enable haproxy
+sudo systemctl status haproxy
+
+# 查看统计页面
+open http://your-lb-ip:8404/stats
+```
+
+#### 3. Keepalived 高可用配置
+
+**主节点** (`/etc/keepalived/keepalived.conf`):
+
+```
+vrrp_script chk_haproxy {
+    script "killall -0 haproxy"
+    interval 2
+    weight 2
+}
+
+vrrp_instance VI_1 {
+    state MASTER
+    interface eth0
+    virtual_router_id 51
+    priority 101
+    advert_int 1
+
+    authentication {
+        auth_type PASS
+        auth_pass your_password
+    }
+
+    virtual_ipaddress {
+        192.168.1.100
+    }
+
+    track_script {
+        chk_haproxy
+    }
+}
+```
+
+**备节点** (`/etc/keepalived/keepalived.conf`):
+
+```
+vrrp_script chk_haproxy {
+    script "killall -0 haproxy"
+    interval 2
+    weight 2
+}
+
+vrrp_instance VI_1 {
+    state BACKUP
+    interface eth0
+    virtual_router_id 51
+    priority 100
+    advert_int 1
+
+    authentication {
+        auth_type PASS
+        auth_pass your_password
+    }
+
+    virtual_ipaddress {
+        192.168.1.100
+    }
+
+    track_script {
+        chk_haproxy
+    }
+}
+```
+
+**启动 Keepalived**:
+
+```bash
+sudo systemctl start keepalived
+sudo systemctl enable keepalived
+sudo systemctl status keepalived
+```
+
+#### 4. NebulaGraph 集群配置
+
+NebulaGraph 原生支持集群模式，按照前面的 Kubernetes 或 Ansible 方式部署即可。
+
+**集群健康检查**:
+
+```bash
+# 连接任意 graphd 节点
+nebula-console -addr 192.168.1.101 -port 9669 -u root -p nebula
+
+# 查看集群状态
+SHOW HOSTS;
+SHOW HOSTS GRAPH;
+SHOW HOSTS STORAGE;
+SHOW HOSTS META;
+```
+
+#### 5. Milvus 分布式集群
+
+Milvus 2.0+ 支持分布式部署，使用 Kubernetes 或独立部署。
+
+**独立部署架构**:
+
+```
+┌─────────────────────────────────────────┐
+│         Milvus Cluster                  │
+│                                         │
+│  ┌──────────┐  ┌──────────┐            │
+│  │ QueryNode│  │ QueryNode│  (多副本)  │
+│  └──────────┘  └──────────┘            │
+│                                         │
+│  ┌──────────┐  ┌──────────┐            │
+│  │DataNode  │  │DataNode  │  (多副本)  │
+│  └──────────┘  └──────────┘            │
+│                                         │
+│  ┌──────────┐                           │
+│  │IndexNode │  (可选)                   │
+│  └──────────┘                           │
+│                                         │
+│  ┌──────────┐  ┌──────────┐            │
+│  │Coordinator│  │Coordinator│ (HA)     │
+│  └──────────┘  └──────────┘            │
+└─────────────────────────────────────────┘
+         │                    │
+    ┌────▼────┐         ┌─────▼─────┐
+    │  etcd   │         │   MinIO   │
+    │ Cluster │         │  Cluster  │
+    └─────────┘         └───────────┘
+```
+
+使用 Docker Compose 部署分布式 Milvus（参考官方文档）或使用 Kubernetes Helm Chart。
 
 ---
 
