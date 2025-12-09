@@ -331,6 +331,101 @@ async def get_relation_info(request: RelationInfoRequest):
 
 # ==================== 数据导出接口 ====================
 
+@router.get("/echarts/top-k/{rag_id}")
+async def get_top_k_degree_subgraph(rag_id: str, k: int = 10):
+    """
+    获取度数最高的 top k 个节点构成的子图（ECharts 格式）
+
+    Args:
+        rag_id: RAG 实例 ID
+        k: 返回度数最高的 k 个节点（默认 10）
+
+    返回格式：
+    {
+        "status": "success",
+        "rag_id": "...",
+        "data": {
+            "nodes": [...],
+            "links": [...],
+            "categories": [...]
+        }
+    }
+    """
+    manager = get_concurrent_rag_manager()
+
+    try:
+        processor = manager.get_instance(rag_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    if processor.rag is None:
+        raise HTTPException(status_code=400, detail="RAG 系统未初始化")
+
+    try:
+        # 调用 NebulaGraph 的子图查询方法
+        chunk_entity_relation_graph = processor.rag.chunk_entity_relation_graph
+        echarts_data = await chunk_entity_relation_graph.get_top_k_degree_subgraph_echarts(k)
+
+        return {
+            "status": "success",
+            "rag_id": rag_id,
+            "k": k,
+            "data": echarts_data,
+        }
+
+    except Exception as e:
+        logger.error(f"获取 top {k} 度数子图失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取子图失败: {str(e)}")
+
+
+@router.get("/echarts/neighbors/{rag_id}")
+async def get_node_neighbors_subgraph(rag_id: str, node_id: str):
+    """
+    获取指定节点及其邻居节点构成的子图（ECharts 格式）
+
+    Args:
+        rag_id: RAG 实例 ID
+        node_id: 中心节点的 ID
+
+    返回格式：
+    {
+        "status": "success",
+        "rag_id": "...",
+        "node_id": "...",
+        "data": {
+            "nodes": [...],
+            "links": [...],
+            "categories": [...]
+        }
+    }
+    """
+    manager = get_concurrent_rag_manager()
+
+    try:
+        processor = manager.get_instance(rag_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    if processor.rag is None:
+        raise HTTPException(status_code=400, detail="RAG 系统未初始化")
+
+    try:
+        # 调用 NebulaGraph 的邻居子图查询方法
+        chunk_entity_relation_graph = processor.rag.chunk_entity_relation_graph
+        echarts_data = await chunk_entity_relation_graph.get_node_neighbors_subgraph_echarts(node_id)
+
+        return {
+            "status": "success",
+            "rag_id": rag_id,
+            "node_id": node_id,
+            "data": echarts_data,
+        }
+
+    except Exception as e:
+        logger.error(f"获取节点 '{node_id}' 邻居子图失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取邻居子图失败: {str(e)}")
+
+
 @router.get("/echarts/{rag_id}")
 async def get_echarts_graph(rag_id: str):
     """

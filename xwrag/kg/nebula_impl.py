@@ -1345,6 +1345,357 @@ class NebulaGraphStorage(BaseGraphStorage):
             embeddings[node.id] = [0.0] * 128
         return kg, embeddings
 
+    async def get_top_k_degree_subgraph_echarts(self, k: int) -> Dict[str, Any]:
+        """获取度数最高的 top k 个节点构成的子图（ECharts 格式）
+
+        Args:
+            k: 返回度数最高的 k 个节点
+
+        Returns:
+            ECharts 格式的图数据:
+            {
+                "nodes": [{"id", "name", "value", "category", "entity_type", "description"?}, ...],
+                "links": [{"source", "target", "description"?, "weight"?, "keywords"?}, ...],
+                "categories": [{"name": entity_type}, ...]
+            }
+        """
+        try:
+            tag = self._tag_name
+
+            # 1. 获取度数最高的 top k 个节点
+            degree_query = (
+                f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
+                f'RETURN id(n) AS node_id, COUNT(r) AS degree '
+                f'ORDER BY degree DESC LIMIT {k}'
+            )
+
+            logger.info(f"[{self.workspace}] 获取 top {k} 度数节点")
+            degree_result = await self._execute_query(degree_query)
+
+            if degree_result.row_size() == 0:
+                return {"nodes": [], "links": [], "categories": []}
+
+            # 提取节点ID列表
+            top_node_ids = []
+            node_degrees = {}
+            for i in range(degree_result.row_size()):
+                row = degree_result.row_values(i)
+                node_id = self._value_to_python(row[0])
+                degree = self._value_to_python(row[1])
+                top_node_ids.append(node_id)
+                node_degrees[node_id] = degree
+
+            # 2. 获取这些节点的详细信息
+            node_ids_str = ", ".join(f'"{self._escape_string(nid)}"' for nid in top_node_ids)
+            nodes_query = (
+                f'MATCH (n:{tag}) '
+                f'WHERE id(n) IN [{node_ids_str}] '
+                f'RETURN id(n) AS node_id, properties(n)'
+            )
+
+            nodes_result = await self._execute_query(nodes_query)
+
+            # 构建节点数据
+            entity_types_set = set()
+            entity_type_map = {}
+            nodes_data = []
+
+            for i in range(nodes_result.row_size()):
+                row = nodes_result.row_values(i)
+                node_id = self._value_to_python(row[0])
+                props = self._value_to_python(row[1])
+
+                if isinstance(props, dict):
+                    entity_type = props.get("entity_type", "UNKNOWN")
+                    entity_types_set.add(entity_type)
+                    entity_type_map[node_id] = entity_type
+
+                    nodes_data.append({
+                        "node_id": node_id,
+                        "entity_type": entity_type,
+                        "description": props.get("description", ""),
+                        "degree": node_degrees.get(node_id, 0)
+                    })
+
+            # 3. 获取这些节点之间的所有边（如果两个节点可达）
+            edges_query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE id(a) IN [{node_ids_str}] AND id(b) IN [{node_ids_str}] '
+                f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
+            )
+
+            edges_result = await self._execute_query(edges_query)
+
+            edges_data = []
+            seen_edges = set()  # 避免重复边（因为是无向边）
+
+            for i in range(edges_result.row_size()):
+                row = edges_result.row_values(i)
+                src = self._value_to_python(row[0])
+                tgt = self._value_to_python(row[1])
+                props = self._value_to_python(row[2])
+
+                # 去重：使用排序后的元组作为key
+                edge_key = tuple(sorted([src, tgt]))
+                if edge_key not in seen_edges:
+                    seen_edges.add(edge_key)
+
+                    edge_data = {
+                        "src": src,
+                        "tgt": tgt,
+                    }
+
+                    if isinstance(props, dict):
+                        edge_data.update(props)
+
+                    edges_data.append(edge_data)
+
+            # 4. 构建 ECharts 格式
+            # 4.1 构建分类
+            categories = [{"name": et} for et in sorted(entity_types_set)]
+            category_index = {et: i for i, et in enumerate(sorted(entity_types_set))}
+
+            # 4.2 构建节点
+            nodes = []
+            for node_data in nodes_data:
+                node_id = node_data["node_id"]
+                entity_type = node_data["entity_type"]
+
+                node = {
+                    "id": node_id,
+                    "name": node_id,
+                    "value": node_data["degree"],
+                    "category": category_index.get(entity_type, 0),
+                    "entity_type": entity_type,
+                }
+
+                if node_data.get("description"):
+                    node["description"] = node_data["description"]
+
+                nodes.append(node)
+
+            # 4.3 构建边
+            links = []
+            for edge_data in edges_data:
+                link = {
+                    "source": edge_data["src"],
+                    "target": edge_data["tgt"],
+                }
+
+                if edge_data.get("description"):
+                    link["description"] = edge_data["description"]
+                if edge_data.get("weight"):
+                    link["weight"] = edge_data["weight"]
+                if edge_data.get("keywords"):
+                    link["keywords"] = edge_data["keywords"]
+
+                links.append(link)
+
+            logger.info(
+                f"[{self.workspace}] Top {k} 子图: {len(nodes)} 节点, {len(links)} 边"
+            )
+
+            return {
+                "nodes": nodes,
+                "links": links,
+                "categories": categories
+            }
+
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting top k degree subgraph: {e}")
+            return {"nodes": [], "links": [], "categories": []}
+
+    async def get_node_neighbors_subgraph_echarts(self, node_id: str) -> Dict[str, Any]:
+        """获取指定节点及其邻居节点构成的子图（ECharts 格式）
+
+        Args:
+            node_id: 中心节点的ID
+
+        Returns:
+            ECharts 格式的图数据:
+            {
+                "nodes": [{"id", "name", "value", "category", "entity_type", "description"?}, ...],
+                "links": [{"source", "target", "description"?, "weight"?, "keywords"?}, ...],
+                "categories": [{"name": entity_type}, ...]
+            }
+        """
+        try:
+            tag = self._tag_name
+            escaped_node_id = self._escape_string(node_id)
+
+            # 1. 获取中心节点和所有邻居节点
+            neighbors_query = (
+                f'MATCH (center:{tag})-[r:relationship]-(neighbor:{tag}) '
+                f'WHERE id(center) = "{escaped_node_id}" '
+                f'RETURN id(neighbor) AS neighbor_id, properties(neighbor), properties(r)'
+            )
+
+            logger.info(f"[{self.workspace}] 获取节点 '{node_id}' 的邻居")
+            neighbors_result = await self._execute_query(neighbors_query)
+
+            # 2. 获取中心节点的信息
+            center_query = (
+                f'MATCH (n:{tag}) '
+                f'WHERE id(n) = "{escaped_node_id}" '
+                f'RETURN id(n) AS node_id, properties(n)'
+            )
+
+            center_result = await self._execute_query(center_query)
+
+            if center_result.row_size() == 0:
+                logger.warning(f"[{self.workspace}] 节点 '{node_id}' 不存在")
+                return {"nodes": [], "links": [], "categories": []}
+
+            # 构建节点列表
+            all_node_ids = [node_id]  # 包含中心节点
+            entity_types_set = set()
+            entity_type_map = {}
+            nodes_data = {}
+
+            # 处理中心节点
+            center_row = center_result.row_values(0)
+            center_props = self._value_to_python(center_row[1])
+
+            if isinstance(center_props, dict):
+                entity_type = center_props.get("entity_type", "UNKNOWN")
+                entity_types_set.add(entity_type)
+                entity_type_map[node_id] = entity_type
+                nodes_data[node_id] = {
+                    "entity_type": entity_type,
+                    "description": center_props.get("description", ""),
+                }
+
+            # 处理邻居节点和边
+            edges_data = []
+            seen_edges = set()
+
+            for i in range(neighbors_result.row_size()):
+                row = neighbors_result.row_values(i)
+                neighbor_id = self._value_to_python(row[0])
+                neighbor_props = self._value_to_python(row[1])
+                edge_props = self._value_to_python(row[2])
+
+                # 添加邻居节点
+                if neighbor_id not in nodes_data:
+                    all_node_ids.append(neighbor_id)
+
+                    if isinstance(neighbor_props, dict):
+                        entity_type = neighbor_props.get("entity_type", "UNKNOWN")
+                        entity_types_set.add(entity_type)
+                        entity_type_map[neighbor_id] = entity_type
+                        nodes_data[neighbor_id] = {
+                            "entity_type": entity_type,
+                            "description": neighbor_props.get("description", ""),
+                        }
+
+                # 添加边
+                edge_key = tuple(sorted([node_id, neighbor_id]))
+                if edge_key not in seen_edges:
+                    seen_edges.add(edge_key)
+
+                    edge_data = {
+                        "src": node_id,
+                        "tgt": neighbor_id,
+                    }
+
+                    if isinstance(edge_props, dict):
+                        edge_data.update(edge_props)
+
+                    edges_data.append(edge_data)
+
+            # 3. 获取邻居节点之间的边（如果存在）
+            if len(all_node_ids) > 1:
+                node_ids_str = ", ".join(f'"{self._escape_string(nid)}"' for nid in all_node_ids)
+                inter_edges_query = (
+                    f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                    f'WHERE id(a) IN [{node_ids_str}] AND id(b) IN [{node_ids_str}] '
+                    f'AND id(a) != "{escaped_node_id}" AND id(b) != "{escaped_node_id}" '
+                    f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
+                )
+
+                inter_edges_result = await self._execute_query(inter_edges_query)
+
+                for i in range(inter_edges_result.row_size()):
+                    row = inter_edges_result.row_values(i)
+                    src = self._value_to_python(row[0])
+                    tgt = self._value_to_python(row[1])
+                    props = self._value_to_python(row[2])
+
+                    edge_key = tuple(sorted([src, tgt]))
+                    if edge_key not in seen_edges:
+                        seen_edges.add(edge_key)
+
+                        edge_data = {
+                            "src": src,
+                            "tgt": tgt,
+                        }
+
+                        if isinstance(props, dict):
+                            edge_data.update(props)
+
+                        edges_data.append(edge_data)
+
+            # 4. 计算节点度数（在子图中）
+            node_degrees = {nid: 0 for nid in all_node_ids}
+            for edge in edges_data:
+                node_degrees[edge["src"]] = node_degrees.get(edge["src"], 0) + 1
+                node_degrees[edge["tgt"]] = node_degrees.get(edge["tgt"], 0) + 1
+
+            # 5. 构建 ECharts 格式
+            # 5.1 构建分类
+            categories = [{"name": et} for et in sorted(entity_types_set)]
+            category_index = {et: i for i, et in enumerate(sorted(entity_types_set))}
+
+            # 5.2 构建节点
+            nodes = []
+            for nid in all_node_ids:
+                node_data = nodes_data.get(nid, {})
+                entity_type = node_data.get("entity_type", "UNKNOWN")
+
+                node = {
+                    "id": nid,
+                    "name": nid,
+                    "value": node_degrees.get(nid, 1),
+                    "category": category_index.get(entity_type, 0),
+                    "entity_type": entity_type,
+                }
+
+                if node_data.get("description"):
+                    node["description"] = node_data["description"]
+
+                nodes.append(node)
+
+            # 5.3 构建边
+            links = []
+            for edge_data in edges_data:
+                link = {
+                    "source": edge_data["src"],
+                    "target": edge_data["tgt"],
+                }
+
+                if edge_data.get("description"):
+                    link["description"] = edge_data["description"]
+                if edge_data.get("weight"):
+                    link["weight"] = edge_data["weight"]
+                if edge_data.get("keywords"):
+                    link["keywords"] = edge_data["keywords"]
+
+                links.append(link)
+
+            logger.info(
+                f"[{self.workspace}] 节点 '{node_id}' 邻居子图: {len(nodes)} 节点, {len(links)} 边"
+            )
+
+            return {
+                "nodes": nodes,
+                "links": links,
+                "categories": categories
+            }
+
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting node neighbors subgraph: {e}")
+            return {"nodes": [], "links": [], "categories": []}
+
     async def drop(self) -> Dict[str, str]:
         """删除整个 workspace 的数据
 
