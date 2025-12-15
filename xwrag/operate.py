@@ -2503,9 +2503,11 @@ async def get_keywords_from_query(
     """
     # Check if pre-defined keywords are already provided
     if query_param.hl_keywords or query_param.ll_keywords:
+        logger.info(f"📋 [关键字检索] 使用提供的关键字，跳过 LLM 提取 - 高优先级: {query_param.hl_keywords}, 低优先级: {query_param.ll_keywords}")
         return query_param.hl_keywords, query_param.ll_keywords
 
     # Extract keywords using extract_keywords_only function which already supports conversation history
+    logger.info(f"🤖 [关键字提取] 未提供关键字，使用 LLM 从查询中提取: {query[:100]}...")
     hl_keywords, ll_keywords = await extract_keywords_only(
         query, query_param, global_config, hashing_kv
     )
@@ -2586,6 +2588,8 @@ async def extract_keywords_only(
 
     hl_keywords = keywords_data.get("high_level_keywords", [])
     ll_keywords = keywords_data.get("low_level_keywords", [])
+
+    logger.info(f"✅ [LLM 关键字提取] 完成 - 高优先级: {hl_keywords}, 低优先级: {ll_keywords}")
 
     # 6. Cache only the processed keywords with cache type
     if hl_keywords or ll_keywords:
