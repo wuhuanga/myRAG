@@ -100,6 +100,30 @@ class QueryResponse(BaseModel):
     timestamp: str
 
 
+class KeywordsSearchRequest(BaseModel):
+    """关键字检索请求模型"""
+    rag_id: str  # 指定使用的 RAG 实例 ID
+    keywords: List[str]  # 关键字列表
+    mode: str = "hybrid"  # 检索模式
+    only_need_context: bool = True  # 只返回上下文，不调用 LLM
+    # 检索参数
+    top_k: Optional[int] = None
+    chunk_top_k: Optional[int] = None
+    max_entity_tokens: Optional[int] = None
+    max_relation_tokens: Optional[int] = None
+    max_total_tokens: Optional[int] = None
+    enable_rerank: Optional[bool] = None
+
+
+class KeywordsSearchResponse(BaseModel):
+    """关键字检索响应模型"""
+    rag_id: str
+    keywords: List[str]
+    context: str
+    mode: str
+    timestamp: str
+
+
 class UCDModelRequest(BaseModel):
     """UCD建模请求模型"""
     rag_id: str

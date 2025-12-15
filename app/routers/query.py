@@ -11,6 +11,8 @@ from ..dependencies_concurrent import get_concurrent_rag_manager, get_ucd_builde
 from ..models import (
     QueryRequest,
     QueryResponse,
+    KeywordsSearchRequest,
+    KeywordsSearchResponse,
     UCDModelRequest,
     ClearCacheRequest,
 )
@@ -67,6 +69,48 @@ async def query_knowledge(request: QueryRequest):
     except Exception as e:
         logger.error(f"查询失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
+
+
+@router.post("/keywords", response_model=KeywordsSearchResponse)
+async def search_by_keywords(request: KeywordsSearchRequest):
+    """使用关键字列表检索知识库"""
+    manager = get_concurrent_rag_manager()
+
+    try:
+        processor = manager.get_instance(request.rag_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    try:
+        # 将关键字列表转换为查询字符串
+        keywords_str = " ".join(request.keywords)
+        logger.info(f"关键字检索: {request.keywords} (模式: {request.mode}, RAG ID: {request.rag_id})")
+
+        # 执行检索
+        context = processor.query(
+            question=keywords_str,
+            mode=request.mode,
+            only_need_context=request.only_need_context,
+            top_k=request.top_k,
+            chunk_top_k=request.chunk_top_k,
+            max_entity_tokens=request.max_entity_tokens,
+            max_relation_tokens=request.max_relation_tokens,
+            max_total_tokens=request.max_total_tokens,
+            hl_keywords=request.keywords,  # 将关键字作为高优先级关键词
+            enable_rerank=request.enable_rerank,
+        )
+
+        return KeywordsSearchResponse(
+            rag_id=request.rag_id,
+            keywords=request.keywords,
+            context=context,
+            mode=request.mode,
+            timestamp=datetime.now().isoformat()
+        )
+
+    except Exception as e:
+        logger.error(f"关键字检索失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"关键字检索失败: {str(e)}")
 
 
 @router.post("/ucd")
