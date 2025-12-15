@@ -2016,6 +2016,12 @@ async def extract_entities(
     llm_response_cache: BaseKVStorage | None = None,
     text_chunks_storage: BaseKVStorage | None = None,
 ) -> list:
+    import time
+
+    extract_start_time = time.time()
+    chunk_count = len(chunks)
+    logger.info(f"⏱️  [实体提取] 开始提取 {chunk_count} 个文本块的实体和关系...")
+
     use_llm_func: callable = global_config["llm_model_func"]
     entity_extract_max_gleaning = global_config["entity_extract_max_gleaning"]
 
@@ -2234,6 +2240,8 @@ async def extract_entities(
 
     # If all tasks completed successfully, chunk_results already contains the results
     # Return the chunk_results for later processing in merge_nodes_and_edges
+    extract_total_time = time.time() - extract_start_time
+    logger.info(f"⏱️  [实体提取] ✅ 完成! 处理了 {chunk_count} 个文本块，耗时: {extract_total_time:.2f}秒, 平均: {extract_total_time/chunk_count:.2f}秒/块")
     return chunk_results
 
 

@@ -1168,15 +1168,25 @@ class MilvusVectorDBStorage(BaseVectorStorage):
                 for i in range(0, len(contents), self._max_batch_size)
             ]
 
+            # Embedding 时间统计
+            embedding_start = time.time()
             embedding_tasks = [self.embedding_func(batch) for batch in batches]
             embeddings_list = await asyncio.gather(*embedding_tasks)
+            embedding_time = time.time() - embedding_start
+            logger.info(f"⏱️  [Embedding-{self.final_namespace}] 向量化 {len(contents)} 条数据，耗时: {embedding_time:.2f}秒")
 
             embeddings = np.concatenate(embeddings_list)
             for i, d in enumerate(list_data):
                 d["vector"] = embeddings[i]
+
+            # Milvus upsert 时间统计
+            upsert_start = time.time()
             results = self._client.upsert(
                 collection_name=self.final_namespace, data=list_data
             )
+            upsert_time = time.time() - upsert_start
+            logger.info(f"⏱️  [Milvus-{self.final_namespace}] 插入 {len(list_data)} 条数据，耗时: {upsert_time:.2f}秒")
+
             return results
 
     async def query(

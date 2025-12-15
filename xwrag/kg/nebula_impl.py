@@ -929,10 +929,13 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def upsert_nodes(self, nodes: List[tuple]):
         """批量插入或更新节点"""
+        import time
+
         async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_write"):
             if not nodes:
                 return
             try:
+                start_time = time.time()
                 tag = self._tag_name
                 batch_values = []
                 for node_id, node_data in nodes:
@@ -940,12 +943,14 @@ class NebulaGraphStorage(BaseGraphStorage):
                         node_data["entity_id"] = node_id
                     props_str = self._format_properties(node_data)
                     batch_values.append(f'"{self._escape_string(node_id)}": ({props_str})')
-                
+
                 query = (
                     f'INSERT VERTEX IF NOT EXISTS {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
                     f'VALUES {", ".join(batch_values)}'
                 )
                 await self._execute_query(query)
+                elapsed = time.time() - start_time
+                logger.info(f"⏱️  [NebulaGraph-节点] 批量插入 {len(nodes)} 个节点，耗时: {elapsed:.2f}秒")
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error upserting nodes batch: {e}")
                 raise
@@ -988,12 +993,17 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     async def upsert_edges(self, edges: List[tuple]):
         """批量插入或更新边"""
+        import time
+
         async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_write"):
             if not edges:
                 return
             try:
+                start_time = time.time()
                 for src_id, tgt_id, edge_data in edges:
                     await self.upsert_edge(src_id, tgt_id, edge_data)
+                elapsed = time.time() - start_time
+                logger.info(f"⏱️  [NebulaGraph-关系] 批量插入 {len(edges)} 条关系，耗时: {elapsed:.2f}秒")
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error upserting edges batch: {e}")
                 raise
