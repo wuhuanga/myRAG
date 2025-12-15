@@ -2298,13 +2298,19 @@ async def kg_query(
         # Apply higher priority (5) to query relation LLM function
         use_model_func = partial(use_model_func, _priority=5)
 
-    # Time keyword extraction
+    # Check if keywords are already provided, skip LLM extraction if so
     keyword_start_time = time.time()
-    hl_keywords, ll_keywords = await get_keywords_from_query(
-        query, query_param, global_config, hashing_kv
-    )
-    keyword_extraction_time = time.time() - keyword_start_time
-    logger.info(f"⏱️  [Timing] LLM keyword extraction: {keyword_extraction_time:.3f}s")
+    if query_param.hl_keywords or query_param.ll_keywords:
+        hl_keywords = query_param.hl_keywords
+        ll_keywords = query_param.ll_keywords
+        logger.info(f"📋 [关键字检索] 使用提供的关键字，跳过 LLM 提取 - 高优先级: {hl_keywords}, 低优先级: {ll_keywords}")
+    else:
+        # Extract keywords using LLM
+        hl_keywords, ll_keywords = await get_keywords_from_query(
+            query, query_param, global_config, hashing_kv
+        )
+        keyword_extraction_time = time.time() - keyword_start_time
+        logger.info(f"⏱️  [Timing] LLM keyword extraction: {keyword_extraction_time:.3f}s")
 
     logger.debug(f"High-level keywords: {hl_keywords}")
     logger.debug(f"Low-level  keywords: {ll_keywords}")
