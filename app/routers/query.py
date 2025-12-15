@@ -87,6 +87,7 @@ async def search_by_keywords(request: KeywordsSearchRequest):
         logger.info(f"关键字检索: {request.keywords} (模式: {request.mode}, RAG ID: {request.rag_id})")
 
         # 执行检索
+        # 将关键字同时作为高优先级和低优先级关键词，以便在所有模式下都能检索
         context = processor.query(
             question=keywords_str,
             mode=request.mode,
@@ -96,7 +97,8 @@ async def search_by_keywords(request: KeywordsSearchRequest):
             max_entity_tokens=request.max_entity_tokens,
             max_relation_tokens=request.max_relation_tokens,
             max_total_tokens=request.max_total_tokens,
-            hl_keywords=request.keywords,  # 将关键字作为高优先级关键词
+            hl_keywords=request.keywords,  # 高优先级：搜索关系
+            ll_keywords=request.keywords,  # 低优先级：搜索实体
             enable_rerank=request.enable_rerank,
         )
 
