@@ -353,27 +353,34 @@ class xwragProcessor:
             document_path: 文档路径
             custom_id: 可选的自定义文档ID
         """
+        import time
+
+        overall_start = time.time()
         doc_path = Path(document_path)
         if not doc_path.exists():
             raise FileNotFoundError(f"文档不存在: {document_path}")
 
-        logger.info(f"正在读取文档: {document_path}")
+        logger.info(f"⏱️  [文档处理] 开始读取文档: {document_path}")
 
         try:
             # 使用 textract 提取文本内容
-            logger.info(f"使用 textract 提取文档内容...")
+            extract_start = time.time()
+            logger.info(f"⏱️  [文档处理] 使用 textract 提取文档内容...")
             text_content = textract.process(str(doc_path))
             content = text_content.decode('utf-8')
-            logger.info(f"文档提取成功 (文档长度: {len(content)} 字符)")
+            extract_time = time.time() - extract_start
+            logger.info(f"⏱️  [文档处理] 文档提取成功，耗时: {extract_time:.2f}秒 (长度: {len(content)} 字符)")
         except Exception as e:
             logger.error(f"使用 textract 提取文档失败: {e}")
             # 如果是 TXT 文件,尝试直接读取
             if doc_path.suffix.lower() == '.txt':
-                logger.info("尝试直接读取 TXT 文件...")
+                logger.info("⏱️  [文档处理] 尝试直接读取 TXT 文件...")
+                read_start = time.time()
                 try:
                     with open(doc_path, "r", encoding="utf-8") as f:
                         content = f.read()
-                    logger.info(f"TXT 文件读取成功 (文档长度: {len(content)} 字符)")
+                    read_time = time.time() - read_start
+                    logger.info(f"⏱️  [文档处理] TXT 文件读取成功，耗时: {read_time:.2f}秒 (长度: {len(content)} 字符)")
                 except Exception as txt_error:
                     logger.error(f"读取 TXT 文件也失败: {txt_error}")
                     raise
@@ -384,7 +391,8 @@ class xwragProcessor:
             logger.warning(f"文档内容为空: {document_path}")
             return
 
-        logger.info(f"正在插入文档到知识图谱...")
+        logger.info(f"⏱️  [文档处理] 正在插入文档到知识图谱...")
+        insert_start = time.time()
         # 使用文件名作为 file_path,支持自定义 ID
         # 使用异步方法避免事件循环嵌套
         file_name = doc_path.name
@@ -392,7 +400,9 @@ class xwragProcessor:
             await self.rag.ainsert(content, ids=[custom_id], file_paths=[file_name])
         else:
             await self.rag.ainsert(content, file_paths=[file_name])
-        logger.info(f"文档插入完成: {file_name}")
+        insert_time = time.time() - insert_start
+        total_time = time.time() - overall_start
+        logger.info(f"⏱️  [文档处理] ✅ 文档插入成功! 插入耗时: {insert_time:.2f}秒, 总耗时: {total_time:.2f}秒, 文件: {file_name}")
 
     async def insert_documents_batch(self, documents_data: list):
         """批量插入文档到知识图谱
@@ -403,10 +413,13 @@ class xwragProcessor:
                 - file_path: 文件名/路径
                 - doc_id: 可选的文档ID
         """
+        import time
+
         if not documents_data:
             logger.warning("没有文档需要插入")
             return
 
+        start_time = time.time()
         contents = []
         file_paths = []
         doc_ids = []
@@ -417,7 +430,8 @@ class xwragProcessor:
             if 'doc_id' in doc and doc['doc_id']:
                 doc_ids.append(doc['doc_id'])
 
-        logger.info(f"正在批量插入 {len(contents)} 个文档到知识图谱...")
+        total_chars = sum(len(c) for c in contents)
+        logger.info(f"⏱️  [批量处理] 正在批量插入 {len(contents)} 个文档到知识图谱... (总字符数: {total_chars})")
 
         # 批量插入 - 使用异步方法避免事件循环嵌套
         if doc_ids and len(doc_ids) == len(contents):
@@ -425,7 +439,9 @@ class xwragProcessor:
         else:
             await self.rag.ainsert(contents, file_paths=file_paths)
 
-        logger.info(f"批量插入完成: {len(contents)} 个文档")
+        total_time = time.time() - start_time
+        avg_time = total_time / len(contents) if contents else 0
+        logger.info(f"⏱️  [批量处理] ✅ 批量插入完成! {len(contents)} 个文档, 总耗时: {total_time:.2f}秒, 平均: {avg_time:.2f}秒/文档")
 
     def query(
         self,

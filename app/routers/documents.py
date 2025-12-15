@@ -3,6 +3,7 @@
 文档操作路由
 """
 import logging
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -44,26 +45,41 @@ async def upload_document(
         raise HTTPException(status_code=404, detail=str(e))
 
     try:
+        start_time = time.time()
+        logger.info(f"⏱️  [上传文档] 开始处理: {file.filename}")
+
         # 保存上传的文件（添加 rag_id 前缀避免文件名冲突）
         safe_filename = f"{rag_id}_{file.filename}"
         file_path = UPLOAD_DIR / safe_filename
-        logger.info(f"正在保存文件: {file_path}")
+        logger.info(f"⏱️  [上传文档] 正在保存文件: {file_path}")
 
+        save_start = time.time()
         async with aiofiles.open(file_path, 'wb') as f:
             content = await file.read()
             await f.write(content)
+        save_time = time.time() - save_start
 
-        logger.info(f"文件保存成功,开始处理...")
+        logger.info(f"⏱️  [上传文档] 文件保存完成，耗时: {save_time:.2f}秒")
 
         # 插入到知识图谱
+        insert_start = time.time()
         await processor.insert_document(str(file_path), custom_id)
+        insert_time = time.time() - insert_start
+
+        total_time = time.time() - start_time
+        logger.info(f"⏱️  [上传文档] ✅ 完成! 总耗时: {total_time:.2f}秒 (保存: {save_time:.2f}秒, 插入: {insert_time:.2f}秒)")
 
         return {
             "status": "success",
             "message": f"文档 {file.filename} 已成功上传并处理",
             "file_path": str(file_path),
             "custom_id": custom_id,
-            "rag_id": rag_id
+            "rag_id": rag_id,
+            "time_cost": {
+                "total": round(total_time, 2),
+                "save": round(save_time, 2),
+                "insert": round(insert_time, 2)
+            }
         }
 
     except Exception as e:
@@ -92,7 +108,9 @@ async def insert_document(request: InsertRequest):
         )
 
     try:
-        logger.info(f"插入文档内容,文件: {request.file_path}, 长度: {len(request.content)} 字符")
+        start_time = time.time()
+        content_length = len(request.content)
+        logger.info(f"⏱️  [插入文档] 开始处理: {request.file_path}, 长度: {content_length} 字符")
 
         # 插入文档
         if request.doc_id:
@@ -104,13 +122,17 @@ async def insert_document(request: InsertRequest):
         else:
             processor.rag.insert(request.content, file_paths=[request.file_path])
 
+        total_time = time.time() - start_time
+        logger.info(f"⏱️  [插入文档] ✅ 完成! 耗时: {total_time:.2f}秒, 文件: {request.file_path}")
+
         return {
             "status": "success",
             "message": f"文档内容已成功插入(文件: {request.file_path})",
             "file_path": request.file_path,
             "doc_id": request.doc_id,
-            "content_length": len(request.content),
-            "rag_id": request.rag_id
+            "content_length": content_length,
+            "rag_id": request.rag_id,
+            "time_cost": round(total_time, 2)
         }
 
     except Exception as e:
@@ -144,17 +166,28 @@ async def batch_insert_documents(request: BatchInsertRequest):
                 'doc_id': doc.get('doc_id')
             })
 
-        logger.info(f"批量插入 {len(documents_data)} 个文档")
+        start_time = time.time()
+        doc_count = len(documents_data)
+        total_chars = sum(len(doc['content']) for doc in documents_data)
+        logger.info(f"⏱️  [批量插入] 开始处理 {doc_count} 个文档, 总字符数: {total_chars}")
 
         # 批量插入
         await processor.insert_documents_batch(documents_data)
 
+        total_time = time.time() - start_time
+        avg_time = total_time / doc_count if doc_count > 0 else 0
+        logger.info(f"⏱️  [批量插入] ✅ 完成! 总耗时: {total_time:.2f}秒, 平均: {avg_time:.2f}秒/文档")
+
         return {
             "status": "success",
-            "message": f"成功批量插入 {len(documents_data)} 个文档",
-            "count": len(documents_data),
+            "message": f"成功批量插入 {doc_count} 个文档",
+            "count": doc_count,
             "files": [doc['file_path'] for doc in documents_data],
-            "rag_id": request.rag_id
+            "rag_id": request.rag_id,
+            "time_cost": {
+                "total": round(total_time, 2),
+                "average_per_doc": round(avg_time, 2)
+            }
         }
 
     except HTTPException:
