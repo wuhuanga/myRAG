@@ -515,7 +515,7 @@ curl -X POST "http://localhost:8000/api/query/" \
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `rag_id` | string | 是 | - | RAG 实例 ID |
-| `keywords` | list[string] | 是 | - | 关键字列表 |
+| `keywords` | list[string] | 否 | None | 关键字列表（可选，为空时使用默认检索） |
 | `mode` | string | 否 | hybrid | 查询模式 |
 | `only_need_context` | bool | 否 | true | 只返回上下文 |
 | `top_k` | int | 否 | None | 检索的实体/关系数量 |
@@ -562,7 +562,7 @@ curl -X POST "http://localhost:8000/api/query/keywords" \
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `rag_id` | string | 是 | - | RAG 实例 ID |
-| `keywords` | list[string] | 是 | - | 关键字列表 |
+| `keywords` | list[string] | 否 | None | 关键字列表（可选，为空时使用默认检索） |
 | `top_k` | int | 否 | None | 检索的实体/关系数量 |
 | `chunk_top_k` | int | 否 | None | 检索的文本块数量 |
 | `max_entity_tokens` | int | 否 | None | 实体最大 token 数 |
@@ -624,7 +624,7 @@ curl -X POST "http://localhost:8000/api/query/graph-clean" \
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `rag_id` | string | 是 | - | RAG 实例 ID |
-| `keywords` | list[string] | 是 | - | 关键字列表 |
+| `keywords` | list[string] | 否 | None | 关键字列表（可选，为空时使用默认检索） |
 | `chunk_top_k` | int | 否 | None | 检索的文本块数量 |
 | `max_total_tokens` | int | 否 | None | 总最大 token 数 |
 | `enable_rerank` | bool | 否 | None | 是否启用 Rerank |

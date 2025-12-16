@@ -89,9 +89,10 @@ async def search_by_keywords(request: KeywordsSearchRequest):
         raise HTTPException(status_code=404, detail=str(e))
 
     try:
-        # 将关键字列表转换为查询字符串
-        keywords_str = " ".join(request.keywords)
-        logger.info(f"关键字检索: {request.keywords} (模式: {request.mode}, RAG ID: {request.rag_id})")
+        # 将关键字列表转换为查询字符串（处理空关键字情况）
+        keywords = request.keywords if request.keywords else []
+        keywords_str = " ".join(keywords) if keywords else ""
+        logger.info(f"关键字检索: {keywords} (模式: {request.mode}, RAG ID: {request.rag_id})")
 
         # 执行检索
         # 将关键字同时作为高优先级和低优先级关键词，以便在所有模式下都能检索
@@ -104,14 +105,14 @@ async def search_by_keywords(request: KeywordsSearchRequest):
             max_entity_tokens=request.max_entity_tokens,
             max_relation_tokens=request.max_relation_tokens,
             max_total_tokens=request.max_total_tokens,
-            hl_keywords=request.keywords,  # 高优先级：搜索关系
-            ll_keywords=request.keywords,  # 低优先级：搜索实体
+            hl_keywords=keywords if keywords else None,  # 高优先级：搜索关系
+            ll_keywords=keywords if keywords else None,  # 低优先级：搜索实体
             enable_rerank=request.enable_rerank,
         )
 
         return KeywordsSearchResponse(
             rag_id=request.rag_id,
-            keywords=request.keywords,
+            keywords=keywords if keywords else None,
             context=context,
             mode=request.mode,
             timestamp=datetime.now().isoformat()
@@ -239,9 +240,10 @@ async def query_graph_clean(request: GraphCleanRequest):
         raise HTTPException(status_code=404, detail=str(e))
 
     try:
-        # 将关键字列表转换为查询字符串
-        keywords_str = " ".join(request.keywords)
-        logger.info(f"清理图谱检索: {request.keywords} (RAG ID: {request.rag_id})")
+        # 将关键字列表转换为查询字符串（处理空关键字情况）
+        keywords = request.keywords if request.keywords else []
+        keywords_str = " ".join(keywords) if keywords else ""
+        logger.info(f"清理图谱检索: {keywords} (RAG ID: {request.rag_id})")
 
         # 调用 aquery_data 获取结构化数据（hybrid 模式，同时使用 hl 和 ll 关键字）
         from xwrag.base import QueryParam
@@ -253,8 +255,8 @@ async def query_graph_clean(request: GraphCleanRequest):
             max_entity_tokens=request.max_entity_tokens,
             max_relation_tokens=request.max_relation_tokens,
             max_total_tokens=request.max_total_tokens,
-            hl_keywords=request.keywords,  # 高优先级：搜索关系
-            ll_keywords=request.keywords,  # 低优先级：搜索实体
+            hl_keywords=keywords if keywords else None,  # 高优先级：搜索关系
+            ll_keywords=keywords if keywords else None,  # 低优先级：搜索实体
             enable_rerank=request.enable_rerank,
         )
 
@@ -290,7 +292,7 @@ async def query_graph_clean(request: GraphCleanRequest):
 
         return GraphCleanResponse(
             rag_id=request.rag_id,
-            keywords=request.keywords,
+            keywords=keywords if keywords else None,
             entities=clean_entities,
             relationships=clean_relationships,
             timestamp=datetime.now().isoformat()
@@ -314,9 +316,10 @@ async def query_chunks_only(request: ChunksOnlyRequest):
         raise HTTPException(status_code=404, detail=str(e))
 
     try:
-        # 将关键字列表转换为查询字符串
-        keywords_str = " ".join(request.keywords)
-        logger.info(f"仅Chunks检索: {request.keywords} (RAG ID: {request.rag_id})")
+        # 将关键字列表转换为查询字符串（处理空关键字情况）
+        keywords = request.keywords if request.keywords else []
+        keywords_str = " ".join(keywords) if keywords else ""
+        logger.info(f"仅Chunks检索: {keywords} (RAG ID: {request.rag_id})")
 
         # 调用 aquery_data 获取结构化数据（hybrid 模式，同时使用 hl 和 ll 关键字）
         from xwrag.base import QueryParam
@@ -325,8 +328,8 @@ async def query_chunks_only(request: ChunksOnlyRequest):
             only_need_context=True,
             chunk_top_k=request.chunk_top_k,
             max_total_tokens=request.max_total_tokens,
-            hl_keywords=request.keywords,  # 高优先级：搜索关系
-            ll_keywords=request.keywords,  # 低优先级：搜索实体
+            hl_keywords=keywords if keywords else None,  # 高优先级：搜索关系
+            ll_keywords=keywords if keywords else None,  # 低优先级：搜索实体
             enable_rerank=request.enable_rerank,
         )
 
@@ -352,7 +355,7 @@ async def query_chunks_only(request: ChunksOnlyRequest):
 
         return ChunksOnlyResponse(
             rag_id=request.rag_id,
-            keywords=request.keywords,
+            keywords=keywords if keywords else None,
             chunks=chunks,
             timestamp=datetime.now().isoformat()
         )

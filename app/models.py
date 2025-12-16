@@ -103,7 +103,7 @@ class QueryResponse(BaseModel):
 class KeywordsSearchRequest(BaseModel):
     """关键字检索请求模型"""
     rag_id: str  # 指定使用的 RAG 实例 ID
-    keywords: List[str]  # 关键字列表
+    keywords: Optional[List[str]] = None  # 关键字列表（可选）
     mode: str = "hybrid"  # 检索模式
     only_need_context: bool = True  # 只返回上下文，不调用 LLM
     # 检索参数
@@ -118,7 +118,7 @@ class KeywordsSearchRequest(BaseModel):
 class KeywordsSearchResponse(BaseModel):
     """关键字检索响应模型"""
     rag_id: str
-    keywords: List[str]
+    keywords: Optional[List[str]] = None
     context: str
     mode: str
     timestamp: str
@@ -135,7 +135,7 @@ class UCDModelRequest(BaseModel):
 class GraphCleanRequest(BaseModel):
     """清理后的知识图谱检索请求模型"""
     rag_id: str  # 指定使用的 RAG 实例 ID
-    keywords: List[str]  # 关键字列表
+    keywords: Optional[List[str]] = None  # 关键字列表（可选）
     # 检索参数（可选）
     top_k: Optional[int] = None
     chunk_top_k: Optional[int] = None
@@ -163,7 +163,7 @@ class CleanRelationship(BaseModel):
 class GraphCleanResponse(BaseModel):
     """清理后的知识图谱检索响应模型"""
     rag_id: str
-    keywords: List[str]
+    keywords: Optional[List[str]] = None
     entities: List[CleanEntity]
     relationships: List[CleanRelationship]
     timestamp: str
@@ -172,7 +172,7 @@ class GraphCleanResponse(BaseModel):
 class ChunksOnlyRequest(BaseModel):
     """仅返回chunks的检索请求模型"""
     rag_id: str  # 指定使用的 RAG 实例 ID
-    keywords: List[str]  # 关键字列表
+    keywords: Optional[List[str]] = None  # 关键字列表（可选）
     # 检索参数（可选）
     chunk_top_k: Optional[int] = None
     max_total_tokens: Optional[int] = None
@@ -190,7 +190,7 @@ class ChunkItem(BaseModel):
 class ChunksOnlyResponse(BaseModel):
     """仅返回chunks的检索响应模型"""
     rag_id: str
-    keywords: List[str]
+    keywords: Optional[List[str]] = None
     chunks: List[ChunkItem]
     timestamp: str
 
