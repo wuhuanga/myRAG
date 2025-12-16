@@ -335,13 +335,38 @@ async def delete_document(rag_id: str, doc_id: str):
 
         # 根据删除结果返回相应的 HTTP 状态码
         if result.status == "success":
-            logger.info(f"文档删除成功: {doc_id}")
+            logger.info(f"文档数据库内容删除成功: {doc_id}")
+
+            # 尝试删除原始上传的文件
+            file_deleted = False
+            file_delete_message = ""
+            if result.file_path:
+                try:
+                    # 构造上传文件的完整路径 (格式: {rag_id}_{filename})
+                    safe_filename = f"{rag_id}_{result.file_path}"
+                    upload_file_path = UPLOAD_DIR / safe_filename
+
+                    if upload_file_path.exists():
+                        upload_file_path.unlink()
+                        file_deleted = True
+                        file_delete_message = f"原始文件已删除: {safe_filename}"
+                        logger.info(f"✅ {file_delete_message}")
+                    else:
+                        file_delete_message = f"原始文件不存在（可能已被手动删除）: {safe_filename}"
+                        logger.warning(file_delete_message)
+                except Exception as file_error:
+                    file_delete_message = f"删除原始文件失败: {str(file_error)}"
+                    logger.error(f"⚠️ {file_delete_message}")
+                    # 不抛出异常，因为数据库内容已成功删除
+
             return {
                 "status": "success",
                 "doc_id": doc_id,
                 "file_path": result.file_path,
                 "message": result.message,
-                "rag_id": rag_id
+                "rag_id": rag_id,
+                "file_deleted": file_deleted,
+                "file_delete_message": file_delete_message
             }
         elif result.status == "not_found":
             logger.warning(f"文档未找到: {doc_id}")
