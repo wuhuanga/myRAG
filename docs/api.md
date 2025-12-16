@@ -10,10 +10,16 @@
 1. [管理接口 (Admin)](#1-管理接口-admin)
 2. [文档接口 (Documents)](#2-文档接口-documents)
 3. [查询接口 (Query)](#3-查询接口-query)
+   - [3.1 查询知识库](#31-查询知识库)
+   - [3.2 UCD 建模查询](#32-ucd-建模查询)
+   - [3.3 清除缓存](#33-清除缓存)
+   - [3.4 关键字列表检索](#34-关键字列表检索) ⭐ **新增**
+   - [3.5 清理后的知识图谱检索](#35-清理后的知识图谱检索) ⭐ **新增**
+   - [3.6 仅返回文档 Chunks](#36-仅返回文档-chunks) ⭐ **新增**
 4. [图操作接口 (Graph)](#4-图操作接口-graph)
    - [4.11 获取 ECharts 图谱 JSON](#411-获取-echarts-图谱-json直接返回) ⭐ **推荐**
 5. [WebSocket 接口](#5-websocket-接口)
-6. [Rerank 配置](#6-rerank-配置) ⭐ **新增**
+6. [Rerank 配置](#6-rerank-配置)
 
 ---
 
@@ -327,7 +333,11 @@ curl "http://localhost:8000/api/documents/list/rag_1/PROCESSED"
 
 **DELETE** `/api/documents/delete/{rag_id}/{doc_id}`
 
-删除指定文档及其所有关联数据（包括 chunks、entities、relationships、cache）。
+删除指定文档及其所有关联数据，包括：
+- ✅ Milvus 向量库（chunks、entities、relationships 的向量数据）
+- ✅ NebulaGraph 图数据库（节点和边）
+- ✅ 本地 KV 存储（text_chunks、full_docs、doc_status、full_entities、full_relations）
+- ✅ **原始上传文件**（uploaded_files 目录下的文件）
 
 **路径参数**:
 
@@ -348,9 +358,15 @@ curl -X DELETE "http://localhost:8000/api/documents/delete/rag_1/doc_001"
   "doc_id": "doc_001",
   "file_path": "document.txt",
   "message": "Document deleted successfully",
-  "rag_id": "rag_1"
+  "rag_id": "rag_1",
+  "file_deleted": true,
+  "file_delete_message": "原始文件已删除: rag_1_document.txt"
 }
 ```
+
+**响应字段说明**:
+- `file_deleted`: 布尔值，表示原始文件是否成功删除
+- `file_delete_message`: 文件删除详情（成功、不存在或失败原因）
 
 **响应示例 (未找到)**:
 ```json
@@ -485,6 +501,168 @@ curl -X POST "http://localhost:8000/api/query/" \
 |------|------|------|--------|------|
 | `rag_id` | string | 是 | - | RAG 实例 ID |
 | `cache_type` | string | 否 | all | 缓存类型 (llm_cache/all) |
+
+---
+
+### 3.4 关键字列表检索
+
+**POST** `/api/query/keywords`
+
+使用提供的关键字列表直接检索，不调用 LLM 提取关键字。关键字同时作为高优先级（搜索关系）和低优先级（搜索实体）关键词。
+
+**请求体**:
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `rag_id` | string | 是 | - | RAG 实例 ID |
+| `keywords` | list[string] | 是 | - | 关键字列表 |
+| `mode` | string | 否 | hybrid | 查询模式 |
+| `only_need_context` | bool | 否 | true | 只返回上下文 |
+| `top_k` | int | 否 | None | 检索的实体/关系数量 |
+| `chunk_top_k` | int | 否 | None | 检索的文本块数量 |
+| `max_entity_tokens` | int | 否 | None | 实体最大 token 数 |
+| `max_relation_tokens` | int | 否 | None | 关系最大 token 数 |
+| `max_total_tokens` | int | 否 | None | 总最大 token 数 |
+| `enable_rerank` | bool | 否 | None | 是否启用 Rerank |
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:8000/api/query/keywords" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rag_id": "rag_1",
+    "keywords": ["知识图谱", "实体", "关系"],
+    "mode": "hybrid",
+    "chunk_top_k": 10,
+    "enable_rerank": true
+  }'
+```
+
+**响应示例**:
+```json
+{
+  "rag_id": "rag_1",
+  "keywords": ["知识图谱", "实体", "关系"],
+  "context": "检索到的上下文内容...",
+  "mode": "hybrid",
+  "timestamp": "2024-01-15T10:30:00.000000"
+}
+```
+
+---
+
+### 3.5 清理后的知识图谱检索
+
+**POST** `/api/query/graph-clean`
+
+使用关键字检索知识图谱，返回清理后的实体和关系（去除 source_id、file_path、created_at 等元数据）。
+
+**请求体**:
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `rag_id` | string | 是 | - | RAG 实例 ID |
+| `keywords` | list[string] | 是 | - | 关键字列表 |
+| `top_k` | int | 否 | None | 检索的实体/关系数量 |
+| `chunk_top_k` | int | 否 | None | 检索的文本块数量 |
+| `max_entity_tokens` | int | 否 | None | 实体最大 token 数 |
+| `max_relation_tokens` | int | 否 | None | 关系最大 token 数 |
+| `max_total_tokens` | int | 否 | None | 总最大 token 数 |
+| `enable_rerank` | bool | 否 | None | 是否启用 Rerank |
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:8000/api/query/graph-clean" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rag_id": "rag_1",
+    "keywords": ["知识图谱", "向量数据库"],
+    "top_k": 20,
+    "enable_rerank": true
+  }'
+```
+
+**响应示例**:
+```json
+{
+  "rag_id": "rag_1",
+  "keywords": ["知识图谱", "向量数据库"],
+  "entities": [
+    {
+      "entity_name": "知识图谱",
+      "description": "一种结构化的知识表示方式",
+      "entity_type": "CONCEPT"
+    }
+  ],
+  "relationships": [
+    {
+      "src_id": "知识图谱",
+      "tgt_id": "向量数据库",
+      "description": "知识图谱使用向量数据库存储",
+      "keywords": "存储,使用"
+    }
+  ],
+  "timestamp": "2024-01-15T10:30:00.000000"
+}
+```
+
+**返回字段说明**:
+- **实体（entities）**：只包含 `entity_name`、`description`、`entity_type`
+- **关系（relationships）**：只包含 `src_id`、`tgt_id`、`description`、`keywords`
+- 已去除：`source_id`、`file_path`、`created_at`、`reference_id` 等元数据
+
+---
+
+### 3.6 仅返回文档 Chunks
+
+**POST** `/api/query/chunks-only`
+
+使用关键字检索，只返回文档 chunks（不返回知识图谱），保留顺序和相关性分数。
+
+**请求体**:
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `rag_id` | string | 是 | - | RAG 实例 ID |
+| `keywords` | list[string] | 是 | - | 关键字列表 |
+| `chunk_top_k` | int | 否 | None | 检索的文本块数量 |
+| `max_total_tokens` | int | 否 | None | 总最大 token 数 |
+| `enable_rerank` | bool | 否 | None | 是否启用 Rerank |
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:8000/api/query/chunks-only" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rag_id": "rag_1",
+    "keywords": ["部署", "配置"],
+    "chunk_top_k": 5,
+    "enable_rerank": true
+  }'
+```
+
+**响应示例**:
+```json
+{
+  "rag_id": "rag_1",
+  "keywords": ["部署", "配置"],
+  "chunks": [
+    {
+      "content": "系统部署需要配置以下环境变量...",
+      "file_path": "deployment_guide.pdf",
+      "chunk_id": "chunk-abc123",
+      "reference_id": "ref-001"
+    }
+  ],
+  "timestamp": "2024-01-15T10:30:00.000000"
+}
+```
+
+**返回字段说明**:
+- **content**：文本块内容
+- **file_path**：来源文件路径
+- **chunk_id**：文本块唯一标识
+- **reference_id**：引用标识（用于追溯来源和相关性）
 
 ---
 
