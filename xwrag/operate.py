@@ -1670,31 +1670,8 @@ async def merge_nodes_and_edges(
                         llm_response_cache,
                     )
 
-                    # Vector database operation (equally critical, must succeed)
-                    if entity_vdb is not None and entity_data:
-                        data_for_vdb = {
-                            compute_mdhash_id(
-                                entity_data["entity_name"], prefix="ent-"
-                            ): {
-                                "entity_name": entity_data["entity_name"],
-                                "entity_type": entity_data["entity_type"],
-                                "content": f"{entity_data['entity_name']}\n{entity_data['description']}",
-                                "source_id": entity_data["source_id"],
-                                "file_path": entity_data.get(
-                                    "file_path", "unknown_source"
-                                ),
-                            }
-                        }
-
-                        # Use safe operation wrapper - VDB failure must throw exception
-                        await safe_vdb_operation_with_exception(
-                            operation=lambda: entity_vdb.upsert(data_for_vdb),
-                            operation_name="entity_upsert",
-                            entity_name=entity_name,
-                            max_retries=3,
-                            retry_delay=0.1,
-                        )
-
+                    # Return entity_data for batch processing later
+                    # Vector database insertion will be done in batch after all entities are processed
                     return entity_data
 
                 except Exception as e:
@@ -1767,6 +1744,33 @@ async def merge_nodes_and_edges(
         # If all tasks completed successfully, collect results
         processed_entities = [task.result() for task in entity_tasks]
 
+    # Batch insert all entities into vector database
+    if entity_vdb is not None and processed_entities:
+        batch_entity_vdb_data = {}
+        for entity_data in processed_entities:
+            if entity_data:  # Skip None results
+                entity_vdb_id = compute_mdhash_id(
+                    entity_data["entity_name"], prefix="ent-"
+                )
+                batch_entity_vdb_data[entity_vdb_id] = {
+                    "entity_name": entity_data["entity_name"],
+                    "entity_type": entity_data["entity_type"],
+                    "content": f"{entity_data['entity_name']}\n{entity_data['description']}",
+                    "source_id": entity_data["source_id"],
+                    "file_path": entity_data.get("file_path", "unknown_source"),
+                }
+
+        if batch_entity_vdb_data:
+            log_message = f"Batch inserting {len(batch_entity_vdb_data)} entities into vector database"
+            logger.info(log_message)
+            await safe_vdb_operation_with_exception(
+                operation=lambda: entity_vdb.upsert(batch_entity_vdb_data),
+                operation_name="batch_entities_upsert",
+                entity_name=f"batch_{len(batch_entity_vdb_data)}_entities",
+                max_retries=3,
+                retry_delay=0.1,
+            )
+
     # ===== Phase 2: Process all relationships concurrently =====
     log_message = f"Phase 2: Processing {total_relations_count} relations from {doc_id} (async: {graph_max_async})"
     logger.info(log_message)
@@ -1802,11 +1806,13 @@ async def merge_nodes_and_edges(
                     )
 
                     if edge_data is None:
-                        return None, []
+                        return None, [], None, {}
 
-                    # Vector database operation (equally critical, must succeed)
+                    # Return relationship data for batch processing later
+                    # Vector database insertion will be done in batch after all relationships are processed
+                    edge_vdb_data = None
                     if relationships_vdb is not None:
-                        data_for_vdb = {
+                        edge_vdb_data = {
                             compute_mdhash_id(
                                 edge_data["src_id"] + edge_data["tgt_id"], prefix="rel-"
                             ): {
@@ -1822,16 +1828,8 @@ async def merge_nodes_and_edges(
                             }
                         }
 
-                        # Use safe operation wrapper - VDB failure must throw exception
-                        await safe_vdb_operation_with_exception(
-                            operation=lambda: relationships_vdb.upsert(data_for_vdb),
-                            operation_name="relationship_upsert",
-                            entity_name=f"{edge_data['src_id']}-{edge_data['tgt_id']}",
-                            max_retries=3,
-                            retry_delay=0.1,
-                        )
-
-                    # Update added_entities to entity vector database using safe operation wrapper
+                    # Collect added entities data for batch processing
+                    added_entities_vdb_data = {}
                     if added_entities and entity_vdb is not None:
                         for entity_data in added_entities:
                             entity_vdb_id = compute_mdhash_id(
@@ -1839,28 +1837,17 @@ async def merge_nodes_and_edges(
                             )
                             entity_content = f"{entity_data['entity_name']}\n{entity_data['description']}"
 
-                            vdb_data = {
-                                entity_vdb_id: {
-                                    "content": entity_content,
-                                    "entity_name": entity_data["entity_name"],
-                                    "source_id": entity_data["source_id"],
-                                    "entity_type": entity_data["entity_type"],
-                                    "file_path": entity_data.get(
-                                        "file_path", "unknown_source"
-                                    ),
-                                }
+                            added_entities_vdb_data[entity_vdb_id] = {
+                                "content": entity_content,
+                                "entity_name": entity_data["entity_name"],
+                                "source_id": entity_data["source_id"],
+                                "entity_type": entity_data["entity_type"],
+                                "file_path": entity_data.get(
+                                    "file_path", "unknown_source"
+                                ),
                             }
 
-                            # Use safe operation wrapper - VDB failure must throw exception
-                            await safe_vdb_operation_with_exception(
-                                operation=lambda data=vdb_data: entity_vdb.upsert(data),
-                                operation_name="added_entity_upsert",
-                                entity_name=entity_data["entity_name"],
-                                max_retries=3,
-                                retry_delay=0.1,
-                            )
-
-                    return edge_data, added_entities
+                    return edge_data, added_entities, edge_vdb_data, added_entities_vdb_data
 
                 except Exception as e:
                     # Any database operation failure is critical
@@ -1930,11 +1917,44 @@ async def merge_nodes_and_edges(
             raise first_exception
 
         # If all tasks completed successfully, collect results
+        batch_edge_vdb_data = {}
+        batch_added_entities_vdb_data = {}
         for task in edge_tasks:
-            edge_data, added_entities = task.result()
+            edge_data, added_entities, edge_vdb_data, added_entities_vdb_data = task.result()
             if edge_data is not None:
                 processed_edges.append(edge_data)
+                # Collect edge vector data
+                if edge_vdb_data:
+                    batch_edge_vdb_data.update(edge_vdb_data)
+
             all_added_entities.extend(added_entities)
+            # Collect added entities vector data
+            if added_entities_vdb_data:
+                batch_added_entities_vdb_data.update(added_entities_vdb_data)
+
+    # Batch insert all relationships into vector database
+    if relationships_vdb is not None and batch_edge_vdb_data:
+        log_message = f"Batch inserting {len(batch_edge_vdb_data)} relationships into vector database"
+        logger.info(log_message)
+        await safe_vdb_operation_with_exception(
+            operation=lambda: relationships_vdb.upsert(batch_edge_vdb_data),
+            operation_name="batch_relationships_upsert",
+            entity_name=f"batch_{len(batch_edge_vdb_data)}_relationships",
+            max_retries=3,
+            retry_delay=0.1,
+        )
+
+    # Batch insert all added entities (from relationship processing) into vector database
+    if entity_vdb is not None and batch_added_entities_vdb_data:
+        log_message = f"Batch inserting {len(batch_added_entities_vdb_data)} added entities into vector database"
+        logger.info(log_message)
+        await safe_vdb_operation_with_exception(
+            operation=lambda: entity_vdb.upsert(batch_added_entities_vdb_data),
+            operation_name="batch_added_entities_upsert",
+            entity_name=f"batch_{len(batch_added_entities_vdb_data)}_added_entities",
+            max_retries=3,
+            retry_delay=0.1,
+        )
 
     # ===== Phase 3: Update full_entities and full_relations storage =====
     if full_entities_storage and full_relations_storage and doc_id:
