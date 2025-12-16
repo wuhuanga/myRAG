@@ -15,6 +15,13 @@ from ..models import (
     KeywordsSearchResponse,
     UCDModelRequest,
     ClearCacheRequest,
+    GraphCleanRequest,
+    GraphCleanResponse,
+    CleanEntity,
+    CleanRelationship,
+    ChunksOnlyRequest,
+    ChunksOnlyResponse,
+    ChunkItem,
 )
 
 logger = logging.getLogger(__name__)
@@ -219,3 +226,139 @@ async def clear_cache(request: ClearCacheRequest):
     except Exception as e:
         logger.error(f"清除缓存失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"清除缓存失败: {str(e)}")
+
+
+@router.post("/graph-clean", response_model=GraphCleanResponse)
+async def query_graph_clean(request: GraphCleanRequest):
+    """使用关键字检索知识图谱，返回清理后的实体和关系（去除source_id, file_path, created_at等元数据）"""
+    manager = get_concurrent_rag_manager()
+
+    try:
+        processor = manager.get_instance(request.rag_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    try:
+        # 将关键字列表转换为查询字符串
+        keywords_str = " ".join(request.keywords)
+        logger.info(f"清理图谱检索: {request.keywords} (RAG ID: {request.rag_id})")
+
+        # 调用 aquery_data 获取结构化数据（hybrid 模式，同时使用 hl 和 ll 关键字）
+        from xwrag.base import QueryParam
+        param = QueryParam(
+            mode="hybrid",
+            only_need_context=True,
+            top_k=request.top_k,
+            chunk_top_k=request.chunk_top_k,
+            max_entity_tokens=request.max_entity_tokens,
+            max_relation_tokens=request.max_relation_tokens,
+            max_total_tokens=request.max_total_tokens,
+            hl_keywords=request.keywords,  # 高优先级：搜索关系
+            ll_keywords=request.keywords,  # 低优先级：搜索实体
+            enable_rerank=request.enable_rerank,
+        )
+
+        # 获取结构化数据
+        result = await processor.rag.aquery_data(keywords_str, param)
+
+        # 检查结果状态
+        if result.get("status") != "success":
+            raise HTTPException(status_code=500, detail=result.get("message", "查询失败"))
+
+        data = result.get("data", {})
+
+        # 清理实体数据 - 只保留 entity_name, description, entity_type
+        clean_entities = [
+            CleanEntity(
+                entity_name=entity.get("entity_name", ""),
+                description=entity.get("description", ""),
+                entity_type=entity.get("entity_type", "")
+            )
+            for entity in data.get("entities", [])
+        ]
+
+        # 清理关系数据 - 只保留 src_id, tgt_id, description, keywords
+        clean_relationships = [
+            CleanRelationship(
+                src_id=rel.get("src_id", ""),
+                tgt_id=rel.get("tgt_id", ""),
+                description=rel.get("description", ""),
+                keywords=rel.get("keywords", "")
+            )
+            for rel in data.get("relationships", [])
+        ]
+
+        return GraphCleanResponse(
+            rag_id=request.rag_id,
+            keywords=request.keywords,
+            entities=clean_entities,
+            relationships=clean_relationships,
+            timestamp=datetime.now().isoformat()
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"清理图谱检索失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"清理图谱检索失败: {str(e)}")
+
+
+@router.post("/chunks-only", response_model=ChunksOnlyResponse)
+async def query_chunks_only(request: ChunksOnlyRequest):
+    """使用关键字检索，只返回文档chunks（保留顺序和相关性分数）"""
+    manager = get_concurrent_rag_manager()
+
+    try:
+        processor = manager.get_instance(request.rag_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    try:
+        # 将关键字列表转换为查询字符串
+        keywords_str = " ".join(request.keywords)
+        logger.info(f"仅Chunks检索: {request.keywords} (RAG ID: {request.rag_id})")
+
+        # 调用 aquery_data 获取结构化数据（hybrid 模式，同时使用 hl 和 ll 关键字）
+        from xwrag.base import QueryParam
+        param = QueryParam(
+            mode="hybrid",
+            only_need_context=True,
+            chunk_top_k=request.chunk_top_k,
+            max_total_tokens=request.max_total_tokens,
+            hl_keywords=request.keywords,  # 高优先级：搜索关系
+            ll_keywords=request.keywords,  # 低优先级：搜索实体
+            enable_rerank=request.enable_rerank,
+        )
+
+        # 获取结构化数据
+        result = await processor.rag.aquery_data(keywords_str, param)
+
+        # 检查结果状态
+        if result.get("status") != "success":
+            raise HTTPException(status_code=500, detail=result.get("message", "查询失败"))
+
+        data = result.get("data", {})
+
+        # 提取 chunks 数据，保留顺序和所有信息
+        chunks = [
+            ChunkItem(
+                content=chunk.get("content", ""),
+                file_path=chunk.get("file_path", ""),
+                chunk_id=chunk.get("chunk_id", ""),
+                reference_id=chunk.get("reference_id", "")
+            )
+            for chunk in data.get("chunks", [])
+        ]
+
+        return ChunksOnlyResponse(
+            rag_id=request.rag_id,
+            keywords=request.keywords,
+            chunks=chunks,
+            timestamp=datetime.now().isoformat()
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"仅Chunks检索失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"仅Chunks检索失败: {str(e)}")

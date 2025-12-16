@@ -132,6 +132,69 @@ class UCDModelRequest(BaseModel):
     out_json: str = "output_uc.json"
 
 
+class GraphCleanRequest(BaseModel):
+    """清理后的知识图谱检索请求模型"""
+    rag_id: str  # 指定使用的 RAG 实例 ID
+    keywords: List[str]  # 关键字列表
+    # 检索参数（可选）
+    top_k: Optional[int] = None
+    chunk_top_k: Optional[int] = None
+    max_entity_tokens: Optional[int] = None
+    max_relation_tokens: Optional[int] = None
+    max_total_tokens: Optional[int] = None
+    enable_rerank: Optional[bool] = None
+
+
+class CleanEntity(BaseModel):
+    """清理后的实体模型"""
+    entity_name: str
+    description: str
+    entity_type: str
+
+
+class CleanRelationship(BaseModel):
+    """清理后的关系模型"""
+    src_id: str
+    tgt_id: str
+    description: str
+    keywords: str
+
+
+class GraphCleanResponse(BaseModel):
+    """清理后的知识图谱检索响应模型"""
+    rag_id: str
+    keywords: List[str]
+    entities: List[CleanEntity]
+    relationships: List[CleanRelationship]
+    timestamp: str
+
+
+class ChunksOnlyRequest(BaseModel):
+    """仅返回chunks的检索请求模型"""
+    rag_id: str  # 指定使用的 RAG 实例 ID
+    keywords: List[str]  # 关键字列表
+    # 检索参数（可选）
+    chunk_top_k: Optional[int] = None
+    max_total_tokens: Optional[int] = None
+    enable_rerank: Optional[bool] = None
+
+
+class ChunkItem(BaseModel):
+    """Chunk 数据模型"""
+    content: str
+    file_path: str
+    chunk_id: str
+    reference_id: str
+
+
+class ChunksOnlyResponse(BaseModel):
+    """仅返回chunks的检索响应模型"""
+    rag_id: str
+    keywords: List[str]
+    chunks: List[ChunkItem]
+    timestamp: str
+
+
 # ==================== 文档管理相关模型 ====================
 
 class InsertRequest(BaseModel):
