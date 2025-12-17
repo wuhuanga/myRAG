@@ -108,6 +108,7 @@ async def generic_rerank_api(
     logger.debug(
         f"Rerank request: {len(documents)} documents, model: {model}, format: {response_format}"
     )
+    logger.debug(f"Rerank payload keys: {list(payload.keys())}, model value: '{payload.get('model')}', query length: {len(payload.get('query', ''))}")
 
     async with aiohttp.ClientSession() as session:
         async with session.post(base_url, headers=headers, json=payload) as response:
@@ -323,7 +324,7 @@ async def local_rerank(
         base_url = os.getenv("LOCAL_RERANK_URL", "http://localhost:7777/v1/rerank")
 
     if model is None:
-        model = os.getenv("LOCAL_RERANK_MODEL", "local-reranker")
+        model = os.getenv("LOCAL_RERANK_MODEL") or "local-reranker"
 
     if api_key is None:
         api_key = os.getenv("LOCAL_RERANK_API_KEY")
