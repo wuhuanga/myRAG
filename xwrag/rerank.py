@@ -110,6 +110,14 @@ async def generic_rerank_api(
     )
     logger.debug(f"Rerank payload keys: {list(payload.keys())}, model value: '{payload.get('model')}', query length: {len(payload.get('query', ''))}")
 
+    # 添加更详细的日志用于调试
+    logger.info(f"[RERANK DEBUG] Sending request to: {base_url}")
+    logger.info(f"[RERANK DEBUG] Query value: {repr(query)}, type: {type(query)}")
+    logger.info(f"[RERANK DEBUG] Model value: {repr(model)}, type: {type(model)}")
+    logger.info(f"[RERANK DEBUG] Documents count: {len(documents)}")
+    logger.info(f"[RERANK DEBUG] First 3 documents: {[repr(d) for d in documents[:3]]}")
+    logger.info(f"[RERANK DEBUG] Complete payload: {payload}")
+
     async with aiohttp.ClientSession() as session:
         async with session.post(base_url, headers=headers, json=payload) as response:
             if response.status != 200:
