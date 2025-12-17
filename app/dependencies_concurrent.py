@@ -492,6 +492,7 @@ class xwragProcessor:
 
         logger.info(f"查询模式: {mode}")
         logger.info(f"查询问题: {question}")
+        logger.info(f"[DEBUG] only_need_context 参数值: {only_need_context}")
 
         # 构建 QueryParam
         query_params = {
