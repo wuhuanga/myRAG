@@ -59,6 +59,23 @@ async def generic_rerank_api(
     if not base_url:
         raise ValueError("Base URL is required")
 
+    # Validate query parameter
+    if not query or not isinstance(query, str) or not query.strip():
+        raise ValueError("Query must be a non-empty string")
+
+    # Validate documents
+    if not documents or not isinstance(documents, list):
+        raise ValueError("Documents must be a non-empty list")
+
+    # Check for None or empty documents (but don't filter to preserve indices)
+    for i, doc in enumerate(documents):
+        if doc is None:
+            raise ValueError(f"Document at index {i} is None. All documents must be valid strings.")
+        if not isinstance(doc, str):
+            raise ValueError(f"Document at index {i} is not a string (type: {type(doc)}). All documents must be strings.")
+        if not doc.strip():
+            logger.warning(f"Document at index {i} is empty or whitespace-only")
+
     headers = {"Content-Type": "application/json"}
     if api_key is not None:
         headers["Authorization"] = f"Bearer {api_key}"
