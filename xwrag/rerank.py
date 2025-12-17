@@ -346,7 +346,7 @@ async def local_rerank(
         base_url=base_url,
         api_key=api_key,
         top_n=top_n,
-        return_documents=False,
+        return_documents=None,  # Don't send this parameter for local rerank models
         extra_body=extra_body,
         response_format="standard",
         request_format="standard",
