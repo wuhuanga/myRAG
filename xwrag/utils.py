@@ -2390,6 +2390,13 @@ async def apply_rerank_if_enabled(
     if not enable_rerank or not retrieved_docs:
         return retrieved_docs
 
+    # Skip rerank if query is empty or None
+    if not query or not query.strip():
+        logger.warning(
+            "Rerank is enabled but query is empty. Skipping rerank and returning original results."
+        )
+        return retrieved_docs
+
     rerank_func = global_config.get("rerank_model_func")
     if not rerank_func:
         logger.warning(
