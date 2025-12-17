@@ -329,10 +329,10 @@ async def local_rerank(
         List of dictionary of ["index": int, "relevance_score": float]
     """
     if base_url is None:
-        base_url = os.getenv("LOCAL_RERANK_URL", "http://10.43.76.12:8084/v1/rerank")  # 修改默认值
+        base_url = os.getenv("LOCAL_RERANK_URL", "http://localhost:7777/v1/rerank")
 
     if model is None:
-        model = os.getenv("LOCAL_RERANK_MODEL") or "bge"  # 修改默认值
+        model = os.getenv("LOCAL_RERANK_MODEL") or "local-reranker"
 
     if api_key is None:
         api_key = os.getenv("LOCAL_RERANK_API_KEY")
