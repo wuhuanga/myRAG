@@ -76,8 +76,9 @@ async def generic_rerank_api(
         }
 
         # Add optional parameters to parameters object
-        if top_n is not None:
-            payload["parameters"]["top_n"] = top_n
+        # top_n parameter removed - not supported by all rerank models
+        # if top_n is not None:
+        #     payload["parameters"]["top_n"] = top_n
 
         if return_documents is not None:
             payload["parameters"]["return_documents"] = return_documents
@@ -94,8 +95,9 @@ async def generic_rerank_api(
         }
 
         # Add optional parameters
-        if top_n is not None:
-            payload["top_n"] = top_n
+        # top_n parameter removed - not supported by all rerank models
+        # if top_n is not None:
+        #     payload["top_n"] = top_n
 
         # Only Jina API supports return_documents parameter
         if return_documents is not None:
