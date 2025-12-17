@@ -2407,7 +2407,6 @@ async def apply_rerank_if_enabled(
     try:
         # Extract document content for reranking
         document_texts = []
-        valid_doc_count = 0
         for doc in retrieved_docs:
             # Try multiple possible content fields
             content = (
@@ -2415,22 +2414,9 @@ async def apply_rerank_if_enabled(
                 or doc.get("text")
                 or doc.get("chunk_content")
                 or doc.get("document")
+                or str(doc)
             )
-
-            # Ensure content is a valid non-empty string
-            if not content or not isinstance(content, str) or not content.strip():
-                # Use a meaningful fallback instead of empty string
-                content = f"[Document {len(document_texts)}]"
-                logger.debug(f"Document at index {len(document_texts)} has no valid content, using placeholder")
-            else:
-                valid_doc_count += 1
-
-            document_texts.append(str(content))  # Ensure it's a string
-
-        # Check if we have any valid documents
-        if valid_doc_count == 0:
-            logger.warning("No valid documents to rerank (all empty or None)")
-            return retrieved_docs
+            document_texts.append(content)
 
         # Call the new rerank function that returns index-based results
         rerank_results = await rerank_func(
