@@ -120,7 +120,8 @@ async def generic_rerank_api(
     logger.info(f"[RERANK DEBUG] First 3 documents: {[repr(d) for d in documents[:3]]}")
     logger.info(f"[RERANK DEBUG] Complete payload: {payload}")
 
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=60)  # 60 seconds timeout
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.post(base_url, headers=headers, json=payload) as response:
             if response.status != 200:
                 error_text = await response.text()
