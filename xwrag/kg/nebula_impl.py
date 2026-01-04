@@ -83,13 +83,23 @@ class NebulaGraphStorage(BaseGraphStorage):
 
         self._connection_pool: Optional[ConnectionPool] = None
         # 注意：不再维护持久的 self._session，每次查询创建独立 session 以避免泄漏
-        
-        # 使用 workspace 作为 Space 名称
-        self._space_name = re.sub(r"[^a-zA-Z0-9_]", "_", self.workspace)
-        
-        # 使用固定的 Tag 名称
+
+        # ==================== 统一 Space + 逻辑隔离 ====================
+        # 所有租户共享同一个 Space，通过节点/边的 workspace 属性区分租户
+        self._space_name = os.environ.get(
+            "NEBULA_SPACE_NAME",
+            config.get("nebula", "space_name", fallback="xwrag"),
+        )
+
+        # 使用统一的 Tag 和 Edge Type（不再用 workspace 前缀）
         self._tag_name = "entity"
-        
+        self._edge_type = "relationship"
+
+        logger.info(
+            f"Logical isolation: workspace '{self.workspace}' -> Space '{self._space_name}', "
+            f"Tag '{self._tag_name}', Edge '{self._edge_type}' (filtered by workspace attribute)"
+        )
+
         self._user = os.environ.get("NEBULA_USER", config.get("nebula", "user", fallback="root"))
         self._password = os.environ.get("NEBULA_PASSWORD", config.get("nebula", "password", fallback="nebula"))
 
@@ -117,7 +127,7 @@ class NebulaGraphStorage(BaseGraphStorage):
         return bool(chinese_pattern.search(text))
 
     async def initialize(self):
-        """初始化 NebulaGraph 连接和 Schema"""
+        """初始化 NebulaGraph 连接和 Schema（统一 Space + 逻辑隔离模式）"""
         async with get_data_init_lock():
             NEBULA_HOSTS = os.environ.get(
                 "NEBULA_HOSTS", config.get("nebula", "hosts", fallback="127.0.0.1:9669")
@@ -152,11 +162,11 @@ class NebulaGraphStorage(BaseGraphStorage):
             try:
                 # 创建临时 session 用于初始化
                 init_session = self._connection_pool.get_session(self._user, self._password)
-                
-                # 使用 workspace 创建独立的 Space
+
+                # 创建/使用统一的 Space（所有 workspace 共享）
                 logger.info(
-                    f"[{self.workspace}] Creating/Using Space: {self._space_name} "
-                    f"(workspace-based isolation)"
+                    f"[{self.workspace}] Creating/Using shared Space: {self._space_name} "
+                    f"(logical isolation by workspace attribute)"
                 )
 
                 # 先检查 space 是否存在
@@ -231,33 +241,43 @@ class NebulaGraphStorage(BaseGraphStorage):
                 if not use_success:
                     raise RuntimeError(f"[{self.workspace}] Could not USE space {self._space_name}")
 
-                # 创建固定的 Tag "entity"
+                # 创建统一的 Tag "entity"（包含 workspace 属性用于逻辑隔离）
                 tag_name = self._tag_name
                 logger.info(
-                    f"[{self.workspace}] Creating Tag: {tag_name} in Space: {self._space_name}"
+                    f"[{self.workspace}] Creating unified Tag: {tag_name} in Space: {self._space_name} "
+                    f"(shared by all workspaces)"
                 )
-                
+
                 create_tag_q = (
                     f"CREATE TAG IF NOT EXISTS {tag_name} "
-                    f"(entity_id string, entity_type string, description string, source_id string, "
-                    f"file_path string, created_at int)"
+                    f"(entity_id string, workspace string, entity_type string, description string, "
+                    f"source_id string, file_path string, created_at int)"
                 )
                 tag_res = init_session.execute(create_tag_q)
                 if not tag_res.is_succeeded():
                     logger.warning(f"[{self.workspace}] Tag creation message: {tag_res.error_msg()}")
 
-                # 创建 Edge type "relationship"
+                # 创建统一的 Edge type "relationship"（包含 workspace 属性用于逻辑隔离）
+                edge_type = self._edge_type
                 create_edge_q = (
-                    "CREATE EDGE IF NOT EXISTS relationship "
-                    "(weight double, description string, keywords string, source_id string)"
+                    f"CREATE EDGE IF NOT EXISTS {edge_type} "
+                    f"(workspace string, weight double, description string, keywords string, source_id string)"
                 )
                 edge_res = init_session.execute(create_edge_q)
                 if not edge_res.is_succeeded():
                     logger.warning(f"[{self.workspace}] Edge creation message: {edge_res.error_msg()}")
 
-                # 创建索引
+                # 创建复合索引（优化逻辑隔离查询性能）
                 try:
-                    # 创建entity_id索引（用于主键查询）
+                    # 1. workspace 索引（用于单独过滤 workspace）
+                    workspace_index_q = f"CREATE TAG INDEX IF NOT EXISTS idx_entity_workspace ON {tag_name}(workspace(64))"
+                    workspace_index_res = init_session.execute(workspace_index_q)
+                    if workspace_index_res.is_succeeded():
+                        logger.info(f"[{self.workspace}] Created index on {tag_name}.workspace")
+                    else:
+                        logger.warning(f"[{self.workspace}] workspace index message: {workspace_index_res.error_msg()}")
+
+                    # 2. entity_id 索引（用于主键查询）
                     index_q = f"CREATE TAG INDEX IF NOT EXISTS idx_entity_id ON {tag_name}(entity_id(256))"
                     index_res = init_session.execute(index_q)
                     if index_res.is_succeeded():
@@ -265,7 +285,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                     else:
                         logger.warning(f"[{self.workspace}] Index creation message: {index_res.error_msg()}")
 
-                    # 创建source_id索引（用于按chunk_id过滤查询）
+                    # 3. source_id 索引（用于按 chunk_id 过滤查询）
                     source_index_q = f"CREATE TAG INDEX IF NOT EXISTS idx_source_id ON {tag_name}(source_id(256))"
                     source_index_res = init_session.execute(source_index_q)
                     if source_index_res.is_succeeded():
@@ -283,10 +303,11 @@ class NebulaGraphStorage(BaseGraphStorage):
 
                 logger.info(
                     f"[{self.workspace}] ✅ NebulaGraph initialized successfully:\n"
-                    f"  Space: {self._space_name} (isolated per workspace)\n"
-                    f"  Tag: {tag_name} (fixed)\n"
-                    f"  Edge: relationship\n"
-                    f"  Namespace: {self.namespace} (not used for isolation)"
+                    f"  Space: {self._space_name} (shared by all workspaces)\n"
+                    f"  Tag: {tag_name} (unified, filtered by workspace attribute)\n"
+                    f"  Edge: {edge_type} (unified, filtered by workspace attribute)\n"
+                    f"  Current workspace: {self.workspace}\n"
+                    f"  Isolation strategy: Logical (property-based)"
                 )
 
             except Exception as e:
@@ -468,13 +489,14 @@ class NebulaGraphStorage(BaseGraphStorage):
     # ==================== 核心 API 方法 ====================
 
     async def has_node(self, node_id: str) -> bool:
-        """检查节点是否存在"""
+        """检查节点是否存在（仅在当前 workspace 中）"""
         # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
         try:
             tag = self._tag_name
             safe_id = self._escape_string(node_id)
-            # 使用id()函数匹配VID，与其他查询保持一致
-            query = f'MATCH (n:{tag}) WHERE id(n) == "{safe_id}" RETURN n LIMIT 1'
+            safe_workspace = self._escape_string(self.workspace)
+            # 添加 workspace 过滤以实现逻辑隔离
+            query = f'MATCH (n:{tag}) WHERE id(n) == "{safe_id}" AND n.workspace == "{safe_workspace}" RETURN n LIMIT 1'
             result = await self._execute_query(query)
             return result.row_size() > 0
         except Exception as e:
@@ -903,7 +925,7 @@ class NebulaGraphStorage(BaseGraphStorage):
         retry=retry_if_exception_type((IOErrorException,)),
     )
     async def upsert_node(self, node_id: str, node_data: Dict[str, Any]) -> Dict[str, str]:
-        """插入或更新节点
+        """插入或更新节点（包含 workspace 属性用于逻辑隔离）
 
         Returns:
             dict[str, str]: Operation status and message
@@ -914,10 +936,14 @@ class NebulaGraphStorage(BaseGraphStorage):
             try:
                 if "entity_id" not in node_data:
                     node_data["entity_id"] = node_id
+                # 添加 workspace 属性用于逻辑隔离
+                if "workspace" not in node_data:
+                    node_data["workspace"] = self.workspace
+
                 props_str = self._format_properties(node_data)
                 tag = self._tag_name
                 query = (
-                    f'INSERT VERTEX IF NOT EXISTS {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
+                    f'INSERT VERTEX IF NOT EXISTS {tag}(entity_id, workspace, entity_type, description, source_id, file_path, created_at) '
                     f'VALUES "{self._escape_string(node_id)}": ({props_str})'
                 )
                 await self._execute_query(query)
@@ -928,7 +954,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 return {"status": "error", "message": str(e)}
 
     async def upsert_nodes(self, nodes: List[tuple]):
-        """批量插入或更新节点"""
+        """批量插入或更新节点（包含 workspace 属性用于逻辑隔离）"""
         import time
 
         async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_write"):
@@ -941,16 +967,20 @@ class NebulaGraphStorage(BaseGraphStorage):
                 for node_id, node_data in nodes:
                     if "entity_id" not in node_data:
                         node_data["entity_id"] = node_id
+                    # 添加 workspace 属性用于逻辑隔离
+                    if "workspace" not in node_data:
+                        node_data["workspace"] = self.workspace
+
                     props_str = self._format_properties(node_data)
                     batch_values.append(f'"{self._escape_string(node_id)}": ({props_str})')
 
                 query = (
-                    f'INSERT VERTEX IF NOT EXISTS {tag}(entity_id, entity_type, description, source_id, file_path, created_at) '
+                    f'INSERT VERTEX IF NOT EXISTS {tag}(entity_id, workspace, entity_type, description, source_id, file_path, created_at) '
                     f'VALUES {", ".join(batch_values)}'
                 )
                 await self._execute_query(query)
                 elapsed = time.time() - start_time
-                logger.info(f"⏱️  [NebulaGraph-节点] 批量插入 {len(nodes)} 个节点，耗时: {elapsed:.2f}秒")
+                logger.info(f"⏱️  [NebulaGraph-{self.workspace}] 批量插入 {len(nodes)} 个节点，耗时: {elapsed:.2f}秒")
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error upserting nodes batch: {e}")
                 raise
@@ -961,7 +991,7 @@ class NebulaGraphStorage(BaseGraphStorage):
         retry=retry_if_exception_type((IOErrorException,)),
     )
     async def upsert_edge(self, source_node_id: str, target_node_id: str, edge_data: Dict[str, Any]) -> Dict[str, str]:
-        """插入或更新边
+        """插入或更新边（包含 workspace 属性用于逻辑隔离）
 
         注意：此方法假设调用者已经确保节点存在（由 operate.py 保证）
         不再重复检查节点存在性，以提高性能
@@ -974,16 +1004,18 @@ class NebulaGraphStorage(BaseGraphStorage):
         # 移除全局锁，使用 INSERT EDGE 的原子性
         # NebulaGraph 的 INSERT EDGE 是原子操作，不需要全局锁保护
         try:
+            workspace = self._escape_string(self.workspace)
             weight = edge_data.get("weight", 1.0)
             description = self._escape_string(edge_data.get("description", ""))
             keywords = self._escape_string(edge_data.get("keywords", ""))
             source_id = self._escape_string(edge_data.get("source_id", ""))
 
             # INSERT EDGE 是幂等的，重复插入会更新
+            edge_type = self._edge_type
             query = (
-                f'INSERT EDGE relationship(weight, description, keywords, source_id) VALUES '
+                f'INSERT EDGE {edge_type}(workspace, weight, description, keywords, source_id) VALUES '
                 f'"{self._escape_string(source_node_id)}" -> "{self._escape_string(target_node_id)}": '
-                f'({weight}, "{description}", "{keywords}", "{source_id}")'
+                f'("{workspace}", {weight}, "{description}", "{keywords}", "{source_id}")'
             )
             await self._execute_query(query)
             return {"status": "success", "message": "edge upserted"}
@@ -1003,7 +1035,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 for src_id, tgt_id, edge_data in edges:
                     await self.upsert_edge(src_id, tgt_id, edge_data)
                 elapsed = time.time() - start_time
-                logger.info(f"⏱️  [NebulaGraph-关系] 批量插入 {len(edges)} 条关系，耗时: {elapsed:.2f}秒")
+                logger.info(f"⏱️  [NebulaGraph-{self.workspace}] 批量插入 {len(edges)} 条关系，耗时: {elapsed:.2f}秒")
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error upserting edges batch: {e}")
                 raise
@@ -1707,7 +1739,9 @@ class NebulaGraphStorage(BaseGraphStorage):
             return {"nodes": [], "links": [], "categories": []}
 
     async def drop(self) -> Dict[str, str]:
-        """删除整个 workspace 的数据
+        """删除当前 workspace 的所有数据（逻辑隔离模式）
+
+        注意：不再删除整个 Space，只删除属于当前 workspace 的节点和边
 
         Returns:
             dict[str, str]: Operation status and message
@@ -1717,24 +1751,33 @@ class NebulaGraphStorage(BaseGraphStorage):
         async with get_storage_keyed_lock(keys=[self._space_name], namespace="nebula_drop", enable_logging=True):
             try:
                 logger.warning(
-                    f"[{self.workspace}] Dropping entire Space: {self._space_name}"
+                    f"[{self.workspace}] Dropping workspace '{self.workspace}' data from shared Space: {self._space_name}"
                 )
 
                 if self._connection_pool:
                     temp_session = self._connection_pool.get_session(self._user, self._password)
                     try:
-                        drop_query = f"DROP SPACE IF EXISTS {self._space_name}"
+                        # 使用 Space
+                        use_query = f"USE {self._space_name}"
+                        use_result = temp_session.execute(use_query)
+                        if not use_result.is_succeeded():
+                            return {"status": "error", "message": f"Failed to USE space: {use_result.error_msg()}"}
+
+                        # 删除属于当前 workspace 的所有节点（包括关联的边）
+                        tag = self._tag_name
+                        drop_query = f'MATCH (n:{tag}) WHERE n.workspace == "{self._escape_string(self.workspace)}" DELETE n WITH EDGE'
                         result = temp_session.execute(drop_query)
+
                         if result.is_succeeded():
-                            logger.info(f"[{self.workspace}] ✅ Dropped Space: {self._space_name}")
+                            logger.info(f"[{self.workspace}] ✅ Dropped workspace '{self.workspace}' data from Space: {self._space_name}")
                             return {
                                 "status": "success",
-                                "message": f"workspace '{self._space_name}' data dropped",
+                                "message": f"workspace '{self.workspace}' data dropped",
                             }
                         else:
                             error_msg = result.error_msg()
                             logger.error(
-                                f"[{self.workspace}] Failed to drop Space {self._space_name}: "
+                                f"[{self.workspace}] Failed to drop workspace '{self.workspace}' data: "
                                 f"{error_msg}"
                             )
                             return {"status": "error", "message": error_msg}
@@ -1744,5 +1787,5 @@ class NebulaGraphStorage(BaseGraphStorage):
                     return {"status": "error", "message": "Connection pool not initialized"}
 
             except Exception as e:
-                logger.error(f"[{self.workspace}] Error dropping Space {self._space_name}: {e}")
+                logger.error(f"[{self.workspace}] Error dropping workspace '{self.workspace}' data: {e}")
                 return {"status": "error", "message": str(e)}
