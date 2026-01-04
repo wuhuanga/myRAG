@@ -82,7 +82,10 @@ async def _ensure_database_exists(
     token: str = None,
 ):
     """
-    确保 Milvus database 存在，如果不存在则创建
+    确保配置的 Milvus database 存在（统一数据库模式）
+
+    注意：此函数不再为每个 workspace 创建独立的 database，
+    仅确保配置的统一 database 存在。
 
     Args:
         uri: Milvus 服务地址
@@ -91,6 +94,11 @@ async def _ensure_database_exists(
         password: 密码
         token: 认证 token
     """
+    # 如果是 default database，跳过检查（总是存在）
+    if not db_name or db_name == "default":
+        logger.debug("Using default database, skipping database check")
+        return
+
     # 使用临时连接检查/创建 database
     alias = f"_db_check_{db_name}"
 
@@ -1035,22 +1043,22 @@ class MilvusVectorDBStorage(BaseVectorStorage):
                     f"Using passed workspace parameter: '{effective_workspace}'"
                 )
 
-        # ==================== 多租户数据库隔离 ====================
-        # 有 workspace 时自动使用独立 database，实现物理隔离
+        # ==================== 统一数据库 + 逻辑分表隔离 ====================
+        # 所有租户共享同一个 database，通过 collection 名称前缀区分租户
+        self._db_name = os.environ.get(
+            "MILVUS_DB_NAME",
+            config.get("milvus", "db_name", fallback="default"),
+        )
+
+        # 根据 workspace 生成带前缀的 collection 名称
         if effective_workspace:
-            # 多租户模式：每个 workspace 使用独立的 database
-            self._db_name = f"xwrag_{effective_workspace}"
-            # collection 名称不需要 workspace 前缀（因为已经在不同 database 中）
-            self.final_namespace = self.namespace
+            # 多租户模式：在 collection 名称前添加 workspace 前缀
+            self.final_namespace = f"{effective_workspace}_{self.namespace}"
             logger.info(
-                f"Multi-tenant: workspace '{effective_workspace}' -> database '{self._db_name}', collection '{self.final_namespace}'"
+                f"Logical isolation: workspace '{effective_workspace}' -> database '{self._db_name}', collection '{self.final_namespace}'"
             )
         else:
-            # 无 workspace：使用默认 database
-            self._db_name = os.environ.get(
-                "MILVUS_DB_NAME",
-                config.get("milvus", "db_name", fallback=None),
-            )
+            # 无 workspace：直接使用原始 namespace
             self.final_namespace = self.namespace
             self.workspace = "_"
             logger.debug(f"Default mode: database '{self._db_name}', collection '{self.final_namespace}'")
@@ -1098,8 +1106,9 @@ class MilvusVectorDBStorage(BaseVectorStorage):
 
     async def initialize(self):
         """Initialize Milvus collection"""
-        # 使用 keyed lock 按 database + collection 加锁，允许不同租户并发初始化
-        lock_key = f"{self._db_name or 'default'}:{self.final_namespace}"
+        # 使用 keyed lock 按 collection 加锁，允许不同租户并发初始化
+        # final_namespace 已包含 workspace 前缀，可作为全局唯一标识
+        lock_key = self.final_namespace
 
         async with get_storage_keyed_lock(
             keys=[lock_key],
@@ -1127,7 +1136,7 @@ class MilvusVectorDBStorage(BaseVectorStorage):
                 self._create_collection_if_not_exist()
                 self._initialized = True
                 logger.info(
-                    f"[{self.workspace}] Milvus collection '{self.namespace}' initialized successfully (db={self._db_name})"
+                    f"[{self.workspace}] Milvus collection '{self.final_namespace}' initialized successfully (shared db={self._db_name})"
                 )
             except Exception as e:
                 logger.error(
@@ -1141,7 +1150,8 @@ class MilvusVectorDBStorage(BaseVectorStorage):
             return
 
         # 使用 keyed lock 按 collection 加锁，允许不同 collection 并发操作
-        lock_key = f"{self._db_name or 'default'}:{self.final_namespace}"
+        # final_namespace 已包含 workspace 前缀，可作为全局唯一标识
+        lock_key = self.final_namespace
 
         async with get_storage_keyed_lock(
             keys=[lock_key],
@@ -1345,7 +1355,8 @@ class MilvusVectorDBStorage(BaseVectorStorage):
             ids: List of vector IDs to be deleted
         """
         # 使用 keyed lock 按 collection 加锁
-        lock_key = f"{self._db_name or 'default'}:{self.final_namespace}"
+        # final_namespace 已包含 workspace 前缀，可作为全局唯一标识
+        lock_key = self.final_namespace
 
         async with get_storage_keyed_lock(
             keys=[lock_key],
@@ -1497,7 +1508,8 @@ class MilvusVectorDBStorage(BaseVectorStorage):
             - On failure: {"status": "error", "message": "<error details>"}
         """
         # 使用 keyed lock 按 collection 加锁
-        lock_key = f"{self._db_name or 'default'}:{self.final_namespace}"
+        # final_namespace 已包含 workspace 前缀，可作为全局唯一标识
+        lock_key = self.final_namespace
 
         async with get_storage_keyed_lock(
             keys=[lock_key],
@@ -1513,7 +1525,7 @@ class MilvusVectorDBStorage(BaseVectorStorage):
                 self._create_collection_if_not_exist()
 
                 logger.info(
-                    f"[{self.workspace}] Process {os.getpid()} drop Milvus collection {self.namespace} (db={self._db_name})"
+                    f"[{self.workspace}] Process {os.getpid()} drop Milvus collection {self.final_namespace} (shared db={self._db_name})"
                 )
                 return {"status": "success", "message": "data dropped"}
             except Exception as e:
