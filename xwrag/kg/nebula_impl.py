@@ -440,14 +440,14 @@ class NebulaGraphStorage(BaseGraphStorage):
         return s
 
     def _format_properties(self, properties: Dict[str, Any]) -> str:
-        """格式化属性 - 按照 Tag 定义的字段顺序"""
-        # 定义字段顺序(与 Tag 定义一致)
-        field_order = ["entity_id", "entity_type", "description", "source_id", "file_path", "created_at"]
-        
+        """格式化属性 - 按照 Tag 定义的字段顺序（包含 workspace 用于逻辑隔离）"""
+        # 定义字段顺序(与 Tag 定义一致: entity_id, workspace, entity_type, description, source_id, file_path, created_at)
+        field_order = ["entity_id", "workspace", "entity_type", "description", "source_id", "file_path", "created_at"]
+
         props = []
         for key in field_order:
             value = properties.get(key, "")  # 如果字段不存在,使用空字符串或默认值
-            
+
             # 特殊处理 created_at,确保是整数
             if key == "created_at":
                 if isinstance(value, (int, float)):
@@ -462,7 +462,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 props.append(str(value))
             else:
                 props.append(f'"{self._escape_string(str(value))}"')
-        
+
         return ", ".join(props)
 
     def _value_to_python(self, value):
@@ -504,16 +504,20 @@ class NebulaGraphStorage(BaseGraphStorage):
             return False
 
     async def has_edge(self, source_node_id: str, target_node_id: str) -> bool:
-        """检查边是否存在"""
+        """检查边是否存在（仅在当前 workspace 中）"""
         # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
         try:
             tag = self._tag_name
             src = self._escape_string(source_node_id)
             tgt = self._escape_string(target_node_id)
-            # 修复：使用id()函数而不是entity_id属性
+            safe_workspace = self._escape_string(self.workspace)
+            # 添加 workspace 过滤以实现逻辑隔离（节点和边都需要过滤）
             query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                f'WHERE id(a) == "{src}" AND id(b) == "{tgt}" RETURN r LIMIT 1'
+                f'WHERE id(a) == "{src}" AND id(b) == "{tgt}" '
+                f'AND a.workspace == "{safe_workspace}" AND b.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
+                f'RETURN r LIMIT 1'
             )
             result = await self._execute_query(query)
             return result.row_size() > 0
@@ -522,15 +526,20 @@ class NebulaGraphStorage(BaseGraphStorage):
             return False
 
     async def node_degree(self, node_id: str) -> int:
-        """获取节点度数"""
+        """获取节点度数（仅在当前 workspace 中）"""
         # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
         try:
             tag = self._tag_name
             safe_id = self._escape_string(node_id)
-            # 修复：使用id()函数而不是entity_id属性
+            safe_workspace = self._escape_string(self.workspace)
+            # 添加 workspace 过滤以实现逻辑隔离
             query = (
                 f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
-                f'WHERE id(n) == "{safe_id}" RETURN count(r) AS degree'
+                f'WHERE id(n) == "{safe_id}" '
+                f'AND n.workspace == "{safe_workspace}" '
+                f'AND m.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
+                f'RETURN count(r) AS degree'
             )
             result = await self._execute_query(query)
             if result.row_size() > 0:
@@ -547,21 +556,26 @@ class NebulaGraphStorage(BaseGraphStorage):
         return src_degree + tgt_degree
 
     async def get_node(self, node_id: str) -> dict[str, str] | None:
-        """获取节点数据
+        """获取节点数据（仅在当前 workspace 中）
 
         Args:
             node_id: The node label to look up
 
         Returns:
-            dict: Node properties if found
-            None: If node not found
+            dict: Node properties if found and belongs to current workspace
+            None: If node not found or doesn't belong to current workspace
         """
         # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
         try:
             tag = self._tag_name
             safe_id = self._escape_string(node_id)
-            # 修复：使用FETCH PROP ON直接通过VID查询
-            query = f'FETCH PROP ON {tag} "{safe_id}" YIELD properties(vertex)'
+            safe_workspace = self._escape_string(self.workspace)
+            # 使用 MATCH 而非 FETCH PROP 以支持 workspace 过滤
+            query = (
+                f'MATCH (n:{tag}) '
+                f'WHERE id(n) == "{safe_id}" AND n.workspace == "{safe_workspace}" '
+                f'RETURN properties(n) LIMIT 1'
+            )
             result = await self._execute_query(query)
 
             if result.row_size() == 0:
@@ -585,24 +599,28 @@ class NebulaGraphStorage(BaseGraphStorage):
             return None
 
     async def get_nodes_batch(self, node_ids: list[str]) -> dict[str, dict]:
-        """批量获取节点数据
+        """批量获取节点数据（仅在当前 workspace 中）
 
         Args:
             node_ids: 要查询的节点ID列表
 
         Returns:
-            字典，键为node_id，值为节点数据字典；未找到的节点不在返回字典中
+            字典，键为node_id，值为节点数据字典；未找到的节点或不属于当前 workspace 的节点不在返回字典中
         """
         if not node_ids:
             return {}
 
         try:
             tag = self._tag_name
-            # 使用FETCH PROP ON直接通过VID批量查询（VID就是node_id）
-            # NebulaGraph语法：FETCH PROP ON tag "vid1", "vid2" YIELD properties(vertex)
+            safe_workspace = self._escape_string(self.workspace)
+            # 使用 MATCH 而非 FETCH PROP 以支持 workspace 过滤
             escaped_ids = [f'"{self._escape_string(nid)}"' for nid in node_ids]
             ids_str = ", ".join(escaped_ids)
-            query = f'FETCH PROP ON {tag} {ids_str} YIELD properties(vertex)'
+            query = (
+                f'MATCH (n:{tag}) '
+                f'WHERE id(n) IN [{ids_str}] AND n.workspace == "{safe_workspace}" '
+                f'RETURN id(n) AS node_id, properties(n)'
+            )
 
             result = await self._execute_query(query)
             nodes = {}
@@ -610,16 +628,16 @@ class NebulaGraphStorage(BaseGraphStorage):
             for i in range(result.row_size()):
                 row = result.row_values(i)
 
-                if row and len(row) > 0:
-                    # YIELD properties(vertex) 返回一个Map类型的值
-                    props_value = row[0]
+                if row and len(row) >= 2:
+                    node_id = self._value_to_python(row[0])
+                    props_value = row[1]
 
                     # _value_to_python 现在可以直接处理 Map 类型并返回 Python 字典
                     properties = self._value_to_python(props_value)
 
-                    # 使用entity_id作为key
-                    if isinstance(properties, dict) and 'entity_id' in properties:
-                        nodes[properties['entity_id']] = properties
+                    # 使用 node_id 作为 key
+                    if isinstance(properties, dict):
+                        nodes[node_id] = properties
 
             return nodes
 
@@ -634,25 +652,29 @@ class NebulaGraphStorage(BaseGraphStorage):
             return result
 
     async def get_edge(self, source_node_id: str, target_node_id: str) -> dict[str, str] | None:
-        """获取边数据
+        """获取边数据（仅在当前 workspace 中）
 
         Args:
             source_node_id: Label of the source node
             target_node_id: Label of the target node
 
         Returns:
-            dict: Edge properties if found
-            None: If edge not found
+            dict: Edge properties if found and belongs to current workspace
+            None: If edge not found or doesn't belong to current workspace
         """
         # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
         try:
             tag = self._tag_name
             src = self._escape_string(source_node_id)
             tgt = self._escape_string(target_node_id)
-            # 修复：使用MATCH ... RETURN properties(r)来获取边属性
+            safe_workspace = self._escape_string(self.workspace)
+            # 添加 workspace 过滤以实现逻辑隔离
             query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
                 f'WHERE id(a) == "{src}" AND id(b) == "{tgt}" '
+                f'AND a.workspace == "{safe_workspace}" '
+                f'AND b.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN properties(r) LIMIT 1'
             )
             result = await self._execute_query(query)
@@ -692,15 +714,20 @@ class NebulaGraphStorage(BaseGraphStorage):
             return None
 
     async def get_node_edges(self, source_node_id: str) -> Optional[List[tuple]]:
-        """获取节点的所有边"""
+        """获取节点的所有边（仅在当前 workspace 中）"""
         # ✅ 移除全局锁以提高读性能（读操作不需要全局锁）
         try:
             tag = self._tag_name
             src = self._escape_string(source_node_id)
-            # 修复：使用id()函数而不是entity_id属性，并返回id()
+            safe_workspace = self._escape_string(self.workspace)
+            # 添加 workspace 过滤以实现逻辑隔离
             query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                f'WHERE id(a) == "{src}" RETURN id(a) AS src, id(b) AS tgt'
+                f'WHERE id(a) == "{src}" '
+                f'AND a.workspace == "{safe_workspace}" '
+                f'AND b.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
+                f'RETURN id(a) AS src, id(b) AS tgt'
             )
             result = await self._execute_query(query)
             if result.row_size() == 0:
@@ -719,7 +746,7 @@ class NebulaGraphStorage(BaseGraphStorage):
     async def get_nodes_edges_batch(
         self, node_ids: list[str]
     ) -> dict[str, list[tuple[str, str]]]:
-        """批量获取多个节点的边（优化版）- 使用单个查询替代多次查询
+        """批量获取多个节点的边（优化版，仅在当前 workspace 中）- 使用单个查询替代多次查询
 
         性能优化：从 N 次查询降为 1 次查询，大幅提升批量边检索性能
         """
@@ -728,14 +755,18 @@ class NebulaGraphStorage(BaseGraphStorage):
 
         try:
             tag = self._tag_name
+            safe_workspace = self._escape_string(self.workspace)
             # 构建 WHERE 条件：id(a) IN ["node1", "node2", ...]
             escaped_ids = [f'"{self._escape_string(nid)}"' for nid in node_ids]
             ids_str = ", ".join(escaped_ids)
 
-            # 单个查询获取所有节点的边
+            # 单个查询获取所有节点的边，添加 workspace 过滤
             query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
                 f'WHERE id(a) IN [{ids_str}] '
+                f'AND a.workspace == "{safe_workspace}" '
+                f'AND b.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(a) AS src, id(b) AS tgt'
             )
 
@@ -767,7 +798,7 @@ class NebulaGraphStorage(BaseGraphStorage):
             return await super().get_nodes_edges_batch(node_ids)
 
     async def node_degrees_batch(self, node_ids: list[str]) -> dict[str, int]:
-        """批量获取多个节点的度数（优化版）- 使用单个查询替代多次查询
+        """批量获取多个节点的度数（优化版，仅在当前 workspace 中）- 使用单个查询替代多次查询
 
         性能优化：从 N 次查询降为 1 次查询，大幅提升批量度数查询性能
         """
@@ -776,14 +807,18 @@ class NebulaGraphStorage(BaseGraphStorage):
 
         try:
             tag = self._tag_name
+            safe_workspace = self._escape_string(self.workspace)
             escaped_ids = [f'"{self._escape_string(nid)}"' for nid in node_ids]
             ids_str = ", ".join(escaped_ids)
 
-            # 单个查询获取所有节点的度数
+            # 单个查询获取所有节点的度数，添加 workspace 过滤
             # 使用 GROUP BY 聚合每个节点的边数量
             query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
                 f'WHERE id(a) IN [{ids_str}] '
+                f'AND a.workspace == "{safe_workspace}" '
+                f'AND b.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(a) AS node_id, COUNT(r) AS degree'
             )
 
@@ -817,7 +852,7 @@ class NebulaGraphStorage(BaseGraphStorage):
     async def get_edges_batch(
         self, pairs: list[dict[str, str]]
     ) -> dict[tuple[str, str], dict]:
-        """批量获取多条边的属性（优化版）- 使用单个查询替代多次查询
+        """批量获取多条边的属性（优化版，仅在当前 workspace 中）- 使用单个查询替代多次查询
 
         性能优化：从 N 次查询降为 1 次查询，大幅提升批量边属性查询性能
         """
@@ -826,6 +861,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
         try:
             tag = self._tag_name
+            safe_workspace = self._escape_string(self.workspace)
 
             # 构建边查询条件
             # 方法：使用 MATCH 模式匹配多条边
@@ -837,10 +873,13 @@ class NebulaGraphStorage(BaseGraphStorage):
 
             conditions_str = " OR ".join(edge_conditions)
 
-            # 批量查询所有边的属性
+            # 批量查询所有边的属性，添加 workspace 过滤
             query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                f'WHERE {conditions_str} '
+                f'WHERE ({conditions_str}) '
+                f'AND a.workspace == "{safe_workspace}" '
+                f'AND b.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(a) AS src, id(b) AS tgt, '
                 f'r.keywords AS keywords, r.weight AS weight, r.description AS description, '
                 f'r.source_id AS source_id, r.file_path AS file_path, r.created_at AS created_at'
@@ -1085,11 +1124,16 @@ class NebulaGraphStorage(BaseGraphStorage):
                 raise
 
     async def get_all_labels(self) -> List[str]:
-        """获取所有节点标签"""
+        """获取所有节点标签（仅在当前 workspace 中）"""
         try:
             tag = self._tag_name
-            # 使用id(n)获取节点VID作为标签，与其他查询保持一致
-            query = f'MATCH (n:{tag}) RETURN DISTINCT id(n) AS label'
+            safe_workspace = self._escape_string(self.workspace)
+            # 添加 workspace 过滤以实现逻辑隔离
+            query = (
+                f'MATCH (n:{tag}) '
+                f'WHERE n.workspace == "{safe_workspace}" '
+                f'RETURN DISTINCT id(n) AS label'
+            )
             result = await self._execute_query(query)
             labels: List[str] = []
             for i in range(result.row_size()):
@@ -1102,11 +1146,16 @@ class NebulaGraphStorage(BaseGraphStorage):
             return []
 
     async def get_all_nodes(self) -> List[Dict[str, Any]]:
-        """获取所有节点"""
+        """获取所有节点（仅在当前 workspace 中）"""
         try:
             tag = self._tag_name
-            # 修复：使用id(n)和properties(n)
-            query = f'MATCH (n:{tag}) RETURN id(n) AS id, properties(n)'
+            safe_workspace = self._escape_string(self.workspace)
+            # 添加 workspace 过滤以实现逻辑隔离
+            query = (
+                f'MATCH (n:{tag}) '
+                f'WHERE n.workspace == "{safe_workspace}" '
+                f'RETURN id(n) AS id, properties(n)'
+            )
             result = await self._execute_query(query)
             nodes = []
             for i in range(result.row_size()):
@@ -1127,11 +1176,18 @@ class NebulaGraphStorage(BaseGraphStorage):
             return []
 
     async def get_all_edges(self) -> List[Dict[str, Any]]:
-        """获取所有边"""
+        """获取所有边（仅在当前 workspace 中）"""
         try:
             tag = self._tag_name
-            # 修复：使用properties(r)来获取边属性
-            query = f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) RETURN id(a) AS src, id(b) AS tgt, properties(r)'
+            safe_workspace = self._escape_string(self.workspace)
+            # 添加 workspace 过滤以实现逻辑隔离
+            query = (
+                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'WHERE a.workspace == "{safe_workspace}" '
+                f'AND b.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
+                f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
+            )
             result = await self._execute_query(query)
             edges = []
             for i in range(result.row_size()):
@@ -1154,21 +1210,23 @@ class NebulaGraphStorage(BaseGraphStorage):
 
     # 🔥 修复6: 实现缺失的抽象方法
     async def get_nodes_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
-        """根据 chunk_ids 获取相关节点"""
+        """根据 chunk_ids 获取相关节点（仅在当前 workspace 中）"""
         try:
             if not chunk_ids:
                 return []
 
             tag = self._tag_name
+            safe_workspace = self._escape_string(self.workspace)
             # 转义并构建查询
             safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
             chunk_ids_str = ", ".join(safe_chunk_ids)
 
-            # 使用LOOKUP ON来利用source_id索引进行高效查询
+            # 使用 MATCH 而非 LOOKUP 以支持 workspace 过滤
             query = (
-                f'LOOKUP ON {tag} '
-                f'WHERE {tag}.source_id IN [{chunk_ids_str}] '
-                f'YIELD properties(vertex) AS props'
+                f'MATCH (n:{tag}) '
+                f'WHERE n.source_id IN [{chunk_ids_str}] '
+                f'AND n.workspace == "{safe_workspace}" '
+                f'RETURN properties(n) AS props'
             )
             result = await self._execute_query(query)
 
@@ -1187,20 +1245,24 @@ class NebulaGraphStorage(BaseGraphStorage):
             return []
 
     async def get_edges_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
-        """根据 chunk_ids 获取相关边"""
+        """根据 chunk_ids 获取相关边（仅在当前 workspace 中）"""
         try:
             if not chunk_ids:
                 return []
 
             tag = self._tag_name
+            safe_workspace = self._escape_string(self.workspace)
             # 转义并构建查询
             safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
             chunk_ids_str = ", ".join(safe_chunk_ids)
 
-            # 修复：使用properties(r)来获取边属性，使用id()来获取节点ID
+            # 添加 workspace 过滤以实现逻辑隔离
             query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
                 f'WHERE r.source_id IN [{chunk_ids_str}] '
+                f'AND a.workspace == "{safe_workspace}" '
+                f'AND b.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
             )
             result = await self._execute_query(query)
@@ -1226,12 +1288,16 @@ class NebulaGraphStorage(BaseGraphStorage):
             return []
 
     async def get_popular_labels(self, limit: int = 300) -> List[str]:
-        """获取热门标签"""
+        """获取热门标签（仅在当前 workspace 中）"""
         try:
             tag = self._tag_name
-            # 修复：使用id(n)并添加GROUP BY子句用于聚合
+            safe_workspace = self._escape_string(self.workspace)
+            # 添加 workspace 过滤以实现逻辑隔离
             query = (
                 f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
+                f'WHERE n.workspace == "{safe_workspace}" '
+                f'AND m.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(n) AS label, count(r) AS degree '
                 f'ORDER BY degree DESC LIMIT {limit}'
             )
@@ -1247,7 +1313,7 @@ class NebulaGraphStorage(BaseGraphStorage):
             return []
 
     async def search_labels(self, query: str, limit: int = 50) -> List[str]:
-        """搜索标签"""
+        """搜索标签（仅在当前 workspace 中）"""
         tag = self._tag_name
         query_strip = query.strip()
         if not query_strip:
@@ -1257,9 +1323,13 @@ class NebulaGraphStorage(BaseGraphStorage):
         is_chinese = self._is_chinese_text(query_strip)
 
         try:
-            # 获取所有标签（使用id(n)），然后在客户端过滤
-            # 这样避免了在属性上使用CONTAINS的问题
-            nql = f'MATCH (n:{tag}) RETURN id(n) AS label LIMIT 1000'
+            safe_workspace = self._escape_string(self.workspace)
+            # 添加 workspace 过滤以实现逻辑隔离
+            nql = (
+                f'MATCH (n:{tag}) '
+                f'WHERE n.workspace == "{safe_workspace}" '
+                f'RETURN id(n) AS label LIMIT 1000'
+            )
             result = await self._execute_query(nql)
 
             all_labels = []
@@ -1306,14 +1376,19 @@ class NebulaGraphStorage(BaseGraphStorage):
             return []
 
     async def get_knowledge_graph(self, node_label: str, max_depth: int = 3, max_nodes: int = 1000) -> KnowledgeGraph:
-        """获取知识图谱"""
+        """获取知识图谱（仅在当前 workspace 中）"""
         try:
             tag = self._tag_name
+            safe_workspace = self._escape_string(self.workspace)
             nodes = []
             node_ids = set()
 
-            # 使用id(n)和properties(n)获取节点，然后客户端过滤
-            nodes_query = f'MATCH (n:{tag}) RETURN id(n) AS id, properties(n) AS props LIMIT {max_nodes * 2}'
+            # 添加 workspace 过滤以实现逻辑隔离
+            nodes_query = (
+                f'MATCH (n:{tag}) '
+                f'WHERE n.workspace == "{safe_workspace}" '
+                f'RETURN id(n) AS id, properties(n) AS props LIMIT {max_nodes * 2}'
+            )
             nodes_result = await self._execute_query(nodes_query)
 
             for i in range(nodes_result.row_size()):
@@ -1341,10 +1416,13 @@ class NebulaGraphStorage(BaseGraphStorage):
             edges = []
             if node_ids:
                 node_list = ", ".join(f'"{self._escape_string(nid)}"' for nid in node_ids)
-                # 使用id(a), id(b)和properties(r)
+                # 添加 workspace 过滤
                 edges_query = (
                     f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
                     f'WHERE id(a) IN [{node_list}] AND id(b) IN [{node_list}] '
+                    f'AND a.workspace == "{safe_workspace}" '
+                    f'AND b.workspace == "{safe_workspace}" '
+                    f'AND r.workspace == "{safe_workspace}" '
                     f'RETURN id(a) AS src, id(b) AS tgt, properties(r) AS props'
                 )
                 edges_result = await self._execute_query(edges_query)
@@ -1388,7 +1466,7 @@ class NebulaGraphStorage(BaseGraphStorage):
         return kg, embeddings
 
     async def get_top_k_degree_subgraph_echarts(self, k: int) -> Dict[str, Any]:
-        """获取度数最高的 top k 个节点构成的子图（ECharts 格式）
+        """获取度数最高的 top k 个节点构成的子图（ECharts 格式，仅在当前 workspace 中）
 
         Args:
             k: 返回度数最高的 k 个节点
@@ -1403,10 +1481,14 @@ class NebulaGraphStorage(BaseGraphStorage):
         """
         try:
             tag = self._tag_name
+            safe_workspace = self._escape_string(self.workspace)
 
-            # 1. 获取度数最高的 top k 个节点
+            # 1. 获取度数最高的 top k 个节点（添加 workspace 过滤）
             degree_query = (
                 f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
+                f'WHERE n.workspace == "{safe_workspace}" '
+                f'AND m.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(n) AS node_id, COUNT(r) AS degree '
                 f'ORDER BY degree DESC LIMIT {k}'
             )
@@ -1427,11 +1509,12 @@ class NebulaGraphStorage(BaseGraphStorage):
                 top_node_ids.append(node_id)
                 node_degrees[node_id] = degree
 
-            # 2. 获取这些节点的详细信息
+            # 2. 获取这些节点的详细信息（添加 workspace 过滤）
             node_ids_str = ", ".join(f'"{self._escape_string(nid)}"' for nid in top_node_ids)
             nodes_query = (
                 f'MATCH (n:{tag}) '
                 f'WHERE id(n) IN [{node_ids_str}] '
+                f'AND n.workspace == "{safe_workspace}" '
                 f'RETURN id(n) AS node_id, properties(n)'
             )
 
@@ -1459,10 +1542,13 @@ class NebulaGraphStorage(BaseGraphStorage):
                         "degree": node_degrees.get(node_id, 0)
                     })
 
-            # 3. 获取这些节点之间的所有边（如果两个节点可达）
+            # 3. 获取这些节点之间的所有边（添加 workspace 过滤）
             edges_query = (
                 f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
                 f'WHERE id(a) IN [{node_ids_str}] AND id(b) IN [{node_ids_str}] '
+                f'AND a.workspace == "{safe_workspace}" '
+                f'AND b.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
             )
 
@@ -1548,7 +1634,7 @@ class NebulaGraphStorage(BaseGraphStorage):
             return {"nodes": [], "links": [], "categories": []}
 
     async def get_node_neighbors_subgraph_echarts(self, node_id: str) -> Dict[str, Any]:
-        """获取指定节点及其邻居节点构成的子图（ECharts 格式）
+        """获取指定节点及其邻居节点构成的子图（ECharts 格式，仅在当前 workspace 中）
 
         Args:
             node_id: 中心节点的ID
@@ -1564,21 +1650,26 @@ class NebulaGraphStorage(BaseGraphStorage):
         try:
             tag = self._tag_name
             escaped_node_id = self._escape_string(node_id)
+            safe_workspace = self._escape_string(self.workspace)
 
-            # 1. 获取中心节点和所有邻居节点
+            # 1. 获取中心节点和所有邻居节点（添加 workspace 过滤）
             neighbors_query = (
                 f'MATCH (center:{tag})-[r:relationship]-(neighbor:{tag}) '
                 f'WHERE id(center) = "{escaped_node_id}" '
+                f'AND center.workspace == "{safe_workspace}" '
+                f'AND neighbor.workspace == "{safe_workspace}" '
+                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(neighbor) AS neighbor_id, properties(neighbor), properties(r)'
             )
 
             logger.info(f"[{self.workspace}] 获取节点 '{node_id}' 的邻居")
             neighbors_result = await self._execute_query(neighbors_query)
 
-            # 2. 获取中心节点的信息
+            # 2. 获取中心节点的信息（添加 workspace 过滤）
             center_query = (
                 f'MATCH (n:{tag}) '
                 f'WHERE id(n) = "{escaped_node_id}" '
+                f'AND n.workspace == "{safe_workspace}" '
                 f'RETURN id(n) AS node_id, properties(n)'
             )
 
@@ -1645,13 +1736,16 @@ class NebulaGraphStorage(BaseGraphStorage):
 
                     edges_data.append(edge_data)
 
-            # 3. 获取邻居节点之间的边（如果存在）
+            # 3. 获取邻居节点之间的边（如果存在，添加 workspace 过滤）
             if len(all_node_ids) > 1:
                 node_ids_str = ", ".join(f'"{self._escape_string(nid)}"' for nid in all_node_ids)
                 inter_edges_query = (
                     f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
                     f'WHERE id(a) IN [{node_ids_str}] AND id(b) IN [{node_ids_str}] '
                     f'AND id(a) != "{escaped_node_id}" AND id(b) != "{escaped_node_id}" '
+                    f'AND a.workspace == "{safe_workspace}" '
+                    f'AND b.workspace == "{safe_workspace}" '
+                    f'AND r.workspace == "{safe_workspace}" '
                     f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
                 )
 
