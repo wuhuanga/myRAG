@@ -139,7 +139,7 @@ class LogicalIsolationTester:
             }
 
             resp = requests.post(
-                f"{self.base_url}/admin/rag_instances/create",
+                f"{self.base_url}/api/admin/rag_instances/create",
                 json=payload,
                 timeout=60
             )
@@ -159,7 +159,7 @@ class LogicalIsolationTester:
     def list_instances(self) -> list:
         """列出所有实例"""
         try:
-            resp = requests.get(f"{self.base_url}/admin/rag_instances/list", timeout=10)
+            resp = requests.get(f"{self.base_url}/api/admin/rag_instances/list", timeout=10)
             if resp.status_code == 200:
                 return resp.json()
             return []
@@ -170,10 +170,10 @@ class LogicalIsolationTester:
     def insert_document(self, rag_id: str, content: str, file_name: str) -> bool:
         """插入文档"""
         try:
-            # 注意：这里假设你的 API 端点是 /documents/upload_text/{rag_id}
+            # 注意：这里假设你的 API 端点是 /api/documents/upload_text/{rag_id}
             # 如果实际端点不同，请调整
             resp = requests.post(
-                f"{self.base_url}/documents/upload_text/{rag_id}",
+                f"{self.base_url}/api/documents/upload_text/{rag_id}",
                 json={"content": content, "file_name": file_name},
                 timeout=120
             )
@@ -193,7 +193,7 @@ class LogicalIsolationTester:
         """查询实例"""
         try:
             resp = requests.post(
-                f"{self.base_url}/query/{rag_id}",
+                f"{self.base_url}/api/query/{rag_id}",
                 json={"question": question, "mode": "hybrid", "only_need_context": True},
                 timeout=60
             )
@@ -231,7 +231,7 @@ class LogicalIsolationTester:
         """删除实例"""
         try:
             resp = requests.delete(
-                f"{self.base_url}/admin/rag_instances/{rag_id}/complete?cleanup_storage=true",
+                f"{self.base_url}/api/admin/rag_instances/{rag_id}/complete?cleanup_storage=true",
                 timeout=120
             )
 
