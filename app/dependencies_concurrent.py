@@ -735,63 +735,76 @@ class ConcurrentRAGInstanceManager:
             workspace = processor.workspace
             working_dir = processor.working_dir
 
-            # 1. 清理 NebulaGraph Space
+            # 1. 清理 NebulaGraph 数据（逻辑隔离模式：只删除当前 workspace 的数据）
             try:
-                # 使用 xwrag 的图存储删除 Space
+                # 使用图存储的 drop() 方法（已适配逻辑隔离，只删除当前 workspace）
                 graph_storage = processor.rag.chunk_entity_relation_graph
-                if hasattr(graph_storage, "_session_pool"):
-                    session = graph_storage._session_pool.get_session()
-                    drop_query = f"DROP SPACE IF EXISTS {workspace};"
-                    result = session.execute(drop_query)
-                    session.release()
+                if hasattr(graph_storage, "drop"):
+                    # 调用 drop() 方法删除当前 workspace 的所有节点和边
+                    result = await graph_storage.drop()
 
-                    if result.is_succeeded():
-                        cleaned.append(f"NebulaGraph Space: {workspace}")
-                        logger.info(f"已删除 NebulaGraph Space: {workspace}")
+                    if result.get("status") == "success":
+                        cleaned.append(f"Nebula 图数据 (workspace: {workspace})")
+                        logger.info(f"已删除 Nebula 中 workspace '{workspace}' 的图数据")
                     else:
+                        error_msg = result.get("message", "Unknown error")
                         failed.append(
                             {
                                 "component": "NebulaGraph",
-                                "error": result.error_msg(),
+                                "error": error_msg,
                             }
                         )
+                        logger.error(f"Nebula 清理失败: {error_msg}")
+                else:
+                    logger.warning(f"图存储不支持 drop() 方法，跳过 NebulaGraph 清理")
             except Exception as e:
                 failed.append({"component": "NebulaGraph", "error": str(e)})
                 logger.error(f"NebulaGraph 清理失败: {str(e)}")
 
-            # 2. 清理 Milvus Database
+            # 2. 清理 Milvus Collections（逻辑隔离模式：只删除当前 workspace 的 collections）
             try:
                 from pymilvus import utility, connections
+                import configparser
 
                 milvus_host = os.getenv("MILVUS_HOST", "localhost")
                 milvus_port = os.getenv("MILVUS_PORT", "19530")
-                db_name = f"xwrag_{workspace}"
+
+                # 获取统一的 database 名称（从环境变量或配置文件读取）
+                config_path = working_dir / "lightrag_config.ini"
+                if config_path.exists():
+                    config = configparser.ConfigParser()
+                    config.read(config_path)
+                    db_name = os.getenv("MILVUS_DB_NAME", config.get("milvus", "db_name", fallback="default"))
+                else:
+                    db_name = os.getenv("MILVUS_DB_NAME", "default")
 
                 # 临时连接
                 alias = f"cleanup_{rag_id}"
                 connections.connect(alias=alias, host=milvus_host, port=milvus_port)
 
-                # 切换到目标 database 并删除所有 collections
-                if db_name in utility.list_databases(using=alias):
-                    utility.using_database(db_name, using=alias)
-                    collections = utility.list_collections(using=alias)
+                # 切换到统一 database
+                utility.using_database(db_name, using=alias)
 
-                    for coll in collections:
-                        utility.drop_collection(coll, using=alias)
+                # 列出所有 collections，筛选出属于当前 workspace 的
+                all_collections = utility.list_collections(using=alias)
+                workspace_prefix = f"{workspace}_"
+                workspace_collections = [c for c in all_collections if c.startswith(workspace_prefix)]
 
-                    # 切换回 default
-                    utility.using_database("default", using=alias)
-
-                    # 删除 database (Milvus 2.3+)
+                # 删除属于当前 workspace 的 collections
+                deleted_count = 0
+                for coll in workspace_collections:
                     try:
-                        from pymilvus import db
+                        utility.drop_collection(coll, using=alias)
+                        deleted_count += 1
+                        logger.info(f"已删除 Milvus Collection: {coll}")
+                    except Exception as coll_err:
+                        logger.warning(f"删除 Collection {coll} 失败: {coll_err}")
 
-                        db.drop_database(db_name, using=alias)
-                        cleaned.append(f"Milvus Database: {db_name}")
-                        logger.info(f"已删除 Milvus Database: {db_name}")
-                    except Exception:
-                        # 旧版本 Milvus 可能不支持
-                        cleaned.append(f"Milvus Collections in {db_name}")
+                if deleted_count > 0:
+                    cleaned.append(f"Milvus Collections: {deleted_count} 个 (workspace: {workspace})")
+                    logger.info(f"已删除 {deleted_count} 个 Milvus Collections (workspace: {workspace})")
+                else:
+                    logger.info(f"未找到属于 workspace '{workspace}' 的 Milvus Collections")
 
                 connections.disconnect(alias)
             except Exception as e:

@@ -140,7 +140,7 @@ async def delete_rag_instance(rag_id: str):
 @router.delete("/rag_instances/{rag_id}/complete")
 async def delete_rag_instance_completely(rag_id: str, cleanup_storage: bool = True):
     """
-    彻底删除 RAG 实例及其所有存储数据
+    彻底删除 RAG 实例及其所有存储数据（逻辑隔离模式）
 
     Args:
         rag_id: RAG 实例 ID
@@ -148,9 +148,13 @@ async def delete_rag_instance_completely(rag_id: str, cleanup_storage: bool = Tr
 
     Warning:
         此操作不可逆！将永久删除：
-        - NebulaGraph Space 和所有图数据
-        - Milvus Database 和所有向量数据
+        - 当前 workspace 在 Nebula 中的所有图数据（节点和边）
+        - 当前 workspace 在 Milvus 中的所有 Collections（向量数据）
         - 工作目录中的所有文件
+
+    Note:
+        使用逻辑隔离模式，不会影响其他 workspace 的数据。
+        同一 Nebula Space 和 Milvus Database 中的其他 workspace 数据完全不受影响。
     """
     manager = get_concurrent_rag_manager()
 
