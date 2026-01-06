@@ -1883,7 +1883,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                         else:
                             # 没有节点需要删除，视为成功
                             logger.info(f"[{self.workspace}] No nodes to delete for workspace '{self.workspace}'")
-                            result = type('obj', (object,), {'is_succeeded': lambda: True})()
+                            result = type('obj', (object,), {'is_succeeded': lambda self: True})()
 
                         if result.is_succeeded():
                             logger.info(f"[{self.workspace}] ✅ Dropped workspace '{self.workspace}' data from Space: {self._space_name}")
