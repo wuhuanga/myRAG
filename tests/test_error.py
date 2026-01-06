@@ -364,7 +364,7 @@ class TestExceptionRecovery:
         1. 异常不会导致协程泄漏
         2. 资源正确释放
         """
-        from xwrag.utils import get_storage_keyed_lock
+        from xwrag.kg.shared_storage import get_storage_keyed_lock
 
         exception_raised = False
 

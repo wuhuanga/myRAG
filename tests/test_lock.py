@@ -30,7 +30,7 @@ class TestStorageKeyedLock:
         1. 两个不同 key 的操作可以同时进行
         2. 执行时间接近（无串行等待）
         """
-        from xwrag.utils import get_storage_keyed_lock
+        from xwrag.kg.shared_storage import get_storage_keyed_lock
 
         execution_times = []
 
@@ -72,7 +72,7 @@ class TestStorageKeyedLock:
         1. 两个相同 key 的操作必须串行执行
         2. 执行时间等于两次操作时间之和
         """
-        from xwrag.utils import get_storage_keyed_lock
+        from xwrag.kg.shared_storage import get_storage_keyed_lock
 
         execution_times = []
 
@@ -120,7 +120,7 @@ class TestStorageKeyedLock:
         1. 可以同时锁定多个资源
         2. 任何一个 key 被其他操作持有时都会阻塞
         """
-        from xwrag.utils import get_storage_keyed_lock
+        from xwrag.kg.shared_storage import get_storage_keyed_lock
 
         execution_order = []
 
@@ -161,7 +161,7 @@ class TestStorageKeyedLock:
         1. 长时间持有锁不会永久阻塞其他操作
         2. 超时机制正确工作（如果实现了）
         """
-        from xwrag.utils import get_storage_keyed_lock
+        from xwrag.kg.shared_storage import get_storage_keyed_lock
 
         async def long_operation():
             """长时间持有锁的操作"""
@@ -197,7 +197,7 @@ class TestStorageKeyedLock:
         1. 同一协程不能重复获取相同的锁（如果是非重入锁）
         2. 或者重入时正确处理（如果支持重入）
         """
-        from xwrag.utils import get_storage_keyed_lock
+        from xwrag.kg.shared_storage import get_storage_keyed_lock
 
         async def nested_lock_attempt():
             """尝试嵌套获取锁"""
@@ -235,7 +235,7 @@ class TestLockPerformance:
         1. 获取和释放锁的开销应该很小
         2. 大量锁操作不会显著影响性能
         """
-        from xwrag.utils import get_storage_keyed_lock
+        from xwrag.kg.shared_storage import get_storage_keyed_lock
 
         async def lock_operation(key: str):
             """简单的锁操作"""
@@ -265,7 +265,7 @@ class TestLockPerformance:
         2. 所有请求最终都能完成
         3. 无死锁或活锁
         """
-        from xwrag.utils import get_storage_keyed_lock
+        from xwrag.kg.shared_storage import get_storage_keyed_lock
 
         completed = []
 
@@ -302,7 +302,7 @@ class TestLockEdgeCases:
         验证：
         1. 系统应该正确处理或拒绝空 keys
         """
-        from xwrag.utils import get_storage_keyed_lock
+        from xwrag.kg.shared_storage import get_storage_keyed_lock
 
         try:
             async with get_storage_keyed_lock(keys=[], namespace="test_empty"):
@@ -319,7 +319,7 @@ class TestLockEdgeCases:
         1. 特殊字符不会导致锁机制失败
         2. 正确处理各种字符
         """
-        from xwrag.utils import get_storage_keyed_lock
+        from xwrag.kg.shared_storage import get_storage_keyed_lock
 
         special_keys = [
             "key_with_spaces",
@@ -345,7 +345,7 @@ class TestLockEdgeCases:
         1. 长 key 不会导致问题
         2. 系统有合理的 key 长度限制
         """
-        from xwrag.utils import get_storage_keyed_lock
+        from xwrag.kg.shared_storage import get_storage_keyed_lock
 
         long_key = "x" * 1000  # 1000 字符的 key
 
