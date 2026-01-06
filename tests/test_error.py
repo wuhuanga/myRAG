@@ -84,7 +84,7 @@ class TestInputValidation:
         payload = {
             "rag_id": "test_negative",
             "workspace": "test_ws",
-            "working_dir": "/tmp/test",
+            "working_dir": "./test_negative",
             "top_k": -1,  # 负数
             "chunk_top_k": -5
         }

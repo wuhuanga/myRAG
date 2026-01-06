@@ -61,7 +61,7 @@ def api_client(base_url):
             payload = {
                 "rag_id": rag_id,
                 "workspace": workspace,
-                "working_dir": kwargs.get("working_dir", f"/tmp/test_rag/{workspace}"),
+                "working_dir": kwargs.get("working_dir", f"./test_{workspace}"),
                 "description": kwargs.get("description", f"Test instance {rag_id}"),
                 "top_k": kwargs.get("top_k", 10),
                 "chunk_top_k": kwargs.get("chunk_top_k", 5),

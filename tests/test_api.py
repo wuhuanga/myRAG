@@ -45,7 +45,7 @@ class TestAdminEndpoints:
         payload = {
             "rag_id": "test_api_create",
             "workspace": "test_api_ws",
-            "working_dir": "/tmp/test_api",
+            "working_dir": "./test_api_create",
             "description": "API test instance"
         }
 
