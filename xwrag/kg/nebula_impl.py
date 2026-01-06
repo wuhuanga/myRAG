@@ -1859,8 +1859,31 @@ class NebulaGraphStorage(BaseGraphStorage):
 
                         # 删除属于当前 workspace 的所有节点（包括关联的边）
                         tag = self._tag_name
-                        drop_query = f'MATCH (n:{tag}) WHERE n.workspace == "{self._escape_string(self.workspace)}" DELETE n WITH EDGE'
-                        result = temp_session.execute(drop_query)
+
+                        # 第一步：查询所有属于当前 workspace 的节点 ID
+                        match_query = f'MATCH (n:{tag}) WHERE n.workspace == "{self._escape_string(self.workspace)}" RETURN id(n) AS vid'
+                        match_result = temp_session.execute(match_query)
+
+                        if not match_result.is_succeeded():
+                            return {"status": "error", "message": f"Failed to query workspace nodes: {match_result.error_msg()}"}
+
+                        # 收集所有节点 ID
+                        vertex_ids = []
+                        if match_result.row_size() > 0:
+                            for row in match_result:
+                                vid = row.values[0].as_string()
+                                vertex_ids.append(vid)
+
+                        # 第二步：如果有节点，批量删除
+                        if vertex_ids:
+                            # 使用 DELETE VERTEX 语法删除节点及其关联的边
+                            vid_list = ",".join([f'"{vid}"' for vid in vertex_ids])
+                            delete_query = f'DELETE VERTEX {vid_list} WITH EDGE'
+                            result = temp_session.execute(delete_query)
+                        else:
+                            # 没有节点需要删除，视为成功
+                            logger.info(f"[{self.workspace}] No nodes to delete for workspace '{self.workspace}'")
+                            result = type('obj', (object,), {'is_succeeded': lambda: True})()
 
                         if result.is_succeeded():
                             logger.info(f"[{self.workspace}] ✅ Dropped workspace '{self.workspace}' data from Space: {self._space_name}")

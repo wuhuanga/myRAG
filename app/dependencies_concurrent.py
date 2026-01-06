@@ -778,12 +778,14 @@ class ConcurrentRAGInstanceManager:
                 else:
                     db_name = os.getenv("MILVUS_DB_NAME", "default")
 
-                # 临时连接
+                # 临时连接（直接指定数据库）
                 alias = f"cleanup_{rag_id}"
-                connections.connect(alias=alias, host=milvus_host, port=milvus_port)
-
-                # 切换到统一 database
-                utility.using_database(db_name, using=alias)
+                connections.connect(
+                    alias=alias,
+                    host=milvus_host,
+                    port=milvus_port,
+                    db_name=db_name  # 在连接时指定数据库
+                )
 
                 # 列出所有 collections，筛选出属于当前 workspace 的
                 all_collections = utility.list_collections(using=alias)
