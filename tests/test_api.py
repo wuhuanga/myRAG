@@ -14,7 +14,19 @@ API 端点测试
 import pytest
 import requests
 import time
-from conftest import wait_for_indexing, assert_response_structure
+from typing import Dict, Any, List
+
+
+def wait_for_indexing(seconds: int = 10):
+    """等待索引完成"""
+    print(f"⏳ 等待 {seconds} 秒让索引完成...")
+    time.sleep(seconds)
+
+
+def assert_response_structure(response: Dict[str, Any], required_fields: List[str]):
+    """验证响应结构"""
+    for field in required_fields:
+        assert field in response, f"Response missing required field: {field}"
 
 
 @pytest.mark.integration

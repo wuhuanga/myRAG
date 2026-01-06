@@ -16,7 +16,12 @@ import time
 import asyncio
 import concurrent.futures
 from typing import List
-from conftest import wait_for_indexing
+
+
+def wait_for_indexing(seconds: int = 10):
+    """等待索引完成"""
+    print(f"⏳ 等待 {seconds} 秒让索引完成...")
+    time.sleep(seconds)
 
 
 @pytest.mark.integration
