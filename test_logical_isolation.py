@@ -170,11 +170,14 @@ class LogicalIsolationTester:
     def insert_document(self, rag_id: str, content: str, file_name: str) -> bool:
         """插入文档"""
         try:
-            # 注意：这里假设你的 API 端点是 /api/documents/upload_text/{rag_id}
-            # 如果实际端点不同，请调整
+            # 使用 /api/documents/insert 端点和 InsertRequest 模型
             resp = requests.post(
-                f"{self.base_url}/api/documents/upload_text/{rag_id}",
-                json={"content": content, "file_name": file_name},
+                f"{self.base_url}/api/documents/insert",
+                json={
+                    "rag_id": rag_id,
+                    "content": content,
+                    "file_path": file_name  # InsertRequest 使用 file_path 字段
+                },
                 timeout=120
             )
 
@@ -192,9 +195,15 @@ class LogicalIsolationTester:
     def query_instance(self, rag_id: str, question: str, expect_success: bool = True) -> bool:
         """查询实例"""
         try:
+            # 使用 /api/query/ 端点和 QueryRequest 模型（rag_id 在请求体中）
             resp = requests.post(
-                f"{self.base_url}/api/query/{rag_id}",
-                json={"question": question, "mode": "hybrid", "only_need_context": True},
+                f"{self.base_url}/api/query/",
+                json={
+                    "rag_id": rag_id,
+                    "question": question,
+                    "mode": "hybrid",
+                    "only_need_context": True
+                },
                 timeout=60
             )
 
