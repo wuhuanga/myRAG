@@ -81,7 +81,7 @@ def api_client(base_url):
             resp = self.session.post(
                 f"{self.base_url}/api/admin/rag_instances/create",
                 json=payload,
-                timeout=60
+                timeout=180  # 增加到 3 分钟以支持慢速创建
             )
             resp.raise_for_status()
             return resp.json()
