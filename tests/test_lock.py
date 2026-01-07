@@ -78,12 +78,12 @@ class TestStorageKeyedLock:
 
         async def locked_operation(op_id: int, duration: float):
             """模拟需要锁保护的操作"""
-            start = time.time()
             async with get_storage_keyed_lock(keys=["same_key"], namespace="test_serial"):
+                start = time.time()
                 print(f"Operation {op_id} acquired lock at {start:.2f}")
                 await asyncio.sleep(duration)
-            end = time.time()
-            execution_times.append((op_id, start, end))
+                end = time.time()
+                execution_times.append((op_id, start, end))
             print(f"Operation {op_id} released lock at {end:.2f}")
 
         # 并发执行两个相同 key 的操作
@@ -203,13 +203,21 @@ class TestStorageKeyedLock:
             """尝试嵌套获取锁"""
             async with get_storage_keyed_lock(keys=["reentry_test"], namespace="test_reentry"):
                 print("Outer lock acquired")
+                # 尝试再次获取相同的锁，使用超时避免死锁
                 try:
-                    # 尝试再次获取相同的锁
-                    async with get_storage_keyed_lock(keys=["reentry_test"], namespace="test_reentry"):
-                        print("Inner lock acquired (reentrant)")
-                        return "reentrant"
+                    await asyncio.wait_for(
+                        asyncio.create_task(
+                            get_storage_keyed_lock(keys=["reentry_test"], namespace="test_reentry").__aenter__()
+                        ),
+                        timeout=1.0
+                    )
+                    print("Inner lock acquired (reentrant)")
+                    return "reentrant"
+                except asyncio.TimeoutError:
+                    print("Reentry blocked (non-reentrant): timeout waiting for lock")
+                    return "non_reentrant"
                 except Exception as e:
-                    print(f"Reentry blocked (non-reentrant): {e}")
+                    print(f"Reentry blocked with exception: {e}")
                     return "non_reentrant"
 
         result = await nested_lock_attempt()
