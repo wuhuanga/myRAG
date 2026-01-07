@@ -24,6 +24,15 @@ sys.path.insert(0, str(project_root))
 # 配置 Fixtures
 # ============================================================
 
+@pytest.fixture(scope="session", autouse=True)
+def initialize_shared_data():
+    """初始化共享数据（用于 lock 测试）"""
+    from xwrag.kg.shared_storage import initialize_share_data
+    # 初始化单进程模式的共享数据
+    initialize_share_data(workers=1)
+    yield
+
+
 @pytest.fixture(scope="session")
 def base_url():
     """API 基础 URL"""
