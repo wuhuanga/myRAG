@@ -40,15 +40,21 @@ class PerformanceTester:
             "description": f"Performance test {rag_id}",
         }
 
+        url = f"{self.base_url}/api/admin/rag_instances/create"
+
+        print(f"\n  → 请求 URL: {url}")
+        print(f"  → 请求数据: {payload}")
+
         start = time.time()
-        resp = self.session.post(
-            f"{self.base_url}/api/admin/rag_instances/create",
-            json=payload,
-            timeout=180
-        )
+        resp = self.session.post(url, json=payload, timeout=180)
         duration = time.time() - start
 
         resp.raise_for_status()
+        result = resp.json()
+
+        print(f"  ← 响应数据: {result}")
+        print(f"  ← 耗时: {duration:.2f}s")
+
         self.stats["create_instance"].append(duration)
         return duration
 
@@ -60,15 +66,21 @@ class PerformanceTester:
             "file_path": file_path,
         }
 
+        url = f"{self.base_url}/api/documents/insert"
+
+        print(f"\n  → 请求 URL: {url}")
+        print(f"  → 请求数据: {{rag_id: {rag_id}, file_path: {file_path}, content: {content[:50]}...}}")
+
         start = time.time()
-        resp = self.session.post(
-            f"{self.base_url}/api/documents/insert",
-            json=payload,
-            timeout=120
-        )
+        resp = self.session.post(url, json=payload, timeout=120)
         duration = time.time() - start
 
         resp.raise_for_status()
+        result = resp.json()
+
+        print(f"  ← 响应数据: {result}")
+        print(f"  ← 耗时: {duration:.2f}s")
+
         self.stats["insert_document"].append(duration)
         return duration
 
@@ -81,29 +93,47 @@ class PerformanceTester:
             "only_need_context": True,
         }
 
+        url = f"{self.base_url}/api/query/"
+
+        print(f"\n  → 请求 URL: {url}")
+        print(f"  → 请求数据: {payload}")
+
         start = time.time()
-        resp = self.session.post(
-            f"{self.base_url}/api/query/",
-            json=payload,
-            timeout=60
-        )
+        resp = self.session.post(url, json=payload, timeout=60)
         duration = time.time() - start
 
         resp.raise_for_status()
+        result = resp.json()
+
+        # 截断过长的响应
+        result_display = str(result)
+        if len(result_display) > 200:
+            result_display = result_display[:200] + "..."
+
+        print(f"  ← 响应数据: {result_display}")
+        print(f"  ← 耗时: {duration:.2f}s")
+
         self.stats["query"].append(duration)
         return duration
 
     def test_delete_instance(self, rag_id):
         """测试删除实例"""
+        url = f"{self.base_url}/api/admin/rag_instances/{rag_id}/complete"
+        params = {"cleanup_storage": True}
+
+        print(f"\n  → 请求 URL: {url}")
+        print(f"  → 请求参数: {params}")
+
         start = time.time()
-        resp = self.session.delete(
-            f"{self.base_url}/api/admin/rag_instances/{rag_id}/complete",
-            params={"cleanup_storage": True},
-            timeout=120
-        )
+        resp = self.session.delete(url, params=params, timeout=120)
         duration = time.time() - start
 
         resp.raise_for_status()
+        result = resp.json()
+
+        print(f"  ← 响应数据: {result}")
+        print(f"  ← 耗时: {duration:.2f}s")
+
         self.stats["delete_instance"].append(duration)
         return duration
 
@@ -182,13 +212,14 @@ def main():
             rag_id = f"perf_test_{i}"
             workspace = f"perf_ws_{i}"
 
-            print(f"[{i+1}/{num_instances}] 创建 {rag_id}...", end=" ")
+            print(f"\n[{i+1}/{num_instances}] 创建 {rag_id}")
+            print("-" * 80)
             try:
                 duration = tester.test_create_instance(rag_id, workspace)
                 created_instances.append(rag_id)
-                print(f"✓ ({duration:.2f}s)")
+                print(f"  ✓ 成功")
             except Exception as e:
-                print(f"✗ ({e})")
+                print(f"  ✗ 失败: {e}")
 
         print()
 
@@ -209,12 +240,13 @@ def main():
                 content = test_contents[j % len(test_contents)]
                 file_path = f"perf_doc_{i}_{j}.txt"
 
-                print(f"  [{j+1}/{docs_per_instance}] 插入文档...", end=" ")
+                print(f"\n  [{j+1}/{docs_per_instance}] 插入文档")
+                print("  " + "-" * 78)
                 try:
                     duration = tester.test_insert_document(rag_id, content, file_path)
-                    print(f"✓ ({duration:.2f}s)")
+                    print(f"  ✓ 成功")
                 except Exception as e:
-                    print(f"✗ ({e})")
+                    print(f"  ✗ 失败: {e}")
 
         # 等待索引
         print("\n等待索引完成...", end=" ")
@@ -240,12 +272,13 @@ def main():
             for j in range(queries_per_instance):
                 question = test_queries[j % len(test_queries)]
 
-                print(f"  [{j+1}/{queries_per_instance}] 查询: {question[:20]}...", end=" ")
+                print(f"\n  [{j+1}/{queries_per_instance}] 查询: {question}")
+                print("  " + "-" * 78)
                 try:
                     duration = tester.test_query(rag_id, question)
-                    print(f"✓ ({duration:.2f}s)")
+                    print(f"  ✓ 成功")
                 except Exception as e:
-                    print(f"✗ ({e})")
+                    print(f"  ✗ 失败: {e}")
 
         print()
 
@@ -255,12 +288,13 @@ def main():
         print("阶段 4: 清理")
         print("=" * 80)
         for i, rag_id in enumerate(created_instances):
-            print(f"[{i+1}/{len(created_instances)}] 删除 {rag_id}...", end=" ")
+            print(f"\n[{i+1}/{len(created_instances)}] 删除 {rag_id}")
+            print("-" * 80)
             try:
                 duration = tester.test_delete_instance(rag_id)
-                print(f"✓ ({duration:.2f}s)")
+                print(f"  ✓ 成功")
             except Exception as e:
-                print(f"✗ ({e})")
+                print(f"  ✗ 失败: {e}")
 
     # 打印统计
     tester.print_stats()
