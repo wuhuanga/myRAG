@@ -190,8 +190,6 @@ def main():
             except Exception as e:
                 print(f"✗ ({e})")
 
-            time.sleep(1)
-
         print()
 
         # 2. 测试插入文档
@@ -217,8 +215,6 @@ def main():
                     print(f"✓ ({duration:.2f}s)")
                 except Exception as e:
                     print(f"✗ ({e})")
-
-                time.sleep(0.5)
 
         # 等待索引
         print("\n等待索引完成...", end=" ")
@@ -251,8 +247,6 @@ def main():
                 except Exception as e:
                     print(f"✗ ({e})")
 
-                time.sleep(0.3)
-
         print()
 
     finally:
@@ -267,8 +261,6 @@ def main():
                 print(f"✓ ({duration:.2f}s)")
             except Exception as e:
                 print(f"✗ ({e})")
-
-            time.sleep(0.5)
 
     # 打印统计
     tester.print_stats()
