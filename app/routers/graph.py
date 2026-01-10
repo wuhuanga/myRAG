@@ -3,9 +3,9 @@
 图操作路由 - 实体和关系管理
 """
 import logging
-from typing import Literal
+from typing import Literal, List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from ..dependencies_concurrent import get_concurrent_rag_manager
 from ..models import (
@@ -332,51 +332,111 @@ async def get_relation_info(request: RelationInfoRequest):
 
 # ==================== 数据导出接口 ====================
 
-@router.get("/echarts/top-k/{rag_id}")
-async def get_top_k_degree_subgraph(rag_id: str, k: int = 10):
+@router.get("/echarts/top-k")
+async def get_top_k_degree_subgraph(
+    rag_ids: List[str] = Query(..., description="知识库 ID 列表"),
+    k: int = Query(10, description="返回度数最高的 k 个节点")
+):
     """
-    获取度数最高的 top k 个节点构成的子图（ECharts 格式）
+    获取一个或多个知识库中度数最高的 top k 个节点构成的子图（ECharts 格式）
+
+    每个知识库分别取 top-k 节点，然后合并结果
 
     Args:
-        rag_id: RAG 实例 ID
+        rag_ids: 知识库 ID 列表（支持传入一个或多个）
         k: 返回度数最高的 k 个节点（默认 10）
+
+    URL 示例：
+        /api/graph/echarts/top-k?rag_ids=kb1&rag_ids=kb2&k=10
 
     返回格式：
     {
         "status": "success",
-        "rag_id": "...",
+        "rag_ids": ["kb1", "kb2"],
+        "k": 10,
         "data": {
-            "nodes": [...],
-            "links": [...],
+            "nodes": [
+                {"id": "实体A", "name": "实体A", "rag_id": "kb1", ...}
+            ],
+            "links": [
+                {"source": "实体A", "target": "实体B", "rag_id": "kb1", ...}
+            ],
             "categories": [...]
         }
     }
     """
+    if not rag_ids:
+        raise HTTPException(status_code=400, detail="至少需要提供一个知识库 ID")
+
     manager = get_concurrent_rag_manager()
 
-    try:
-        processor = manager.get_instance(rag_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    # 存储合并后的节点和边
+    all_nodes = {}  # key: (node_id, rag_id), value: node_dict
+    all_links = []
+    all_categories = {}  # key: category_name, value: category_dict
+    valid_rag_ids = []
 
-    if processor.rag is None:
-        raise HTTPException(status_code=400, detail="RAG 系统未初始化")
+    for rag_id in rag_ids:
+        try:
+            processor = manager.get_instance(rag_id)
+        except ValueError as e:
+            logger.warning(f"知识库 {rag_id} 不存在: {str(e)}")
+            continue
 
-    try:
-        # 调用 NebulaGraph 的子图查询方法
-        chunk_entity_relation_graph = processor.rag.chunk_entity_relation_graph
-        echarts_data = await chunk_entity_relation_graph.get_top_k_degree_subgraph_echarts(k)
+        if processor.rag is None:
+            logger.warning(f"知识库 {rag_id} 的 RAG 系统未初始化")
+            continue
 
-        return {
-            "status": "success",
-            "rag_id": rag_id,
-            "k": k,
-            "data": echarts_data,
+        try:
+            # 调用 NebulaGraph 的子图查询方法
+            chunk_entity_relation_graph = processor.rag.chunk_entity_relation_graph
+            echarts_data = await chunk_entity_relation_graph.get_top_k_degree_subgraph_echarts(k)
+
+            # 处理节点：添加 rag_id 标注
+            for node in echarts_data.get("nodes", []):
+                node_id = node.get("id") or node.get("name")
+                # 使用 (node_id, rag_id) 作为唯一键
+                node_key = (node_id, rag_id)
+                if node_key not in all_nodes:
+                    # 添加 rag_id 字段
+                    node_with_tag = node.copy()
+                    node_with_tag["rag_id"] = rag_id
+                    all_nodes[node_key] = node_with_tag
+
+            # 处理边：添加 rag_id 标注
+            for link in echarts_data.get("links", []):
+                link_with_tag = link.copy()
+                link_with_tag["rag_id"] = rag_id
+                all_links.append(link_with_tag)
+
+            # 合并分类
+            for category in echarts_data.get("categories", []):
+                cat_name = category.get("name")
+                if cat_name and cat_name not in all_categories:
+                    all_categories[cat_name] = category
+
+            valid_rag_ids.append(rag_id)
+
+        except Exception as e:
+            logger.error(f"获取知识库 {rag_id} 的 top-{k} 子图失败: {str(e)}")
+            continue
+
+    if not valid_rag_ids:
+        raise HTTPException(
+            status_code=404,
+            detail="没有找到有效的知识库或所有知识库的 RAG 系统未初始化"
+        )
+
+    return {
+        "status": "success",
+        "rag_ids": valid_rag_ids,
+        "k": k,
+        "data": {
+            "nodes": list(all_nodes.values()),
+            "links": all_links,
+            "categories": list(all_categories.values()),
         }
-
-    except Exception as e:
-        logger.error(f"获取 top {k} 度数子图失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"获取子图失败: {str(e)}")
+    }
 
 
 @router.get("/echarts/neighbors/{rag_id}")
