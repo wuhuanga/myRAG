@@ -19,6 +19,7 @@ from ..models import (
     RelationDeleteRequest,
     RelationInfoRequest,
     ExportDataRequest,
+    MultiKnowledgeGraphRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -585,3 +586,192 @@ async def export_data(request: ExportDataRequest):
     except Exception as e:
         logger.error(f"导出数据失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"导出数据失败: {str(e)}")
+
+
+# ==================== 多知识库图谱查询接口 ====================
+
+@router.post("/echarts/multi")
+async def get_multi_knowledge_graph(request: MultiKnowledgeGraphRequest):
+    """
+    获取多个知识库的 ECharts 格式图谱数据
+
+    支持查询单个或多个知识库，返回合并后的图谱数据，
+    节点和边都带有 rag_id 标识来源。
+
+    请求示例:
+    {
+        "rag_ids": ["kb1", "kb2", "kb3"]
+    }
+
+    返回格式：
+    {
+        "status": "success",
+        "rag_ids": ["kb1", "kb2"],
+        "data": {
+            "nodes": [
+                {"id": "...", "name": "...", "rag_id": "kb1", ...},
+                {"id": "...", "name": "...", "rag_id": "kb2", ...}
+            ],
+            "links": [
+                {"source": "...", "target": "...", "rag_id": "kb1", ...},
+                {"source": "...", "target": "...", "rag_id": "kb2", ...}
+            ],
+            "categories": [...]
+        }
+    }
+    """
+    manager = get_concurrent_rag_manager()
+
+    if not request.rag_ids:
+        raise HTTPException(status_code=400, detail="rag_ids 不能为空")
+
+    # 收集所有知识库的数据
+    all_nodes = []
+    all_links = []
+    all_categories_set = set()
+    entity_type_map = {}
+    node_degrees = {}
+    valid_rag_ids = []
+
+    for rag_id in request.rag_ids:
+        try:
+            processor = manager.get_instance(rag_id)
+        except ValueError:
+            logger.warning(f"知识库 {rag_id} 不存在，跳过")
+            continue
+
+        if processor.rag is None:
+            logger.warning(f"知识库 {rag_id} 未初始化，跳过")
+            continue
+
+        valid_rag_ids.append(rag_id)
+
+        try:
+            # 获取该知识库的图谱数据
+            chunk_entity_relation_graph = processor.rag.chunk_entity_relation_graph
+
+            # 获取所有节点
+            nodes_raw = await chunk_entity_relation_graph.get_all_nodes()
+            for node in nodes_raw:
+                entity_name = node.get("id", "")
+                graph_data = {k: v for k, v in node.items() if k != "id"}
+                entity_type = graph_data.get("entity_type", "UNKNOWN")
+
+                # 记录实体类型
+                all_categories_set.add(entity_type)
+                # 使用 (entity_name, rag_id) 作为唯一键
+                entity_key = (entity_name, rag_id)
+                entity_type_map[entity_key] = entity_type
+
+                # 初始化度数
+                if entity_key not in node_degrees:
+                    node_degrees[entity_key] = 0
+
+                # 存储节点（添加 rag_id）
+                node_data = {
+                    "entity_name": entity_name,
+                    "graph_data": graph_data,
+                    "rag_id": rag_id  # 添加 rag_id 标识
+                }
+                all_nodes.append(node_data)
+
+            # 获取所有边
+            relations_raw = await chunk_entity_relation_graph.get_all_edges()
+            for edge in relations_raw:
+                src_entity = edge.get("source", "")
+                tgt_entity = edge.get("target", "")
+                graph_data = {k: v for k, v in edge.items() if k not in ["source", "target"]}
+
+                # 计算度数（同一知识库内的边）
+                src_key = (src_entity, rag_id)
+                tgt_key = (tgt_entity, rag_id)
+                node_degrees[src_key] = node_degrees.get(src_key, 0) + 1
+                node_degrees[tgt_key] = node_degrees.get(tgt_key, 0) + 1
+
+                # 存储边（添加 rag_id）
+                link_data = {
+                    "src_entity": src_entity,
+                    "tgt_entity": tgt_entity,
+                    "graph_data": graph_data,
+                    "rag_id": rag_id  # 添加 rag_id 标识
+                }
+                all_links.append(link_data)
+
+        except Exception as e:
+            logger.error(f"获取知识库 {rag_id} 的图谱数据失败: {str(e)}")
+            continue
+
+    if not valid_rag_ids:
+        raise HTTPException(status_code=404, detail="没有找到有效的知识库")
+
+    # 构建 ECharts 数据结构
+    # 1. 构建分类
+    categories = [{"name": et} for et in sorted(all_categories_set)]
+    category_index = {et: i for i, et in enumerate(sorted(all_categories_set))}
+
+    # 2. 构建节点
+    echarts_nodes = []
+    for node_data in all_nodes:
+        entity_name = node_data["entity_name"]
+        rag_id = node_data["rag_id"]
+        entity_key = (entity_name, rag_id)
+        entity_type = entity_type_map.get(entity_key, "UNKNOWN")
+        graph_data = node_data.get("graph_data", {})
+
+        # 生成唯一 ID：entity_name@rag_id
+        unique_id = f"{entity_name}@{rag_id}"
+
+        echarts_node = {
+            "id": unique_id,
+            "name": entity_name,
+            "value": node_degrees.get(entity_key, 1),
+            "category": category_index.get(entity_type, 0),
+            "entity_type": entity_type,
+            "rag_id": rag_id  # 标识来源
+        }
+
+        if graph_data and graph_data.get("description"):
+            echarts_node["description"] = graph_data.get("description", "")
+
+        echarts_nodes.append(echarts_node)
+
+    # 3. 构建边
+    echarts_links = []
+    for link_data in all_links:
+        src_entity = link_data["src_entity"]
+        tgt_entity = link_data["tgt_entity"]
+        rag_id = link_data["rag_id"]
+        graph_data = link_data.get("graph_data", {})
+
+        # 生成唯一 ID
+        src_unique_id = f"{src_entity}@{rag_id}"
+        tgt_unique_id = f"{tgt_entity}@{rag_id}"
+
+        echarts_link = {
+            "source": src_unique_id,
+            "target": tgt_unique_id,
+            "rag_id": rag_id  # 标识来源
+        }
+
+        if graph_data:
+            if graph_data.get("description"):
+                echarts_link["description"] = graph_data.get("description", "")
+            if graph_data.get("weight"):
+                echarts_link["weight"] = graph_data.get("weight", 1.0)
+            if graph_data.get("keywords"):
+                echarts_link["keywords"] = graph_data.get("keywords", "")
+
+        echarts_links.append(echarts_link)
+
+    # 返回 ECharts 数据
+    echarts_data = {
+        "nodes": echarts_nodes,
+        "links": echarts_links,
+        "categories": categories
+    }
+
+    return {
+        "status": "success",
+        "rag_ids": valid_rag_ids,
+        "data": echarts_data,
+    }

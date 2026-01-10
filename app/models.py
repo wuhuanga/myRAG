@@ -329,3 +329,15 @@ class ClearCacheRequest(BaseModel):
     """清除缓存请求"""
     rag_id: str
     cache_type: Literal["llm_cache", "all"] = "all"
+
+
+# ==================== 多知识库图谱查询相关模型 ====================
+
+class MultiKnowledgeGraphRequest(BaseModel):
+    """
+    多知识库图谱查询请求模型
+
+    支持查询单个或多个知识库的图谱数据
+    """
+    rag_ids: List[str]  # 知识库 ID 列表，支持一个或多个
+
