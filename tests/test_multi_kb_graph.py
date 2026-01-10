@@ -159,10 +159,11 @@ class TestMultiKBGraph:
 
     async def _insert_document(self, session, rag_id, file_path):
         """插入文档"""
-        url = f"{BASE_URL}{API_PREFIX}/admin/rag_instances/{rag_id}/insert"
+        url = f"{BASE_URL}{API_PREFIX}/documents/upload"
 
         with open(file_path, 'rb') as f:
             data = aiohttp.FormData()
+            data.add_field('rag_id', rag_id)
             data.add_field('file', f, filename=os.path.basename(file_path))
 
             try:
