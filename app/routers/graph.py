@@ -439,180 +439,281 @@ async def get_top_k_degree_subgraph(
     }
 
 
-@router.get("/echarts/neighbors/{rag_id}")
-async def get_node_neighbors_subgraph(rag_id: str, node_id: str):
+@router.get("/echarts/neighbors")
+async def get_node_neighbors_subgraph(
+    node_id: str = Query(..., description="中心节点的 ID"),
+    rag_ids: List[str] = Query(..., description="知识库 ID 列表")
+):
     """
-    获取指定节点及其邻居节点构成的子图（ECharts 格式）
+    获取指定节点在一个或多个知识库中的邻居子图（ECharts 格式）
 
     Args:
-        rag_id: RAG 实例 ID
-        node_id: 中心节点的 ID
+        node_id: 中心节点的 ID（实体名）
+        rag_ids: 知识库 ID 列表（支持传入一个或多个）
+
+    URL 示例：
+        /api/graph/echarts/neighbors?node_id=实体A&rag_ids=kb1&rag_ids=kb2
 
     返回格式：
     {
         "status": "success",
-        "rag_id": "...",
-        "node_id": "...",
+        "node_id": "实体A",
+        "rag_ids": ["kb1", "kb2"],
         "data": {
-            "nodes": [...],
-            "links": [...],
+            "nodes": [{"id": "实体A", "rag_id": "kb1", ...}],
+            "links": [{"source": "A", "target": "B", "rag_id": "kb1", ...}],
             "categories": [...]
         }
     }
     """
+    if not rag_ids:
+        raise HTTPException(status_code=400, detail="至少需要提供一个知识库 ID")
+
     manager = get_concurrent_rag_manager()
 
-    try:
-        processor = manager.get_instance(rag_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    # 存储合并后的节点和边
+    all_nodes = {}  # key: (node_id, rag_id), value: node_dict
+    all_links = []
+    all_categories = {}  # key: category_name, value: category_dict
+    valid_rag_ids = []
 
-    if processor.rag is None:
-        raise HTTPException(status_code=400, detail="RAG 系统未初始化")
+    for rag_id in rag_ids:
+        try:
+            processor = manager.get_instance(rag_id)
+        except ValueError as e:
+            logger.warning(f"知识库 {rag_id} 不存在: {str(e)}")
+            continue
 
-    try:
-        # 调用 NebulaGraph 的邻居子图查询方法
-        chunk_entity_relation_graph = processor.rag.chunk_entity_relation_graph
-        echarts_data = await chunk_entity_relation_graph.get_node_neighbors_subgraph_echarts(node_id)
+        if processor.rag is None:
+            logger.warning(f"知识库 {rag_id} 的 RAG 系统未初始化")
+            continue
 
-        return {
-            "status": "success",
-            "rag_id": rag_id,
-            "node_id": node_id,
-            "data": echarts_data,
+        try:
+            # 调用 NebulaGraph 的邻居子图查询方法
+            chunk_entity_relation_graph = processor.rag.chunk_entity_relation_graph
+            echarts_data = await chunk_entity_relation_graph.get_node_neighbors_subgraph_echarts(node_id)
+
+            # 处理节点：添加 rag_id 标注
+            for node in echarts_data.get("nodes", []):
+                node_name = node.get("id") or node.get("name")
+                # 使用 (node_name, rag_id) 作为唯一键
+                node_key = (node_name, rag_id)
+                if node_key not in all_nodes:
+                    # 添加 rag_id 字段
+                    node_with_tag = node.copy()
+                    node_with_tag["rag_id"] = rag_id
+                    all_nodes[node_key] = node_with_tag
+
+            # 处理边：添加 rag_id 标注
+            for link in echarts_data.get("links", []):
+                link_with_tag = link.copy()
+                link_with_tag["rag_id"] = rag_id
+                all_links.append(link_with_tag)
+
+            # 合并分类
+            for category in echarts_data.get("categories", []):
+                cat_name = category.get("name")
+                if cat_name and cat_name not in all_categories:
+                    all_categories[cat_name] = category
+
+            valid_rag_ids.append(rag_id)
+
+        except Exception as e:
+            logger.error(f"获取知识库 {rag_id} 中节点 '{node_id}' 的邻居子图失败: {str(e)}")
+            continue
+
+    if not valid_rag_ids:
+        raise HTTPException(
+            status_code=404,
+            detail="没有找到有效的知识库或所有知识库的 RAG 系统未初始化"
+        )
+
+    return {
+        "status": "success",
+        "node_id": node_id,
+        "rag_ids": valid_rag_ids,
+        "data": {
+            "nodes": list(all_nodes.values()),
+            "links": all_links,
+            "categories": list(all_categories.values()),
         }
-
-    except Exception as e:
-        logger.error(f"获取节点 '{node_id}' 邻居子图失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"获取邻居子图失败: {str(e)}")
+    }
 
 
-@router.get("/echarts/{rag_id}")
-async def get_echarts_graph(rag_id: str):
+@router.get("/echarts")
+async def get_echarts_graph(
+    rag_ids: List[str] = Query(..., description="知识库 ID 列表")
+):
     """
-    获取 ECharts 格式的知识图谱数据（直接返回 JSON）
+    获取一个或多个知识库的 ECharts 格式知识图谱数据
+
+    Args:
+        rag_ids: 知识库 ID 列表（支持传入一个或多个）
+
+    URL 示例：
+        /api/graph/echarts?rag_ids=kb1&rag_ids=kb2
 
     返回格式：
     {
-        "nodes": [...],
-        "links": [...],
-        "categories": [...]
+        "status": "success",
+        "rag_ids": ["kb1", "kb2"],
+        "data": {
+            "nodes": [{"id": "实体A", "rag_id": "kb1", ...}],
+            "links": [{"source": "A", "target": "B", "rag_id": "kb1", ...}],
+            "categories": [...]
+        }
     }
     """
+    if not rag_ids:
+        raise HTTPException(status_code=400, detail="至少需要提供一个知识库 ID")
+
     manager = get_concurrent_rag_manager()
 
-    try:
-        processor = manager.get_instance(rag_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    # 存储合并后的节点和边
+    all_nodes = {}  # key: (entity_name, rag_id), value: node_dict
+    all_links = []
+    all_categories = {}  # key: category_name, value: category_dict
+    valid_rag_ids = []
 
-    if processor.rag is None:
-        raise HTTPException(status_code=400, detail="RAG 系统未初始化")
+    for rag_id in rag_ids:
+        try:
+            processor = manager.get_instance(rag_id)
+        except ValueError as e:
+            logger.warning(f"知识库 {rag_id} 不存在: {str(e)}")
+            continue
 
-    try:
-        # 获取原始数据
-        chunk_entity_relation_graph = processor.rag.chunk_entity_relation_graph
+        if processor.rag is None:
+            logger.warning(f"知识库 {rag_id} 的 RAG 系统未初始化")
+            continue
 
-        # 获取所有实体和关系（兼容 NebulaGraphStorage）
-        nodes_raw = await chunk_entity_relation_graph.get_all_nodes()
-        entities_data = []
-        for node in nodes_raw:
-            entity_name = node.get("id", "")
-            # NebulaGraphStorage 将所有属性直接存储在顶层
-            graph_data = {k: v for k, v in node.items() if k != "id"}
-            entities_data.append({
-                "entity_name": entity_name,
-                "graph_data": graph_data,
-            })
+        try:
+            # 获取原始数据
+            chunk_entity_relation_graph = processor.rag.chunk_entity_relation_graph
 
-        relations_data_raw = await chunk_entity_relation_graph.get_all_edges()
-        relations_data = []
-        for edge in relations_data_raw:
-            # NebulaGraphStorage 返回 {"source": ..., "target": ..., ...其他属性...}
-            src_entity = edge.get("source", "")
-            tgt_entity = edge.get("target", "")
-            # 其他属性作为 graph_data
-            graph_data = {k: v for k, v in edge.items() if k not in ["source", "target"]}
-            relations_data.append({
-                "src_entity": src_entity,
-                "tgt_entity": tgt_entity,
-                "graph_data": graph_data,
-            })
+            # 获取所有实体和关系（兼容 NebulaGraphStorage）
+            nodes_raw = await chunk_entity_relation_graph.get_all_nodes()
+            entities_data = []
+            for node in nodes_raw:
+                entity_name = node.get("id", "")
+                # NebulaGraphStorage 将所有属性直接存储在顶层
+                graph_data = {k: v for k, v in node.items() if k != "id"}
+                entities_data.append({
+                    "entity_name": entity_name,
+                    "graph_data": graph_data,
+                })
 
-        # 构建 ECharts 数据结构
-        # 1. 构建分类
-        entity_types_set = set()
-        entity_type_map = {}
+            relations_data_raw = await chunk_entity_relation_graph.get_all_edges()
+            relations_data = []
+            for edge in relations_data_raw:
+                # NebulaGraphStorage 返回 {"source": ..., "target": ..., ...其他属性...}
+                src_entity = edge.get("source", "")
+                tgt_entity = edge.get("target", "")
+                # 其他属性作为 graph_data
+                graph_data = {k: v for k, v in edge.items() if k not in ["source", "target"]}
+                relations_data.append({
+                    "src_entity": src_entity,
+                    "tgt_entity": tgt_entity,
+                    "graph_data": graph_data,
+                })
 
-        for entity in entities_data:
-            graph_data = entity.get("graph_data", {})
-            entity_type = graph_data.get("entity_type", "UNKNOWN")
-            entity_types_set.add(entity_type)
-            entity_type_map[entity["entity_name"]] = entity_type
+            # 构建 ECharts 数据结构
+            # 1. 构建分类
+            entity_types_set = set()
+            entity_type_map = {}
 
-        categories = [{"name": et} for et in sorted(entity_types_set)]
-        category_index = {et: i for i, et in enumerate(sorted(entity_types_set))}
+            for entity in entities_data:
+                graph_data = entity.get("graph_data", {})
+                entity_type = graph_data.get("entity_type", "UNKNOWN")
+                entity_types_set.add(entity_type)
+                entity_type_map[entity["entity_name"]] = entity_type
 
-        # 2. 计算节点度数
-        node_degrees = {entity["entity_name"]: 0 for entity in entities_data}
-        for relation in relations_data:
-            src = relation["src_entity"]
-            tgt = relation["tgt_entity"]
-            node_degrees[src] = node_degrees.get(src, 0) + 1
-            node_degrees[tgt] = node_degrees.get(tgt, 0) + 1
+            # 合并分类
+            for et in entity_types_set:
+                if et not in all_categories:
+                    all_categories[et] = {"name": et}
 
-        # 3. 构建节点
-        nodes = []
-        for entity in entities_data:
-            entity_name = entity["entity_name"]
-            entity_type = entity_type_map.get(entity_name, "UNKNOWN")
-            graph_data = entity.get("graph_data", {})
+            # 2. 计算节点度数
+            node_degrees = {entity["entity_name"]: 0 for entity in entities_data}
+            for relation in relations_data:
+                src = relation["src_entity"]
+                tgt = relation["tgt_entity"]
+                node_degrees[src] = node_degrees.get(src, 0) + 1
+                node_degrees[tgt] = node_degrees.get(tgt, 0) + 1
 
-            node = {
-                "id": entity_name,
-                "name": entity_name,
-                "value": node_degrees.get(entity_name, 1),
-                "category": category_index.get(entity_type, 0),
-                "entity_type": entity_type,
-            }
+            # 3. 构建节点并添加 rag_id 标注
+            for entity in entities_data:
+                entity_name = entity["entity_name"]
+                entity_type = entity_type_map.get(entity_name, "UNKNOWN")
+                graph_data = entity.get("graph_data", {})
 
-            if graph_data and graph_data.get("description"):
-                node["description"] = graph_data.get("description", "")
+                node_key = (entity_name, rag_id)
+                if node_key not in all_nodes:
+                    node = {
+                        "id": entity_name,
+                        "name": entity_name,
+                        "value": node_degrees.get(entity_name, 1),
+                        "entity_type": entity_type,
+                        "rag_id": rag_id,
+                    }
 
-            nodes.append(node)
+                    if graph_data and graph_data.get("description"):
+                        node["description"] = graph_data.get("description", "")
 
-        # 4. 构建边
-        links = []
-        for relation in relations_data:
-            graph_data = relation.get("graph_data", {})
+                    all_nodes[node_key] = node
 
-            link = {
-                "source": relation["src_entity"],
-                "target": relation["tgt_entity"],
-            }
+            # 4. 构建边并添加 rag_id 标注
+            for relation in relations_data:
+                graph_data = relation.get("graph_data", {})
 
-            if graph_data:
-                if graph_data.get("description"):
-                    link["description"] = graph_data.get("description", "")
-                if graph_data.get("weight"):
-                    link["weight"] = graph_data.get("weight", 1.0)
-                if graph_data.get("keywords"):
-                    link["keywords"] = graph_data.get("keywords", "")
+                link = {
+                    "source": relation["src_entity"],
+                    "target": relation["tgt_entity"],
+                    "rag_id": rag_id,
+                }
 
-            links.append(link)
+                if graph_data:
+                    if graph_data.get("description"):
+                        link["description"] = graph_data.get("description", "")
+                    if graph_data.get("weight"):
+                        link["weight"] = graph_data.get("weight", 1.0)
+                    if graph_data.get("keywords"):
+                        link["keywords"] = graph_data.get("keywords", "")
 
-        # 返回 ECharts 数据
-        echarts_data = {"nodes": nodes, "links": links, "categories": categories}
+                all_links.append(link)
 
-        return {
-            "status": "success",
-            "rag_id": rag_id,
-            "data": echarts_data,
+            valid_rag_ids.append(rag_id)
+
+        except Exception as e:
+            logger.error(f"获取知识库 {rag_id} 的图谱数据失败: {str(e)}")
+            continue
+
+    if not valid_rag_ids:
+        raise HTTPException(
+            status_code=404,
+            detail="没有找到有效的知识库或所有知识库的 RAG 系统未初始化"
+        )
+
+    # 重新计算分类索引
+    categories = [{"name": et} for et in sorted(all_categories.keys())]
+    category_index = {et: i for i, et in enumerate(sorted(all_categories.keys()))}
+
+    # 为所有节点设置正确的 category 索引
+    nodes = []
+    for node in all_nodes.values():
+        node_copy = node.copy()
+        node_copy["category"] = category_index.get(node.get("entity_type", "UNKNOWN"), 0)
+        nodes.append(node_copy)
+
+    # 返回 ECharts 数据
+    return {
+        "status": "success",
+        "rag_ids": valid_rag_ids,
+        "data": {
+            "nodes": nodes,
+            "links": all_links,
+            "categories": categories,
         }
-
-    except Exception as e:
-        logger.error(f"获取 ECharts 图谱数据失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"获取图谱数据失败: {str(e)}")
+    }
 
 
 @router.post("/export")
