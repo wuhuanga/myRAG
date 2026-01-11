@@ -69,8 +69,11 @@ class RAGInstanceInfo(BaseModel):
 # ==================== 查询相关模型 ====================
 
 class QueryRequest(BaseModel):
-    """查询请求模型"""
-    rag_id: str  # 指定使用的 RAG 实例 ID
+    """查询请求模型（支持单知识库和多知识库查询）"""
+    # 知识库标识（二选一）
+    rag_id: Optional[str] = None  # 单知识库模式（向后兼容）
+    rag_ids: Optional[List[str]] = None  # 多知识库模式
+
     question: str
     mode: str = "hybrid"
     only_need_context: bool = True
@@ -90,19 +93,33 @@ class QueryRequest(BaseModel):
     user_prompt: Optional[str] = None  # 用户自定义提示词
     include_references: Optional[bool] = None  # 是否包含引用列表
 
+    def get_rag_ids(self) -> List[str]:
+        """获取知识库 ID 列表（统一处理单库和多库）"""
+        if self.rag_ids:
+            return self.rag_ids
+        elif self.rag_id:
+            return [self.rag_id]
+        else:
+            raise ValueError("必须提供 rag_id 或 rag_ids")
+
 
 class QueryResponse(BaseModel):
     """查询响应模型"""
-    rag_id: str
+    rag_ids: List[str]  # 实际查询的知识库列表
     question: str
     answer: str
     mode: str
     timestamp: str
+    # 可选：每个知识库的贡献来源（用于调试和追踪）
+    sources: Optional[List[Dict[str, Any]]] = None
 
 
 class KeywordsSearchRequest(BaseModel):
-    """关键字检索请求模型"""
-    rag_id: str  # 指定使用的 RAG 实例 ID
+    """关键字检索请求模型（支持单知识库和多知识库查询）"""
+    # 知识库标识（二选一）
+    rag_id: Optional[str] = None  # 单知识库模式（向后兼容）
+    rag_ids: Optional[List[str]] = None  # 多知识库模式
+
     keywords: Optional[List[str]] = None  # 关键字列表（可选）
     mode: str = "hybrid"  # 检索模式
     only_need_context: bool = True  # 只返回上下文，不调用 LLM
@@ -114,27 +131,53 @@ class KeywordsSearchRequest(BaseModel):
     max_total_tokens: Optional[int] = None
     enable_rerank: Optional[bool] = None
 
+    def get_rag_ids(self) -> List[str]:
+        """获取知识库 ID 列表（统一处理单库和多库）"""
+        if self.rag_ids:
+            return self.rag_ids
+        elif self.rag_id:
+            return [self.rag_id]
+        else:
+            raise ValueError("必须提供 rag_id 或 rag_ids")
+
 
 class KeywordsSearchResponse(BaseModel):
     """关键字检索响应模型"""
-    rag_id: str
+    rag_ids: List[str]  # 实际查询的知识库列表
     keywords: Optional[List[str]] = None
     context: str
     mode: str
     timestamp: str
+    # 可选：每个知识库的贡献来源（用于调试和追踪）
+    sources: Optional[List[Dict[str, Any]]] = None
 
 
 class UCDModelRequest(BaseModel):
-    """UCD建模请求模型"""
-    rag_id: str
+    """UCD建模请求模型（支持单知识库和多知识库查询）"""
+    # 知识库标识（二选一）
+    rag_id: Optional[str] = None  # 单知识库模式（向后兼容）
+    rag_ids: Optional[List[str]] = None  # 多知识库模式
+
     question: str
     mode: str = "hybrid"
     out_json: str = "output_uc.json"
 
+    def get_rag_ids(self) -> List[str]:
+        """获取知识库 ID 列表（统一处理单库和多库）"""
+        if self.rag_ids:
+            return self.rag_ids
+        elif self.rag_id:
+            return [self.rag_id]
+        else:
+            raise ValueError("必须提供 rag_id 或 rag_ids")
+
 
 class GraphCleanRequest(BaseModel):
-    """清理后的知识图谱检索请求模型"""
-    rag_id: str  # 指定使用的 RAG 实例 ID
+    """清理后的知识图谱检索请求模型（支持单知识库和多知识库查询）"""
+    # 知识库标识（二选一）
+    rag_id: Optional[str] = None  # 单知识库模式（向后兼容）
+    rag_ids: Optional[List[str]] = None  # 多知识库模式
+
     keywords: Optional[List[str]] = None  # 关键字列表（可选）
     # 检索参数（可选）
     top_k: Optional[int] = None
@@ -143,6 +186,15 @@ class GraphCleanRequest(BaseModel):
     max_relation_tokens: Optional[int] = None
     max_total_tokens: Optional[int] = None
     enable_rerank: Optional[bool] = None
+
+    def get_rag_ids(self) -> List[str]:
+        """获取知识库 ID 列表（统一处理单库和多库）"""
+        if self.rag_ids:
+            return self.rag_ids
+        elif self.rag_id:
+            return [self.rag_id]
+        else:
+            raise ValueError("必须提供 rag_id 或 rag_ids")
 
 
 class CleanEntity(BaseModel):
@@ -162,21 +214,35 @@ class CleanRelationship(BaseModel):
 
 class GraphCleanResponse(BaseModel):
     """清理后的知识图谱检索响应模型"""
-    rag_id: str
+    rag_ids: List[str]  # 实际查询的知识库列表
     keywords: Optional[List[str]] = None
     entities: List[CleanEntity]
     relationships: List[CleanRelationship]
     timestamp: str
+    # 可选：每个知识库的贡献来源（用于调试和追踪）
+    sources: Optional[List[Dict[str, Any]]] = None
 
 
 class ChunksOnlyRequest(BaseModel):
-    """仅返回chunks的检索请求模型"""
-    rag_id: str  # 指定使用的 RAG 实例 ID
+    """仅返回chunks的检索请求模型（支持单知识库和多知识库查询）"""
+    # 知识库标识（二选一）
+    rag_id: Optional[str] = None  # 单知识库模式（向后兼容）
+    rag_ids: Optional[List[str]] = None  # 多知识库模式
+
     keywords: Optional[List[str]] = None  # 关键字列表（可选）
     # 检索参数（可选）
     chunk_top_k: Optional[int] = None
     max_total_tokens: Optional[int] = None
     enable_rerank: Optional[bool] = None
+
+    def get_rag_ids(self) -> List[str]:
+        """获取知识库 ID 列表（统一处理单库和多库）"""
+        if self.rag_ids:
+            return self.rag_ids
+        elif self.rag_id:
+            return [self.rag_id]
+        else:
+            raise ValueError("必须提供 rag_id 或 rag_ids")
 
 
 class ChunkItem(BaseModel):
@@ -189,10 +255,12 @@ class ChunkItem(BaseModel):
 
 class ChunksOnlyResponse(BaseModel):
     """仅返回chunks的检索响应模型"""
-    rag_id: str
+    rag_ids: List[str]  # 实际查询的知识库列表
     keywords: Optional[List[str]] = None
     chunks: List[ChunkItem]
     timestamp: str
+    # 可选：每个知识库的贡献来源（用于调试和追踪）
+    sources: Optional[List[Dict[str, Any]]] = None
 
 
 # ==================== 文档管理相关模型 ====================
