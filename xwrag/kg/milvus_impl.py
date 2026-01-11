@@ -1533,3 +1533,126 @@ class MilvusVectorDBStorage(BaseVectorStorage):
                     f"[{self.workspace}] Error dropping Milvus collection {self.namespace}: {e}"
                 )
                 return {"status": "error", "message": str(e)}
+
+
+# ==================== 多知识库搜索工具函数 ====================
+
+
+async def multi_knowledge_base_search(
+    kb_list: list[str],
+    query: str,
+    top_k: int,
+    storage_template: "MilvusVectorDBStorage",
+    query_embedding: list[float] = None,
+) -> list[dict[str, Any]]:
+    """
+    跨多个知识库（workspace）的并发向量搜索
+
+    Context:
+        底层存储 MilvusVectorDBStorage 已经改造为逻辑隔离模式（复用连接池，
+        通过 workspace 参数自动处理集合前缀）。实例化开销极低。
+
+    Args:
+        kb_list: 知识库列表（workspace 列表）
+        query: 查询文本
+        top_k: 全局返回的 Top-K 结果数量
+        storage_template: 模板存储实例，用于获取配置和创建新实例
+        query_embedding: 可选的预计算查询向量
+
+    Returns:
+        list[dict]: 合并后的搜索结果，每条结果包含 source_workspace 字段
+            格式: [
+                {
+                    "id": "entity_id",
+                    "distance": 0.95,
+                    "source_workspace": "kb1",
+                    ...其他字段
+                }
+            ]
+
+    实现策略:
+        1. Scatter (并发查询): 使用 asyncio.gather 并发查询所有 KB
+        2. Gather (聚合与打标):
+           - 打标: 为每条结果注入 source_workspace 字段
+           - 排序: 按 distance 全局降序排序
+           - 截断: 返回全局 Top-K
+    """
+    if not kb_list:
+        return []
+
+    async def search_single_kb(workspace: str) -> list[dict[str, Any]]:
+        """查询单个知识库"""
+        try:
+            # 创建临时存储实例（开销极低，复用连接池）
+            temp_storage = MilvusVectorDBStorage(
+                namespace=storage_template.namespace,
+                global_config=storage_template.global_config,
+                embedding_func=storage_template.embedding_func,
+                meta_fields=storage_template.meta_fields,
+                workspace=workspace,  # 关键：指定不同的 workspace
+            )
+
+            # 确保初始化（连接池复用，开销低）
+            await temp_storage.initialize()
+
+            # 执行查询
+            results = await temp_storage.query(
+                query=query, top_k=top_k, query_embedding=query_embedding
+            )
+
+            return results
+
+        except Exception as e:
+            # 容错：某个 KB 查询失败不影响其他 KB
+            logger.warning(
+                f"[multi_kb_search] Failed to search workspace '{workspace}': {str(e)}"
+            )
+            return []
+
+    # Scatter: 并发查询所有知识库
+    logger.info(
+        f"[multi_kb_search] Searching {len(kb_list)} knowledge bases: {kb_list}"
+    )
+    scatter_start_time = asyncio.get_event_loop().time()
+
+    tasks = [search_single_kb(kb) for kb in kb_list]
+    results_list = await asyncio.gather(*tasks, return_exceptions=True)
+
+    scatter_time = asyncio.get_event_loop().time() - scatter_start_time
+    logger.info(f"⏱️  [multi_kb_search] Scatter phase: {scatter_time:.3f}s")
+
+    # Gather: 合并、打标、排序、截断
+    gather_start_time = asyncio.get_event_loop().time()
+
+    all_results = []
+    for workspace, results in zip(kb_list, results_list):
+        # 跳过异常结果
+        if isinstance(results, Exception):
+            logger.warning(
+                f"[multi_kb_search] Exception for workspace '{workspace}': {results}"
+            )
+            continue
+
+        # 跳过空结果
+        if not results:
+            continue
+
+        # 打标：注入 source_workspace
+        for item in results:
+            item["source_workspace"] = workspace
+            all_results.append(item)
+
+    # 全局排序：按 distance 降序（相似度越高越好）
+    all_results.sort(key=lambda x: x.get("distance", 0), reverse=True)
+
+    # 截断：返回全局 Top-K
+    final_results = all_results[:top_k]
+
+    gather_time = asyncio.get_event_loop().time() - gather_start_time
+    logger.info(
+        f"⏱️  [multi_kb_search] Gather phase: {gather_time:.3f}s "
+        f"(merged {len(all_results)} results -> top {len(final_results)})"
+    )
+
+    return final_results
+
