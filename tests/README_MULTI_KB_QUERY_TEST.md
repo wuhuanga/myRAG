@@ -50,7 +50,7 @@ python app/main.py
 
 ```bash
 # 创建知识库 1
-curl -X POST "http://localhost:8000/api/rag_instances/create" \
+curl -X POST "http://localhost:8000/api/admin/rag_instances/create" \
   -H "Content-Type: application/json" \
   -d '{
     "rag_id": "test_kb1",
@@ -60,7 +60,7 @@ curl -X POST "http://localhost:8000/api/rag_instances/create" \
   }'
 
 # 创建知识库 2
-curl -X POST "http://localhost:8000/api/rag_instances/create" \
+curl -X POST "http://localhost:8000/api/admin/rag_instances/create" \
   -H "Content-Type: application/json" \
   -d '{
     "rag_id": "test_kb2",
