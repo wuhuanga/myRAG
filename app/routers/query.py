@@ -532,10 +532,23 @@ async def query_graph_clean(request: GraphCleanRequest):
 
             result = await processor.rag.aquery_data(keywords_str, param)
 
+            # 检查结果是否为空
+            if result is None:
+                logger.warning(f"知识库 {rag_id} 查询返回 None（可能未插入文档）")
+                return GraphCleanResponse(
+                    rag_ids=[rag_id],
+                    keywords=keywords if keywords else None,
+                    entities=[],
+                    relationships=[],
+                    timestamp=datetime.now().isoformat()
+                )
+
             if result.get("status") != "success":
                 raise HTTPException(status_code=500, detail=result.get("message", "查询失败"))
 
             data = result.get("data", {})
+            if data is None:
+                data = {}
 
             # 清理实体数据
             clean_entities = [
@@ -595,10 +608,22 @@ async def query_graph_clean(request: GraphCleanRequest):
 
                 result = await processor.rag.aquery_data(keywords_str, param)
 
-                if result.get("status") == "success":
+                # 检查结果是否为空
+                if result is None:
+                    logger.warning(f"查询知识库 {rag_id} 返回 None（可能未插入文档）")
                     return {
                         "rag_id": rag_id,
-                        "data": result.get("data", {}),
+                        "data": {},
+                        "status": "error"
+                    }
+
+                if result.get("status") == "success":
+                    data = result.get("data", {})
+                    if data is None:
+                        data = {}
+                    return {
+                        "rag_id": rag_id,
+                        "data": data,
                         "status": "success"
                     }
                 else:
@@ -721,10 +746,22 @@ async def query_chunks_only(request: ChunksOnlyRequest):
 
             result = await processor.rag.aquery_data(keywords_str, param)
 
+            # 检查结果是否为空
+            if result is None:
+                logger.warning(f"知识库 {rag_id} 查询返回 None（可能未插入文档）")
+                return ChunksOnlyResponse(
+                    rag_ids=[rag_id],
+                    keywords=keywords if keywords else None,
+                    chunks=[],
+                    timestamp=datetime.now().isoformat()
+                )
+
             if result.get("status") != "success":
                 raise HTTPException(status_code=500, detail=result.get("message", "查询失败"))
 
             data = result.get("data", {})
+            if data is None:
+                data = {}
 
             # 提取 chunks 数据
             chunks = [
@@ -770,10 +807,22 @@ async def query_chunks_only(request: ChunksOnlyRequest):
 
                 result = await processor.rag.aquery_data(keywords_str, param)
 
-                if result.get("status") == "success":
+                # 检查结果是否为空
+                if result is None:
+                    logger.warning(f"查询知识库 {rag_id} 返回 None（可能未插入文档）")
                     return {
                         "rag_id": rag_id,
-                        "data": result.get("data", {}),
+                        "data": {},
+                        "status": "error"
+                    }
+
+                if result.get("status") == "success":
+                    data = result.get("data", {})
+                    if data is None:
+                        data = {}
+                    return {
+                        "rag_id": rag_id,
+                        "data": data,
                         "status": "success"
                     }
                 else:
