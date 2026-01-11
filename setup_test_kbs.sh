@@ -20,7 +20,7 @@ echo ""
 
 # 创建知识库 1
 echo "创建知识库: test_kb1"
-response=$(curl -s -X POST "$BASE_URL/api/admin/rag_instances" \
+response=$(curl -s -X POST "$BASE_URL/api/rag_instances/create" \
   -H "Content-Type: application/json" \
   -d '{
     "rag_id": "test_kb1",
@@ -44,7 +44,7 @@ echo ""
 
 # 创建知识库 2
 echo "创建知识库: test_kb2"
-response=$(curl -s -X POST "$BASE_URL/api/admin/rag_instances" \
+response=$(curl -s -X POST "$BASE_URL/api/rag_instances/create" \
   -H "Content-Type: application/json" \
   -d '{
     "rag_id": "test_kb2",
