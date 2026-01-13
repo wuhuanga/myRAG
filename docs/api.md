@@ -1,7 +1,14 @@
 # RAG Backend API 接口文档
 
-**版本**: 3.0.0
+**版本**: 4.0.0
 **基础路径**: `http://localhost:8000/api`
+
+## ✨ v4.0 新特性
+
+- 🚀 **多知识库查询**：所有查询接口支持同时查询多个知识库
+- 🔄 **并发查询**：使用 asyncio.gather 实现真正的并行查询
+- 📊 **来源追踪**：多知识库查询自动记录每个知识库的贡献
+- 🔙 **向后兼容**：完全兼容旧版 `rag_id` 参数
 
 ---
 
@@ -10,12 +17,12 @@
 1. [管理接口 (Admin)](#1-管理接口-admin)
 2. [文档接口 (Documents)](#2-文档接口-documents)
 3. [查询接口 (Query)](#3-查询接口-query)
-   - [3.1 查询知识库](#31-查询知识库)
-   - [3.2 UCD 建模查询](#32-ucd-建模查询)
+   - [3.1 查询知识库](#31-查询知识库) ⭐ **支持多知识库**
+   - [3.2 UCD 建模查询](#32-ucd-建模查询) ⭐ **支持多知识库**
    - [3.3 清除缓存](#33-清除缓存)
-   - [3.4 关键字列表检索](#34-关键字列表检索) ⭐ **新增**
-   - [3.5 清理后的知识图谱检索](#35-清理后的知识图谱检索) ⭐ **新增**
-   - [3.6 仅返回文档 Chunks](#36-仅返回文档-chunks) ⭐ **新增**
+   - [3.4 关键字列表检索](#34-关键字列表检索) ⭐ **支持多知识库**
+   - [3.5 清理后的知识图谱检索](#35-清理后的知识图谱检索) ⭐ **支持多知识库**
+   - [3.6 仅返回文档 Chunks](#36-仅返回文档-chunks) ⭐ **支持多知识库**
 4. [图操作接口 (Graph)](#4-图操作接口-graph)
    - [4.11 获取 ECharts 图谱 JSON](#411-获取-echarts-图谱-json直接返回) ⭐ **推荐**
 5. [WebSocket 接口](#5-websocket-接口)
@@ -390,13 +397,23 @@ curl -X DELETE "http://localhost:8000/api/documents/delete/rag_1/doc_001"
 
 **POST** `/api/query/`
 
+支持单知识库和多知识库查询。多知识库模式下，系统会并发查询所有知识库并合并结果。
+
 **请求体**:
+
+**知识库参数（二选一）**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `rag_id` | string | 否* | 单知识库模式（向后兼容） |
+| `rag_ids` | list[string] | 否* | 多知识库模式 |
+
+\* 注意：`rag_id` 和 `rag_ids` 必须提供其中一个
 
 **基础参数**:
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `rag_id` | string | 是 | - | RAG 实例 ID |
 | `question` | string | 是 | - | 查询问题 |
 | `mode` | string | 否 | hybrid | 查询模式 (naive/local/global/hybrid/mix) |
 
@@ -434,7 +451,8 @@ curl -X DELETE "http://localhost:8000/api/documents/delete/rag_1/doc_001"
 | `conversation_history` | list | None | 对话历史 |
 | `user_prompt` | string | None | 用户自定义提示词 |
 
-**请求示例**:
+#### 单知识库查询示例（向后兼容）
+
 ```bash
 curl -X POST "http://localhost:8000/api/query/" \
   -H "Content-Type: application/json" \
@@ -447,7 +465,63 @@ curl -X POST "http://localhost:8000/api/query/" \
   }'
 ```
 
-**多轮对话示例**:
+**响应示例**:
+```json
+{
+  "rag_ids": ["rag_1"],
+  "question": "什么是知识图谱？",
+  "answer": "知识图谱是一种结构化的知识表示方式...",
+  "mode": "hybrid",
+  "timestamp": "2024-01-15T10:30:00.000000"
+}
+```
+
+#### 多知识库查询示例
+
+```bash
+curl -X POST "http://localhost:8000/api/query/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rag_ids": ["rag_1", "rag_2", "rag_3"],
+    "question": "什么是知识图谱？",
+    "mode": "hybrid",
+    "top_k": 50,
+    "enable_rerank": true
+  }'
+```
+
+**响应示例**:
+```json
+{
+  "rag_ids": ["rag_1", "rag_2", "rag_3"],
+  "question": "什么是知识图谱？",
+  "answer": "【知识库: rag_1】\n知识图谱是...\n\n【知识库: rag_2】\n...\n\n【知识库: rag_3】\n...",
+  "mode": "hybrid",
+  "timestamp": "2024-01-15T10:30:00.000000",
+  "sources": [
+    {
+      "rag_id": "rag_1",
+      "answer_length": 1024
+    },
+    {
+      "rag_id": "rag_2",
+      "answer_length": 856
+    },
+    {
+      "rag_id": "rag_3",
+      "answer_length": 612
+    }
+  ]
+}
+```
+
+**响应字段说明**:
+- `rag_ids`: 实际查询的知识库 ID 列表
+- `sources`: （多知识库模式）记录每个知识库的贡献信息
+- 多知识库模式下，答案会按知识库分组显示
+
+#### 多轮对话示例
+
 ```bash
 curl -X POST "http://localhost:8000/api/query/" \
   -H "Content-Type: application/json" \
@@ -461,33 +535,52 @@ curl -X POST "http://localhost:8000/api/query/" \
   }'
 ```
 
-**响应示例**:
-```json
-{
-  "rag_id": "rag_1",
-  "question": "什么是知识图谱？",
-  "answer": "知识图谱是一种结构化的知识表示方式...",
-  "mode": "hybrid",
-  "timestamp": "2024-01-15T10:30:00.000000"
-}
-```
-
 ---
 
 ### 3.2 UCD 建模查询
 
 **POST** `/api/query/ucd`
 
-执行查询并进行 UCD（用例图）建模。
+执行查询并进行 UCD（用例图）建模。支持单知识库和多知识库查询。
 
 **请求体**:
 
+**知识库参数（二选一）**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `rag_id` | string | 否* | 单知识库模式（向后兼容） |
+| `rag_ids` | list[string] | 否* | 多知识库模式 |
+
+**其他参数**:
+
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `rag_id` | string | 是 | - | RAG 实例 ID |
 | `question` | string | 是 | - | 查询问题 |
 | `mode` | string | 否 | hybrid | 查询模式 |
 | `out_json` | string | 否 | output_uc.json | 输出文件路径 |
+
+**单知识库示例**:
+```bash
+curl -X POST "http://localhost:8000/api/query/ucd" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rag_id": "rag_1",
+    "question": "系统需求是什么？",
+    "mode": "hybrid"
+  }'
+```
+
+**多知识库示例**:
+```bash
+curl -X POST "http://localhost:8000/api/query/ucd" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rag_ids": ["rag_1", "rag_2"],
+    "question": "系统需求是什么？",
+    "mode": "hybrid"
+  }'
+```
 
 ---
 
@@ -508,13 +601,21 @@ curl -X POST "http://localhost:8000/api/query/" \
 
 **POST** `/api/query/keywords`
 
-使用提供的关键字列表直接检索，不调用 LLM 提取关键字。关键字同时作为高优先级（搜索关系）和低优先级（搜索实体）关键词。
+使用提供的关键字列表直接检索，不调用 LLM 提取关键字。关键字同时作为高优先级（搜索关系）和低优先级（搜索实体）关键词。支持单知识库和多知识库查询。
 
 **请求体**:
 
+**知识库参数（二选一）**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `rag_id` | string | 否* | 单知识库模式（向后兼容） |
+| `rag_ids` | list[string] | 否* | 多知识库模式 |
+
+**其他参数**:
+
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `rag_id` | string | 是 | - | RAG 实例 ID |
 | `keywords` | list[string] | 否 | None | 关键字列表（可选，为空时使用默认检索） |
 | `mode` | string | 否 | hybrid | 查询模式 |
 | `only_need_context` | bool | 否 | true | 只返回上下文 |
@@ -525,7 +626,7 @@ curl -X POST "http://localhost:8000/api/query/" \
 | `max_total_tokens` | int | 否 | None | 总最大 token 数 |
 | `enable_rerank` | bool | 否 | None | 是否启用 Rerank |
 
-**请求示例**:
+**单知识库示例**:
 ```bash
 curl -X POST "http://localhost:8000/api/query/keywords" \
   -H "Content-Type: application/json" \
@@ -538,14 +639,47 @@ curl -X POST "http://localhost:8000/api/query/keywords" \
   }'
 ```
 
-**响应示例**:
+**单知识库响应示例**:
 ```json
 {
-  "rag_id": "rag_1",
+  "rag_ids": ["rag_1"],
   "keywords": ["知识图谱", "实体", "关系"],
   "context": "检索到的上下文内容...",
   "mode": "hybrid",
   "timestamp": "2024-01-15T10:30:00.000000"
+}
+```
+
+**多知识库示例**:
+```bash
+curl -X POST "http://localhost:8000/api/query/keywords" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rag_ids": ["rag_1", "rag_2"],
+    "keywords": ["知识图谱", "向量数据库"],
+    "mode": "hybrid",
+    "chunk_top_k": 10
+  }'
+```
+
+**多知识库响应示例**:
+```json
+{
+  "rag_ids": ["rag_1", "rag_2"],
+  "keywords": ["知识图谱", "向量数据库"],
+  "context": "【知识库: rag_1】\n...\n\n【知识库: rag_2】\n...",
+  "mode": "hybrid",
+  "timestamp": "2024-01-15T10:30:00.000000",
+  "sources": [
+    {
+      "rag_id": "rag_1",
+      "context_length": 2048
+    },
+    {
+      "rag_id": "rag_2",
+      "context_length": 1536
+    }
+  ]
 }
 ```
 
@@ -555,13 +689,21 @@ curl -X POST "http://localhost:8000/api/query/keywords" \
 
 **POST** `/api/query/graph-clean`
 
-使用关键字检索知识图谱，返回清理后的实体和关系（去除 source_id、file_path、created_at 等元数据）。
+使用关键字检索知识图谱，返回清理后的实体和关系（去除 source_id、file_path、created_at 等元数据）。支持单知识库和多知识库查询。
 
 **请求体**:
 
+**知识库参数（二选一）**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `rag_id` | string | 否* | 单知识库模式（向后兼容） |
+| `rag_ids` | list[string] | 否* | 多知识库模式 |
+
+**其他参数**:
+
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `rag_id` | string | 是 | - | RAG 实例 ID |
 | `keywords` | list[string] | 否 | None | 关键字列表（可选，为空时使用默认检索） |
 | `top_k` | int | 否 | None | 检索的实体/关系数量 |
 | `chunk_top_k` | int | 否 | None | 检索的文本块数量 |
@@ -570,7 +712,7 @@ curl -X POST "http://localhost:8000/api/query/keywords" \
 | `max_total_tokens` | int | 否 | None | 总最大 token 数 |
 | `enable_rerank` | bool | 否 | None | 是否启用 Rerank |
 
-**请求示例**:
+**单知识库示例**:
 ```bash
 curl -X POST "http://localhost:8000/api/query/graph-clean" \
   -H "Content-Type: application/json" \
@@ -582,10 +724,10 @@ curl -X POST "http://localhost:8000/api/query/graph-clean" \
   }'
 ```
 
-**响应示例**:
+**单知识库响应示例**:
 ```json
 {
-  "rag_id": "rag_1",
+  "rag_ids": ["rag_1"],
   "keywords": ["知识图谱", "向量数据库"],
   "entities": [
     {
@@ -606,9 +748,68 @@ curl -X POST "http://localhost:8000/api/query/graph-clean" \
 }
 ```
 
+**多知识库示例**:
+```bash
+curl -X POST "http://localhost:8000/api/query/graph-clean" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rag_ids": ["rag_1", "rag_2"],
+    "keywords": ["知识图谱", "向量数据库"],
+    "top_k": 20
+  }'
+```
+
+**多知识库响应示例**:
+```json
+{
+  "rag_ids": ["rag_1", "rag_2"],
+  "keywords": ["知识图谱", "向量数据库"],
+  "entities": [
+    {
+      "entity_name": "知识图谱",
+      "description": "一种结构化的知识表示方式",
+      "entity_type": "CONCEPT"
+    },
+    {
+      "entity_name": "Milvus",
+      "description": "开源向量数据库",
+      "entity_type": "TECHNOLOGY"
+    }
+  ],
+  "relationships": [
+    {
+      "src_id": "知识图谱",
+      "tgt_id": "向量数据库",
+      "description": "知识图谱使用向量数据库存储",
+      "keywords": "存储,使用"
+    },
+    {
+      "src_id": "Milvus",
+      "tgt_id": "向量数据库",
+      "description": "Milvus是一种向量数据库",
+      "keywords": "类型,实现"
+    }
+  ],
+  "timestamp": "2024-01-15T10:30:00.000000",
+  "sources": [
+    {
+      "rag_id": "rag_1",
+      "entities_count": 5,
+      "relationships_count": 8
+    },
+    {
+      "rag_id": "rag_2",
+      "entities_count": 3,
+      "relationships_count": 6
+    }
+  ]
+}
+```
+
 **返回字段说明**:
 - **实体（entities）**：只包含 `entity_name`、`description`、`entity_type`
 - **关系（relationships）**：只包含 `src_id`、`tgt_id`、`description`、`keywords`
+- **sources**：（多知识库模式）记录每个知识库贡献的实体和关系数量
 - 已去除：`source_id`、`file_path`、`created_at`、`reference_id` 等元数据
 
 ---
@@ -617,19 +818,27 @@ curl -X POST "http://localhost:8000/api/query/graph-clean" \
 
 **POST** `/api/query/chunks-only`
 
-使用关键字检索，只返回文档 chunks（不返回知识图谱），保留顺序和相关性分数。
+使用关键字检索，只返回文档 chunks（不返回知识图谱），保留顺序和相关性分数。支持单知识库和多知识库查询。
 
 **请求体**:
 
+**知识库参数（二选一）**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `rag_id` | string | 否* | 单知识库模式（向后兼容） |
+| `rag_ids` | list[string] | 否* | 多知识库模式 |
+
+**其他参数**:
+
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `rag_id` | string | 是 | - | RAG 实例 ID |
 | `keywords` | list[string] | 否 | None | 关键字列表（可选，为空时使用默认检索） |
 | `chunk_top_k` | int | 否 | None | 检索的文本块数量 |
 | `max_total_tokens` | int | 否 | None | 总最大 token 数 |
 | `enable_rerank` | bool | 否 | None | 是否启用 Rerank |
 
-**请求示例**:
+**单知识库示例**:
 ```bash
 curl -X POST "http://localhost:8000/api/query/chunks-only" \
   -H "Content-Type: application/json" \
@@ -641,10 +850,10 @@ curl -X POST "http://localhost:8000/api/query/chunks-only" \
   }'
 ```
 
-**响应示例**:
+**单知识库响应示例**:
 ```json
 {
-  "rag_id": "rag_1",
+  "rag_ids": ["rag_1"],
   "keywords": ["部署", "配置"],
   "chunks": [
     {
@@ -658,11 +867,56 @@ curl -X POST "http://localhost:8000/api/query/chunks-only" \
 }
 ```
 
+**多知识库示例**:
+```bash
+curl -X POST "http://localhost:8000/api/query/chunks-only" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rag_ids": ["rag_1", "rag_2"],
+    "keywords": ["部署", "配置"],
+    "chunk_top_k": 10
+  }'
+```
+
+**多知识库响应示例**:
+```json
+{
+  "rag_ids": ["rag_1", "rag_2"],
+  "keywords": ["部署", "配置"],
+  "chunks": [
+    {
+      "content": "系统部署需要配置以下环境变量...",
+      "file_path": "deployment_guide.pdf",
+      "chunk_id": "chunk-abc123",
+      "reference_id": "ref-001"
+    },
+    {
+      "content": "Docker 部署配置示例...",
+      "file_path": "docker_guide.md",
+      "chunk_id": "chunk-def456",
+      "reference_id": "ref-002"
+    }
+  ],
+  "timestamp": "2024-01-15T10:30:00.000000",
+  "sources": [
+    {
+      "rag_id": "rag_1",
+      "chunks_count": 6
+    },
+    {
+      "rag_id": "rag_2",
+      "chunks_count": 4
+    }
+  ]
+}
+```
+
 **返回字段说明**:
 - **content**：文本块内容
 - **file_path**：来源文件路径
 - **chunk_id**：文本块唯一标识
 - **reference_id**：引用标识（用于追溯来源和相关性）
+- **sources**：（多知识库模式）记录每个知识库贡献的文本块数量
 
 ---
 
