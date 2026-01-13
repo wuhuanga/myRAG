@@ -689,7 +689,15 @@ async def query_graph_clean(request: GraphCleanRequest):
                     })
 
             if not sources:
-                raise HTTPException(status_code=500, detail="所有知识库查询均失败")
+                logger.warning("所有知识库查询均返回空结果")
+                return GraphCleanResponse(
+                    rag_ids=rag_ids,
+                    keywords=keywords if keywords else None,
+                    entities=[],
+                    relationships=[],
+                    timestamp=datetime.now().isoformat(),
+                    sources=[]
+                )
 
             return GraphCleanResponse(
                 rag_ids=rag_ids,
@@ -876,7 +884,14 @@ async def query_chunks_only(request: ChunksOnlyRequest):
                     })
 
             if not sources:
-                raise HTTPException(status_code=500, detail="所有知识库查询均失败")
+                logger.warning("所有知识库查询均返回空结果")
+                return ChunksOnlyResponse(
+                    rag_ids=rag_ids,
+                    keywords=keywords if keywords else None,
+                    chunks=[],
+                    timestamp=datetime.now().isoformat(),
+                    sources=[]
+                )
 
             return ChunksOnlyResponse(
                 rag_ids=rag_ids,
