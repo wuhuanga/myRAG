@@ -1150,10 +1150,9 @@ class NebulaGraphStorage(BaseGraphStorage):
         try:
             tag = self._tag_name
             safe_workspace = self._escape_string(self.workspace)
-            # 添加 workspace 过滤以实现逻辑隔离
+            # 使用模式匹配语法以避免索引依赖
             query = (
-                f'MATCH (n:{tag}) '
-                f'WHERE n.workspace == "{safe_workspace}" '
+                f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'RETURN id(n) AS id, properties(n)'
             )
             result = await self._execute_query(query)
@@ -1180,12 +1179,9 @@ class NebulaGraphStorage(BaseGraphStorage):
         try:
             tag = self._tag_name
             safe_workspace = self._escape_string(self.workspace)
-            # 添加 workspace 过滤以实现逻辑隔离
+            # 使用模式匹配语法以避免索引依赖
             query = (
-                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
-                f'WHERE a.workspace == "{safe_workspace}" '
-                f'AND b.workspace == "{safe_workspace}" '
-                f'AND r.workspace == "{safe_workspace}" '
+                f'MATCH (a:{tag} {{workspace: "{safe_workspace}"}})-[r:relationship {{workspace: "{safe_workspace}"}}]-(b:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
             )
             result = await self._execute_query(query)
@@ -1221,11 +1217,10 @@ class NebulaGraphStorage(BaseGraphStorage):
             safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
             chunk_ids_str = ", ".join(safe_chunk_ids)
 
-            # 使用 MATCH 而非 LOOKUP 以支持 workspace 过滤
+            # 使用模式匹配语法以避免索引依赖
             query = (
-                f'MATCH (n:{tag}) '
+                f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'WHERE n.source_id IN [{chunk_ids_str}] '
-                f'AND n.workspace == "{safe_workspace}" '
                 f'RETURN properties(n) AS props'
             )
             result = await self._execute_query(query)
@@ -1256,13 +1251,10 @@ class NebulaGraphStorage(BaseGraphStorage):
             safe_chunk_ids = [f'"{self._escape_string(cid)}"' for cid in chunk_ids]
             chunk_ids_str = ", ".join(safe_chunk_ids)
 
-            # 添加 workspace 过滤以实现逻辑隔离
+            # 使用模式匹配语法以避免索引依赖
             query = (
-                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'MATCH (a:{tag} {{workspace: "{safe_workspace}"}})-[r:relationship {{workspace: "{safe_workspace}"}}]-(b:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'WHERE r.source_id IN [{chunk_ids_str}] '
-                f'AND a.workspace == "{safe_workspace}" '
-                f'AND b.workspace == "{safe_workspace}" '
-                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
             )
             result = await self._execute_query(query)
@@ -1292,12 +1284,9 @@ class NebulaGraphStorage(BaseGraphStorage):
         try:
             tag = self._tag_name
             safe_workspace = self._escape_string(self.workspace)
-            # 添加 workspace 过滤以实现逻辑隔离
+            # 使用模式匹配语法以避免索引依赖
             query = (
-                f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
-                f'WHERE n.workspace == "{safe_workspace}" '
-                f'AND m.workspace == "{safe_workspace}" '
-                f'AND r.workspace == "{safe_workspace}" '
+                f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}})-[r:relationship {{workspace: "{safe_workspace}"}}]-(m:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'RETURN id(n) AS label, count(r) AS degree '
                 f'ORDER BY degree DESC LIMIT {limit}'
             )
@@ -1483,12 +1472,9 @@ class NebulaGraphStorage(BaseGraphStorage):
             tag = self._tag_name
             safe_workspace = self._escape_string(self.workspace)
 
-            # 1. 获取度数最高的 top k 个节点（添加 workspace 过滤）
+            # 1. 获取度数最高的 top k 个节点（使用模式匹配语法）
             degree_query = (
-                f'MATCH (n:{tag})-[r:relationship]-(m:{tag}) '
-                f'WHERE n.workspace == "{safe_workspace}" '
-                f'AND m.workspace == "{safe_workspace}" '
-                f'AND r.workspace == "{safe_workspace}" '
+                f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}})-[r:relationship {{workspace: "{safe_workspace}"}}]-(m:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'RETURN id(n) AS node_id, COUNT(r) AS degree '
                 f'ORDER BY degree DESC LIMIT {k}'
             )
