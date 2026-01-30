@@ -189,6 +189,24 @@ class JsonDocStatusStorage(DocStatusStorage):
         async with self._storage_lock:
             return self._data.get(id)
 
+    async def get_all(self) -> dict[str, Any]:
+        """Get all document status data from storage
+
+        Returns:
+            Dictionary containing all stored document status data
+        """
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonDocStatusStorage")
+        async with self._storage_lock:
+            result = {}
+            for doc_id, doc_data in self._data.items():
+                if doc_data:
+                    # Create a copy to avoid modifying the original data
+                    result[doc_id] = dict(doc_data)
+                else:
+                    result[doc_id] = doc_data
+            return result
+
     async def get_docs_paginated(
         self,
         status_filter: DocStatus | None = None,
