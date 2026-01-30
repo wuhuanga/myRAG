@@ -215,10 +215,10 @@ async def get_documents_status(rag_id: str):
         status_counts = await processor.rag.get_processing_status()
 
         total = sum(status_counts.values())
-        processed = status_counts.get('PROCESSED', 0)
-        pending = status_counts.get('PENDING', 0)
-        processing = status_counts.get('PROCESSING', 0)
-        failed = status_counts.get('FAILED', 0)
+        processed = status_counts.get('processed', 0)
+        pending = status_counts.get('pending', 0)
+        processing = status_counts.get('processing', 0)
+        failed = status_counts.get('failed', 0)
 
         logger.info(f"文档状态统计: 总计={total}, 已处理={processed}, 待处理={pending}, 处理中={processing}, 失败={failed}")
 
