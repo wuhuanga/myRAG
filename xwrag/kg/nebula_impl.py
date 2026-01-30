@@ -495,8 +495,8 @@ class NebulaGraphStorage(BaseGraphStorage):
             tag = self._tag_name
             safe_id = self._escape_string(node_id)
             safe_workspace = self._escape_string(self.workspace)
-            # 添加 workspace 过滤以实现逻辑隔离
-            query = f'MATCH (n:{tag}) WHERE id(n) == "{safe_id}" AND n.workspace == "{safe_workspace}" RETURN n LIMIT 1'
+            # 使用模式匹配语法以避免索引依赖
+            query = f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}}) WHERE id(n) == "{safe_id}" RETURN n LIMIT 1'
             result = await self._execute_query(query)
             return result.row_size() > 0
         except Exception as e:
@@ -570,10 +570,10 @@ class NebulaGraphStorage(BaseGraphStorage):
             tag = self._tag_name
             safe_id = self._escape_string(node_id)
             safe_workspace = self._escape_string(self.workspace)
-            # 使用 MATCH 而非 FETCH PROP 以支持 workspace 过滤
+            # 使用模式匹配语法以避免索引依赖
             query = (
-                f'MATCH (n:{tag}) '
-                f'WHERE id(n) == "{safe_id}" AND n.workspace == "{safe_workspace}" '
+                f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}}) '
+                f'WHERE id(n) == "{safe_id}" '
                 f'RETURN properties(n) LIMIT 1'
             )
             result = await self._execute_query(query)
@@ -613,12 +613,12 @@ class NebulaGraphStorage(BaseGraphStorage):
         try:
             tag = self._tag_name
             safe_workspace = self._escape_string(self.workspace)
-            # 使用 MATCH 而非 FETCH PROP 以支持 workspace 过滤
+            # 使用模式匹配语法以避免索引依赖
             escaped_ids = [f'"{self._escape_string(nid)}"' for nid in node_ids]
             ids_str = ", ".join(escaped_ids)
             query = (
-                f'MATCH (n:{tag}) '
-                f'WHERE id(n) IN [{ids_str}] AND n.workspace == "{safe_workspace}" '
+                f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}}) '
+                f'WHERE id(n) IN [{ids_str}] '
                 f'RETURN id(n) AS node_id, properties(n)'
             )
 
@@ -1128,10 +1128,9 @@ class NebulaGraphStorage(BaseGraphStorage):
         try:
             tag = self._tag_name
             safe_workspace = self._escape_string(self.workspace)
-            # 添加 workspace 过滤以实现逻辑隔离
+            # 使用模式匹配语法以避免索引依赖
             query = (
-                f'MATCH (n:{tag}) '
-                f'WHERE n.workspace == "{safe_workspace}" '
+                f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'RETURN DISTINCT id(n) AS label'
             )
             result = await self._execute_query(query)
@@ -1313,10 +1312,9 @@ class NebulaGraphStorage(BaseGraphStorage):
 
         try:
             safe_workspace = self._escape_string(self.workspace)
-            # 添加 workspace 过滤以实现逻辑隔离
+            # 使用模式匹配语法以避免索引依赖
             nql = (
-                f'MATCH (n:{tag}) '
-                f'WHERE n.workspace == "{safe_workspace}" '
+                f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'RETURN id(n) AS label LIMIT 1000'
             )
             result = await self._execute_query(nql)
@@ -1495,12 +1493,11 @@ class NebulaGraphStorage(BaseGraphStorage):
                 top_node_ids.append(node_id)
                 node_degrees[node_id] = degree
 
-            # 2. 获取这些节点的详细信息（添加 workspace 过滤）
+            # 2. 获取这些节点的详细信息（使用模式匹配语法）
             node_ids_str = ", ".join(f'"{self._escape_string(nid)}"' for nid in top_node_ids)
             nodes_query = (
-                f'MATCH (n:{tag}) '
+                f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'WHERE id(n) IN [{node_ids_str}] '
-                f'AND n.workspace == "{safe_workspace}" '
                 f'RETURN id(n) AS node_id, properties(n)'
             )
 
@@ -1528,13 +1525,10 @@ class NebulaGraphStorage(BaseGraphStorage):
                         "degree": node_degrees.get(node_id, 0)
                     })
 
-            # 3. 获取这些节点之间的所有边（添加 workspace 过滤）
+            # 3. 获取这些节点之间的所有边（使用模式匹配语法）
             edges_query = (
-                f'MATCH (a:{tag})-[r:relationship]-(b:{tag}) '
+                f'MATCH (a:{tag} {{workspace: "{safe_workspace}"}})-[r:relationship {{workspace: "{safe_workspace}"}}]-(b:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'WHERE id(a) IN [{node_ids_str}] AND id(b) IN [{node_ids_str}] '
-                f'AND a.workspace == "{safe_workspace}" '
-                f'AND b.workspace == "{safe_workspace}" '
-                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
             )
 
@@ -1638,24 +1632,20 @@ class NebulaGraphStorage(BaseGraphStorage):
             escaped_node_id = self._escape_string(node_id)
             safe_workspace = self._escape_string(self.workspace)
 
-            # 1. 获取中心节点和所有邻居节点（添加 workspace 过滤）
+            # 1. 获取中心节点和所有邻居节点（使用模式匹配语法）
             neighbors_query = (
-                f'MATCH (center:{tag})-[r:relationship]-(neighbor:{tag}) '
+                f'MATCH (center:{tag} {{workspace: "{safe_workspace}"}})-[r:relationship {{workspace: "{safe_workspace}"}}]-(neighbor:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'WHERE id(center) = "{escaped_node_id}" '
-                f'AND center.workspace == "{safe_workspace}" '
-                f'AND neighbor.workspace == "{safe_workspace}" '
-                f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(neighbor) AS neighbor_id, properties(neighbor), properties(r)'
             )
 
             logger.info(f"[{self.workspace}] 获取节点 '{node_id}' 的邻居")
             neighbors_result = await self._execute_query(neighbors_query)
 
-            # 2. 获取中心节点的信息（添加 workspace 过滤）
+            # 2. 获取中心节点的信息（使用模式匹配语法）
             center_query = (
-                f'MATCH (n:{tag}) '
+                f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'WHERE id(n) = "{escaped_node_id}" '
-                f'AND n.workspace == "{safe_workspace}" '
                 f'RETURN id(n) AS node_id, properties(n)'
             )
 
