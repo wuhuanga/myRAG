@@ -302,6 +302,24 @@ class DocumentListResponse(BaseModel):
     documents: List[dict]
 
 
+class DocumentDetailItem(BaseModel):
+    """单个文档详情"""
+    doc_id: str
+    file_name: str
+    status: str
+    created_at: str
+    updated_at: str
+    error_message: Optional[str] = None
+
+
+class FullDocumentStatusResponse(BaseModel):
+    """全量文档状态响应模型"""
+    rag_id: str
+    total: int
+    doc_status_summary: dict
+    doc_status_list: List[DocumentDetailItem]
+
+
 # ==================== 实体管理相关模型 ====================
 
 class EntityCreateRequest(BaseModel):

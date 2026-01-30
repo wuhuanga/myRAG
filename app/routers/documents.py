@@ -16,6 +16,8 @@ from ..models import (
     BatchInsertRequest,
     DocumentStatusResponse,
     DocumentListResponse,
+    FullDocumentStatusResponse,
+    DocumentDetailItem,
 )
 
 logger = logging.getLogger(__name__)
@@ -304,6 +306,96 @@ async def get_documents_by_status(rag_id: str, status: str):
     except Exception as e:
         logger.error(f"获取文档列表失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取文档列表失败: {str(e)}")
+
+
+@router.get("/doc_status/{rag_id}", response_model=FullDocumentStatusResponse)
+async def get_full_document_status(rag_id: str):
+    """获取全量文档状态列表
+
+    该接口专门用于同步数据，返回指定 rag_id 下所有文档的最新状态。
+    字段命名与本地 KV 存储结构完全对齐。
+
+    参数:
+        rag_id: RAG 实例 ID
+
+    返回:
+        - rag_id: 知识库 ID
+        - total: 文档总数
+        - doc_status_summary: 状态统计 (PROCESSED, PENDING, PROCESSING, FAILED)
+        - doc_status_list: 文档详细列表
+    """
+    manager = get_concurrent_rag_manager()
+
+    try:
+        processor = manager.get_instance(rag_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    if processor.rag is None:
+        raise HTTPException(status_code=400, detail="RAG 系统未初始化")
+
+    try:
+        logger.info(f"获取知识库 {rag_id} 的全量文档状态...")
+
+        # 1. 获取状态统计
+        status_counts = await processor.rag.get_processing_status()
+
+        # 2. 获取所有文档的详细信息
+        all_docs = await processor.rag.doc_status.get_all()
+
+        # 3. 构建文档列表
+        doc_status_list = []
+        for doc_id, doc_data in all_docs.items():
+            # 处理不同的数据结构（可能是 dict 或 DocProcessingStatus 对象）
+            if isinstance(doc_data, dict):
+                status = doc_data.get('status', 'unknown')
+                file_path = doc_data.get('file_path', 'N/A')
+                created_at = doc_data.get('created_at', '')
+                updated_at = doc_data.get('updated_at', '')
+                error_msg = doc_data.get('error_msg', None)
+            else:
+                # DocProcessingStatus 对象
+                status = doc_data.status if hasattr(doc_data, 'status') else 'unknown'
+                file_path = doc_data.file_path if hasattr(doc_data, 'file_path') else 'N/A'
+                created_at = doc_data.created_at if hasattr(doc_data, 'created_at') else ''
+                updated_at = doc_data.updated_at if hasattr(doc_data, 'updated_at') else ''
+                error_msg = doc_data.error_message if hasattr(doc_data, 'error_message') else None
+
+            # 提取文件名（从路径中提取）
+            file_name = file_path.split('/')[-1] if file_path else 'N/A'
+
+            doc_item = DocumentDetailItem(
+                doc_id=doc_id,
+                file_name=file_name,
+                status=status if isinstance(status, str) else status.value,
+                created_at=str(created_at) if created_at else '',
+                updated_at=str(updated_at) if updated_at else '',
+                error_message=error_msg
+            )
+            doc_status_list.append(doc_item)
+
+        # 4. 构建状态摘要（使用大写键名，与示例保持一致）
+        doc_status_summary = {
+            'PROCESSED': status_counts.get('processed', 0),
+            'PENDING': status_counts.get('pending', 0),
+            'PROCESSING': status_counts.get('processing', 0),
+            'FAILED': status_counts.get('failed', 0)
+        }
+
+        total = len(all_docs)
+
+        logger.info(f"知识库 {rag_id} 共有 {total} 个文档")
+
+        return FullDocumentStatusResponse(
+            rag_id=rag_id,
+            total=total,
+            doc_status_summary=doc_status_summary,
+            doc_status_list=doc_status_list
+        )
+
+    except Exception as e:
+        logger.error(f"获取全量文档状态失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取全量文档状态失败: {str(e)}")
 
 
 @router.delete("/delete/{rag_id}/{doc_id}")
