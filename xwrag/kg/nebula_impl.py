@@ -1635,7 +1635,7 @@ class NebulaGraphStorage(BaseGraphStorage):
             # 1. 获取中心节点和所有邻居节点（使用模式匹配语法）
             neighbors_query = (
                 f'MATCH (center:{tag} {{workspace: "{safe_workspace}"}})-[r:relationship {{workspace: "{safe_workspace}"}}]-(neighbor:{tag} {{workspace: "{safe_workspace}"}}) '
-                f'WHERE id(center) = "{escaped_node_id}" '
+                f'WHERE id(center) == "{escaped_node_id}" '
                 f'RETURN id(neighbor) AS neighbor_id, properties(neighbor), properties(r)'
             )
 
@@ -1645,7 +1645,7 @@ class NebulaGraphStorage(BaseGraphStorage):
             # 2. 获取中心节点的信息（使用模式匹配语法）
             center_query = (
                 f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}}) '
-                f'WHERE id(n) = "{escaped_node_id}" '
+                f'WHERE id(n) == "{escaped_node_id}" '
                 f'RETURN id(n) AS node_id, properties(n)'
             )
 
