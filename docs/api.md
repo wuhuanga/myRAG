@@ -1,1236 +1,899 @@
-# RAG Backend API 接口文档
+# myRAG API 文档
 
-**版本**: 4.0.0
-**基础路径**: `http://localhost:8000/api`
-
-## ✨ v4.0 新特性
-
-- 🚀 **多知识库查询**：所有查询接口支持同时查询多个知识库
-- 🔄 **并发查询**：使用 asyncio.gather 实现真正的并行查询
-- 📊 **来源追踪**：多知识库查询自动记录每个知识库的贡献
-- 🔙 **向后兼容**：完全兼容旧版 `rag_id` 参数
+**版本：** 4.0.0  
+**最后更新：** 2026-02-01  
+**服务名称：** RAG Backend API  
+**基础URL：** `http://localhost:8000`
 
 ---
 
 ## 目录
 
-1. [管理接口 (Admin)](#1-管理接口-admin)
-2. [文档接口 (Documents)](#2-文档接口-documents)
-3. [查询接口 (Query)](#3-查询接口-query)
-   - [3.1 查询知识库](#31-查询知识库) ⭐ **支持多知识库**
-   - [3.2 UCD 建模查询](#32-ucd-建模查询) ⭐ **支持多知识库**
-   - [3.3 清除缓存](#33-清除缓存)
-   - [3.4 关键字列表检索](#34-关键字列表检索) ⭐ **支持多知识库**
-   - [3.5 清理后的知识图谱检索](#35-清理后的知识图谱检索) ⭐ **支持多知识库**
-   - [3.6 仅返回文档 Chunks](#36-仅返回文档-chunks) ⭐ **支持多知识库**
-4. [图操作接口 (Graph)](#4-图操作接口-graph)
-   - [4.11 获取 ECharts 图谱 JSON](#411-获取-echarts-图谱-json直接返回) ⭐ **推荐**
-5. [WebSocket 接口](#5-websocket-接口)
-6. [Rerank 配置](#6-rerank-配置)
+1. [概述](#1-概述)
+2. [管理接口](#2-管理接口)
+3. [文档管理接口](#3-文档管理接口)
+4. [查询接口](#4-查询接口)
+5. [图谱管理接口](#5-图谱管理接口)
+6. [错误码说明](#6-错误码说明)
 
 ---
 
-## 1. 管理接口 (Admin)
+## 1. 概述
 
-### 1.1 健康检查
+### 1.1 版本特性
 
-**GET** `/api/admin/health`
+**v4.0.0 新特性：**
+- ✅ 支持多知识库并发查询（Scatter-Gather 模式）
+- ✅ 所有查询接口支持 `rag_id` 和 `rag_ids` 参数
+- ✅ 新增全量文档状态列表接口
+- ✅ 修复文档状态统计字段
+- ✅ 优化 NebulaGraph 查询语法
 
-检查服务健康状态。
+### 1.2 认证方式
 
-**响应示例**:
-```json
-{
-  "status": "healthy",
-  "rag_instances_count": 2,
-  "ucd_initialized": false,
-  "timestamp": "2024-01-15T10:30:00.000000"
-}
-```
+当前版本暂不需要认证。
 
----
+### 1.3 通用响应格式
 
-### 1.2 创建 RAG 实例
-
-**POST** `/api/admin/rag_instances/create`
-
-创建新的 RAG 知识库实例。
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `rag_id` | string | 是 | - | 实例唯一标识 |
-| `working_dir` | string | 是 | - | 工作目录路径 |
-| `workspace` | string | 是 | - | 工作空间名称（必须唯一） |
-
-**检索参数**（None 表示使用 xwrag 默认值/环境变量）:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `top_k` | int | None | 检索的实体/关系数量 |
-| `chunk_top_k` | int | None | 检索的文本块数量 |
-| `max_entity_tokens` | int | None | 实体最大 token 数 |
-| `max_relation_tokens` | int | None | 关系最大 token 数 |
-| `max_total_tokens` | int | None | 总最大 token 数 |
-| `cosine_threshold` | float | 0.3 | 余弦相似度阈值 |
-| `related_chunk_number` | int | 5 | 关联文本块数量 |
-| `kg_chunk_pick_method` | string | None | 文本块选择方法 (VECTOR/WEIGHT) |
-| `max_graph_nodes` | int | None | 知识图谱返回最大节点数 |
-
-**文本分块参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `chunk_token_size` | int | 1200 | 分块 token 大小 |
-| `chunk_overlap_token_size` | int | 100 | 分块重叠 token 大小 |
-
-**实体提取参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `language` | string | None | 文档处理语言 |
-| `entity_types` | list[string] | None | 要提取的实体类型 |
-| `entity_extract_max_gleaning` | int | None | 实体提取最大尝试次数 |
-
-**并发与性能参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `llm_model_max_async` | int | None | 最大并发 LLM 调用数 |
-| `embedding_func_max_async` | int | None | 最大并发 Embedding 调用数 |
-| `max_parallel_insert` | int | None | 最大并行插入数 |
-| `nebula_max_connection_pool_size` | int | None | NebulaGraph 连接池大小 |
-
-**缓存参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `enable_llm_cache` | bool | true | 启用 LLM 缓存 |
-| `enable_llm_cache_for_entity_extract` | bool | true | 实体提取时启用 LLM 缓存 |
-
-**LLM 响应处理参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `strip_think_tags` | bool | false | 去除 LLM 响应中的 `<think>` 块 |
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:8000/api/admin/rag_instances/create" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_id": "rag_1",
-    "working_dir": "./data/rag_1",
-    "workspace": "knowledge_base_1",
-    "llm_model_max_async": 8,
-    "language": "Chinese"
-  }'
-```
-
-**响应示例**:
-```json
+成功响应：
+\`\`\`json
 {
   "status": "success",
-  "message": "RAG 实例 'rag_1' 创建成功",
-  "rag_id": "rag_1",
-  "working_dir": "./data/rag_1",
-  "workspace": "knowledge_base_1",
-  "llm_model": "gpt-4",
-  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2"
+  "data": { ... }
 }
-```
+\`\`\`
+
+错误响应：
+\`\`\`json
+{
+  "detail": "错误信息"
+}
+\`\`\`
 
 ---
 
-### 1.3 列出所有 RAG 实例
+## 2. 管理接口
 
-**GET** `/api/admin/rag_instances/list`
+### 2.1 健康检查
 
-**响应示例**:
-```json
-[
-  {
-    "rag_id": "rag_1",
-    "description": "knowledge_base_1",
-    "working_dir": "./data/rag_1",
-    "workspace": "knowledge_base_1",
-    "created_at": "2024-01-15T10:30:00.000000",
-    "llm_model": "gpt-4",
-    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2"
-  }
-]
-```
+**接口：** `GET /api/admin/health`
 
----
+**描述：** 检查服务健康状态和 RAG 实例数量
 
-### 1.4 获取 RAG 实例信息
+**请求示例：**
+\`\`\`bash
+curl "http://localhost:8000/api/admin/health"
+\`\`\`
 
-**GET** `/api/admin/rag_instances/{rag_id}`
-
-**请求示例**:
-```bash
-curl "http://localhost:8000/api/admin/rag_instances/rag_1"
-```
+**响应示例：**
+\`\`\`json
+{
+  "status": "healthy",
+  "rag_instances_count": 3,
+  "ucd_initialized": false,
+  "timestamp": "2026-02-01T10:30:00.123456"
+}
+\`\`\`
 
 ---
 
-### 1.5 删除 RAG 实例
+### 2.2 创建 RAG 实例
 
-**DELETE** `/api/admin/rag_instances/{rag_id}`
+**接口：** `POST /api/admin/rag_instances/create`
 
-**请求示例**:
-```bash
-curl -X DELETE "http://localhost:8000/api/admin/rag_instances/rag_1"
-```
+**描述：** 创建新的 RAG 知识库实例
 
----
-
-### 1.6 初始化 UCD 建模器
-
-**POST** `/api/admin/ucd/init`
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `base_url` | string | http://localhost:4000 | LLM 服务地址 |
-| `api_key` | string | sk-1234 | API 密钥 |
-| `model_name` | string | gpt-4 | 模型名称 |
-
----
-
-## 2. 文档接口 (Documents)
-
-### 2.1 上传文档
-
-**POST** `/api/documents/upload`
-
-上传并处理文档文件（PDF、DOCX、TXT 等）。
-
-**请求参数** (form-data):
-
+**请求参数：**
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-| `file` | file | 是 | 文档文件 |
-| `custom_id` | string | 否 | 自定义文档 ID |
+| rag_id | string | 是 | 知识库唯一标识 |
+| workspace | string | 否 | 工作空间名称 |
+| working_dir | string | 否 | 工作目录路径 |
+| llm_model | string | 否 | LLM 模型名称 |
+| embedding_model | string | 否 | 向量模型名称 |
+| kv_storage | string | 否 | KV 存储类型 (json/mongo/redis/postgres) |
+| vector_storage | string | 否 | 向量存储类型 (milvus) |
+| graph_storage | string | 否 | 图存储类型 (nebula/neo4j) |
+| doc_status_storage | string | 否 | 文档状态存储类型 |
+| entity_extract_max_gleaning | integer | 否 | 实体提取迭代次数（默认1，设为0可提升性能） |
 
-**请求示例**:
-```bash
-curl -X POST "http://localhost:8000/api/documents/upload" \
-  -F "rag_id=rag_1" \
-  -F "file=@document.pdf" \
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/admin/rag_instances/create" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "workspace": "medical_kb",
+    "working_dir": "storage_001",
+    "entity_extract_max_gleaning": 0
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "RAG 实例 'rag_001' 创建成功",
+  "rag_id": "rag_001",
+  "working_dir": "storage_001",
+  "workspace": "medical_kb",
+  "llm_model": "gpt-4o-mini",
+  "embedding_model": "text-embedding-3-small"
+}
+\`\`\`
+
+---
+
+### 2.3 列出所有 RAG 实例
+
+**接口：** `GET /api/admin/rag_instances/list`
+
+**描述：** 获取所有 RAG 实例列表
+
+**请求示例：**
+\`\`\`bash
+curl "http://localhost:8000/api/admin/rag_instances/list"
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+[
+  {
+    "rag_id": "rag_001",
+    "workspace": "medical_kb",
+    "working_dir": "storage_001",
+    "created_at": "2026-01-30T08:00:00",
+    "llm_model": "gpt-4o-mini",
+    "embedding_model": "text-embedding-3-small"
+  }
+]
+\`\`\`
+
+---
+
+### 2.4 获取 RAG 实例详情
+
+**接口：** `GET /api/admin/rag_instances/{rag_id}`
+
+**描述：** 获取指定 RAG 实例的详细配置信息
+
+**请求示例：**
+\`\`\`bash
+curl "http://localhost:8000/api/admin/rag_instances/rag_001"
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "rag_id": "rag_001",
+  "working_dir": "storage_001",
+  "workspace": "medical_kb",
+  "created_at": "2026-01-30T08:00:00",
+  "llm_model": "gpt-4o-mini",
+  "embedding_model": "text-embedding-3-small",
+  "embedding_dim": 1536,
+  "config": {
+    "kv_storage": "JsonKVStorage",
+    "vector_storage": "MilvusVectorDBStorage",
+    "graph_storage": "NebulaGraphStorage",
+    "doc_status_storage": "JsonDocStatusStorage",
+    "top_k": 60,
+    "chunk_top_k": 5,
+    "max_entity_tokens": 4000
+  }
+}
+\`\`\`
+
+
+### 2.5 删除 RAG 实例（内存）
+
+**接口：** `DELETE /api/admin/rag_instances/{rag_id}`
+
+**描述：** 删除内存中的 RAG 实例，保留存储数据
+
+**请求示例：**
+\`\`\`bash
+curl -X DELETE "http://localhost:8000/api/admin/rag_instances/rag_001"
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "RAG 实例 'rag_001' 已删除（存储数据保留）",
+  "rag_id": "rag_001"
+}
+\`\`\`
+
+---
+
+### 2.6 彻底删除 RAG 实例
+
+**接口:** `DELETE /api/admin/rag_instances/{rag_id}/complete`
+
+**描述：** 彻底删除 RAG 实例及其所有存储数据（不可逆）
+
+**查询参数：**
+- `cleanup_storage`: `boolean` (默认 `true`)
+
+**⚠️ 警告：** 此操作将永久删除该 workspace 的所有数据：
+- NebulaGraph 中的所有图数据（节点和边）
+- Milvus 中的所有 Collections（向量数据）
+- 工作目录中的所有文件
+
+**请求示例：**
+\`\`\`bash
+curl -X DELETE "http://localhost:8000/api/admin/rag_instances/rag_001/complete?cleanup_storage=true"
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "RAG 实例 'rag_001' 及其所有数据已彻底删除",
+  "rag_id": "rag_001",
+  "cleaned_resources": [
+    "NebulaGraph图数据",
+    "Milvus向量数据",
+    "工作目录文件"
+  ]
+}
+\`\`\`
+
+---
+
+### 2.7 初始化 UCD 建模器
+
+**接口：** `POST /api/admin/ucd/init`
+
+**描述：** 初始化 UCD（用例图）建模器
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| base_url | string | 否 | http://localhost:4000 | API 基础URL |
+| api_key | string | 否 | sk-1234 | API 密钥 |
+| model_name | string | 否 | gpt-4 | 模型名称 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/admin/ucd/init" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "base_url": "http://localhost:4000",
+    "api_key": "sk-your-key",
+    "model_name": "gpt-4"
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "UCD 建模器初始化成功",
+  "config": {
+    "base_url": "http://localhost:4000",
+    "model_name": "gpt-4"
+  }
+}
+\`\`\`
+
+---
+
+## 3. 文档管理接口
+
+### 3.1 上传文档
+
+**接口：** `POST /api/documents/upload`
+
+**描述：** 上传文件并自动处理（提取实体和关系）
+
+**请求类型：** `multipart/form-data`
+
+**请求参数：**
+- `rag_id`: `string` (必填) - 知识库 ID
+- `file`: `file` (必填) - 文件对象
+- `custom_id`: `string` (选填) - 自定义文档 ID
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/documents/upload" \\
+  -F "rag_id=rag_001" \\
+  -F "file=@document.pdf" \\
   -F "custom_id=doc_001"
-```
+\`\`\`
 
-**响应示例**:
-```json
+**响应示例：**
+\`\`\`json
 {
   "status": "success",
   "message": "文档 document.pdf 已成功上传并处理",
-  "file_path": "uploaded_files/rag_1_document.pdf",
+  "file_path": "uploaded_files/rag_001_document.pdf",
   "custom_id": "doc_001",
-  "rag_id": "rag_1"
-}
-```
-
----
-
-### 2.2 插入文档内容
-
-**POST** `/api/documents/insert`
-
-直接插入文本内容到知识库。
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-| `content` | string | 是 | 文档文本内容 |
-| `file_path` | string | 是 | 文件路径/名称 |
-| `doc_id` | string | 否 | 自定义文档 ID |
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:8000/api/documents/insert" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_id": "rag_1",
-    "content": "这是文档内容...",
-    "file_path": "example.txt",
-    "doc_id": "doc_001"
-  }'
-```
-
----
-
-### 2.3 批量插入文档
-
-**POST** `/api/documents/batch_insert`
-
-批量插入多个文档。
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-| `documents` | array | 是 | 文档数组 |
-
-**documents 数组元素**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `content` | string | 是 | 文档内容 |
-| `file_path` | string | 是 | 文件路径/名称 |
-| `doc_id` | string | 否 | 自定义文档 ID |
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:8000/api/documents/batch_insert" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_id": "rag_1",
-    "documents": [
-      {"content": "文档1内容", "file_path": "doc1.txt"},
-      {"content": "文档2内容", "file_path": "doc2.txt", "doc_id": "custom_id"}
-    ]
-  }'
-```
-
----
-
-### 2.4 获取文档状态统计
-
-**GET** `/api/documents/status/{rag_id}`
-
-**响应示例**:
-```json
-{
-  "total": 100,
-  "processed": 95,
-  "pending": 3,
-  "processing": 1,
-  "failed": 1,
-  "status_counts": {
-    "PROCESSED": 95,
-    "PENDING": 3,
-    "PROCESSING": 1,
-    "FAILED": 1
+  "rag_id": "rag_001",
+  "time_cost": {
+    "total": 52.32,
+    "save": 0.15,
+    "insert": 52.17
   }
 }
-```
+\`\`\`
 
 ---
 
-### 2.5 获取指定状态的文档列表
+### 3.2 插入文档内容
 
-**GET** `/api/documents/list/{rag_id}/{status}`
+**接口：** `POST /api/documents/insert`
 
-**状态值**: `PROCESSED`, `PENDING`, `FAILED`
+**描述：** 直接插入文本内容作为文档
 
-**请求示例**:
-```bash
-curl "http://localhost:8000/api/documents/list/rag_1/PROCESSED"
-```
-
----
-
-### 2.6 删除文档
-
-**DELETE** `/api/documents/delete/{rag_id}/{doc_id}`
-
-删除指定文档及其所有关联数据，包括：
-- ✅ Milvus 向量库（chunks、entities、relationships 的向量数据）
-- ✅ NebulaGraph 图数据库（节点和边）
-- ✅ 本地 KV 存储（text_chunks、full_docs、doc_status、full_entities、full_relations）
-- ✅ **原始上传文件**（uploaded_files 目录下的文件）
-
-**路径参数**:
-
+**请求参数：**
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-| `doc_id` | string | 是 | 文档 ID |
+| rag_id | string | 是 | 知识库 ID |
+| content | string | 是 | 文档内容 |
+| file_path | string | 是 | 文件名或路径 |
+| doc_id | string | 否 | 自定义文档 ID |
 
-**请求示例**:
-```bash
-curl -X DELETE "http://localhost:8000/api/documents/delete/rag_1/doc_001"
-```
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/documents/insert" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "content": "这是一篇关于人工智能的文章...",
+    "file_path": "ai_article.txt",
+    "doc_id": "doc_002"
+  }'
+\`\`\`
 
-**响应示例 (成功)**:
-```json
+**响应示例：**
+\`\`\`json
 {
   "status": "success",
-  "doc_id": "doc_001",
-  "file_path": "document.txt",
-  "message": "Document deleted successfully",
-  "rag_id": "rag_1",
-  "file_deleted": true,
-  "file_delete_message": "原始文件已删除: rag_1_document.txt"
+  "message": "文档内容已成功插入(文件: ai_article.txt)",
+  "file_path": "ai_article.txt",
+  "doc_id": "doc_002",
+  "content_length": 1500,
+  "rag_id": "rag_001",
+  "time_cost": 45.23
 }
-```
-
-**响应字段说明**:
-- `file_deleted`: 布尔值，表示原始文件是否成功删除
-- `file_delete_message`: 文件删除详情（成功、不存在或失败原因）
-
-**响应示例 (未找到)**:
-```json
-{
-  "detail": "Document not found: doc_001"
-}
-```
-
-**响应示例 (失败)**:
-```json
-{
-  "detail": "Deletion failed: error details"
-}
-```
+\`\`\`
 
 ---
 
-## 3. 查询接口 (Query)
+### 3.3 批量插入文档
 
-### 3.1 查询知识库
+**接口：** `POST /api/documents/batch_insert`
 
-**POST** `/api/query/`
+**描述：** 批量插入多个文档内容
 
-支持单知识库和多知识库查询。多知识库模式下，系统会并发查询所有知识库并合并结果。
-
-**请求体**:
-
-**知识库参数（二选一）**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 否* | 单知识库模式（向后兼容） |
-| `rag_ids` | list[string] | 否* | 多知识库模式 |
-
-\* 注意：`rag_id` 和 `rag_ids` 必须提供其中一个
-
-**基础参数**:
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `question` | string | 是 | - | 查询问题 |
-| `mode` | string | 否 | hybrid | 查询模式 (naive/local/global/hybrid/mix) |
-
-**检索参数**（None 表示使用 xwrag 默认值）:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `top_k` | int | None | 检索的实体/关系数量 |
-| `chunk_top_k` | int | None | 检索的文本块数量 |
-| `max_entity_tokens` | int | None | 实体最大 token 数 |
-| `max_relation_tokens` | int | None | 关系最大 token 数 |
-| `max_total_tokens` | int | None | 总最大 token 数 |
-
-**输出控制参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `only_need_context` | bool | true | 是否只返回上下文 |
-| `response_type` | string | None | 响应格式 |
-| `stream` | bool | None | 是否启用流式输出 |
-| `include_references` | bool | None | 是否包含引用列表 |
-
-**检索优化参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `enable_rerank` | bool | None | 是否启用 Rerank |
-| `hl_keywords` | list[string] | None | 高优先级关键词 |
-| `ll_keywords` | list[string] | None | 低优先级关键词 |
-
-**对话与提示参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `conversation_history` | list | None | 对话历史 |
-| `user_prompt` | string | None | 用户自定义提示词 |
-
-#### 单知识库查询示例（向后兼容）
-
-```bash
-curl -X POST "http://localhost:8000/api/query/" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_id": "rag_1",
-    "question": "什么是知识图谱？",
-    "mode": "hybrid",
-    "top_k": 50,
-    "enable_rerank": true
-  }'
-```
-
-**响应示例**:
-```json
+**请求参数：**
+\`\`\`json
 {
-  "rag_ids": ["rag_1"],
-  "question": "什么是知识图谱？",
-  "answer": "知识图谱是一种结构化的知识表示方式...",
-  "mode": "hybrid",
-  "timestamp": "2024-01-15T10:30:00.000000"
-}
-```
-
-#### 多知识库查询示例
-
-```bash
-curl -X POST "http://localhost:8000/api/query/" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_ids": ["rag_1", "rag_2", "rag_3"],
-    "question": "什么是知识图谱？",
-    "mode": "hybrid",
-    "top_k": 50,
-    "enable_rerank": true
-  }'
-```
-
-**响应示例**:
-```json
-{
-  "rag_ids": ["rag_1", "rag_2", "rag_3"],
-  "question": "什么是知识图谱？",
-  "answer": "【知识库: rag_1】\n知识图谱是...\n\n【知识库: rag_2】\n...\n\n【知识库: rag_3】\n...",
-  "mode": "hybrid",
-  "timestamp": "2024-01-15T10:30:00.000000",
-  "sources": [
+  "rag_id": "string (必填)",
+  "documents": [
     {
-      "rag_id": "rag_1",
-      "answer_length": 1024
-    },
-    {
-      "rag_id": "rag_2",
-      "answer_length": 856
-    },
-    {
-      "rag_id": "rag_3",
-      "answer_length": 612
+      "content": "string (必填)",
+      "file_path": "string (必填)",
+      "doc_id": "string (选填)"
     }
   ]
 }
-```
+\`\`\`
 
-**响应字段说明**:
-- `rag_ids`: 实际查询的知识库 ID 列表
-- `sources`: （多知识库模式）记录每个知识库的贡献信息
-- 多知识库模式下，答案会按知识库分组显示
-
-#### 多轮对话示例
-
-```bash
-curl -X POST "http://localhost:8000/api/query/" \
-  -H "Content-Type: application/json" \
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/documents/batch_insert" \\
+  -H "Content-Type: application/json" \\
   -d '{
-    "rag_id": "rag_1",
-    "question": "它有什么应用场景？",
-    "conversation_history": [
-      {"role": "user", "content": "什么是知识图谱？"},
-      {"role": "assistant", "content": "知识图谱是一种..."}
+    "rag_id": "rag_001",
+    "documents": [
+      {"content": "第一篇文档...", "file_path": "doc1.txt"},
+      {"content": "第二篇文档...", "file_path": "doc2.txt"}
     ]
   }'
-```
+\`\`\`
 
----
-
-### 3.2 UCD 建模查询
-
-**POST** `/api/query/ucd`
-
-执行查询并进行 UCD（用例图）建模。支持单知识库和多知识库查询。
-
-**请求体**:
-
-**知识库参数（二选一）**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 否* | 单知识库模式（向后兼容） |
-| `rag_ids` | list[string] | 否* | 多知识库模式 |
-
-**其他参数**:
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `question` | string | 是 | - | 查询问题 |
-| `mode` | string | 否 | hybrid | 查询模式 |
-| `out_json` | string | 否 | output_uc.json | 输出文件路径 |
-
-**单知识库示例**:
-```bash
-curl -X POST "http://localhost:8000/api/query/ucd" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_id": "rag_1",
-    "question": "系统需求是什么？",
-    "mode": "hybrid"
-  }'
-```
-
-**多知识库示例**:
-```bash
-curl -X POST "http://localhost:8000/api/query/ucd" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_ids": ["rag_1", "rag_2"],
-    "question": "系统需求是什么？",
-    "mode": "hybrid"
-  }'
-```
-
----
-
-### 3.3 清除缓存
-
-**POST** `/api/query/clear_cache`
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `rag_id` | string | 是 | - | RAG 实例 ID |
-| `cache_type` | string | 否 | all | 缓存类型 (llm_cache/all) |
-
----
-
-### 3.4 关键字列表检索
-
-**POST** `/api/query/keywords`
-
-使用提供的关键字列表直接检索，不调用 LLM 提取关键字。关键字同时作为高优先级（搜索关系）和低优先级（搜索实体）关键词。支持单知识库和多知识库查询。
-
-**请求体**:
-
-**知识库参数（二选一）**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 否* | 单知识库模式（向后兼容） |
-| `rag_ids` | list[string] | 否* | 多知识库模式 |
-
-**其他参数**:
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `keywords` | list[string] | 否 | None | 关键字列表（可选，为空时使用默认检索） |
-| `mode` | string | 否 | hybrid | 查询模式 |
-| `only_need_context` | bool | 否 | true | 只返回上下文 |
-| `top_k` | int | 否 | None | 检索的实体/关系数量 |
-| `chunk_top_k` | int | 否 | None | 检索的文本块数量 |
-| `max_entity_tokens` | int | 否 | None | 实体最大 token 数 |
-| `max_relation_tokens` | int | 否 | None | 关系最大 token 数 |
-| `max_total_tokens` | int | 否 | None | 总最大 token 数 |
-| `enable_rerank` | bool | 否 | None | 是否启用 Rerank |
-
-**单知识库示例**:
-```bash
-curl -X POST "http://localhost:8000/api/query/keywords" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_id": "rag_1",
-    "keywords": ["知识图谱", "实体", "关系"],
-    "mode": "hybrid",
-    "chunk_top_k": 10,
-    "enable_rerank": true
-  }'
-```
-
-**单知识库响应示例**:
-```json
+**响应示例：**
+\`\`\`json
 {
-  "rag_ids": ["rag_1"],
-  "keywords": ["知识图谱", "实体", "关系"],
-  "context": "检索到的上下文内容...",
-  "mode": "hybrid",
-  "timestamp": "2024-01-15T10:30:00.000000"
+  "status": "success",
+  "message": "成功批量插入 2 个文档",
+  "count": 2,
+  "files": ["doc1.txt", "doc2.txt"],
+  "rag_id": "rag_001",
+  "time_cost": {
+    "total": 95.50,
+    "average_per_doc": 47.75
+  }
 }
-```
+\`\`\`
 
-**多知识库示例**:
-```bash
-curl -X POST "http://localhost:8000/api/query/keywords" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_ids": ["rag_1", "rag_2"],
-    "keywords": ["知识图谱", "向量数据库"],
-    "mode": "hybrid",
-    "chunk_top_k": 10
-  }'
-```
+---
 
-**多知识库响应示例**:
-```json
+### 3.4 获取文档状态统计
+
+**接口：** `GET /api/documents/status/{rag_id}`
+
+**描述：** 获取指定知识库的文档处理状态统计
+
+**请求示例：**
+\`\`\`bash
+curl "http://localhost:8000/api/documents/status/rag_001"
+\`\`\`
+
+**响应示例：**
+\`\`\`json
 {
-  "rag_ids": ["rag_1", "rag_2"],
-  "keywords": ["知识图谱", "向量数据库"],
-  "context": "【知识库: rag_1】\n...\n\n【知识库: rag_2】\n...",
-  "mode": "hybrid",
-  "timestamp": "2024-01-15T10:30:00.000000",
-  "sources": [
+  "total": 10,
+  "processed": 8,
+  "pending": 1,
+  "processing": 1,
+  "failed": 0,
+  "status_counts": {
+    "processed": 8,
+    "pending": 1,
+    "processing": 1,
+    "failed": 0
+  }
+}
+\`\`\`
+
+**状态说明：**
+- `pending`: 待处理 - 文档在队列中等待处理
+- `processing`: 处理中 - 正在提取实体和关系
+- `processed`: 已处理 - 处理完成，可以查询
+- `failed`: 失败 - 处理过程中出错
+
+
+### 3.5 按状态获取文档列表
+
+**接口：** `GET /api/documents/list/{rag_id}/{status}`
+
+**描述：** 获取指定状态的文档列表
+
+**路径参数：**
+- `rag_id`: 知识库 ID
+- `status`: 文档状态 (`PROCESSED` / `PENDING` / `FAILED`)
+
+**请求示例：**
+\`\`\`bash
+curl "http://localhost:8000/api/documents/list/rag_001/PROCESSED"
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "PROCESSED",
+  "count": 8,
+  "documents": [
     {
-      "rag_id": "rag_1",
-      "context_length": 2048
-    },
-    {
-      "rag_id": "rag_2",
-      "context_length": 1536
+      "doc_id": "3749dba1-5520-45ea-b7d7-d2250691fdbd",
+      "file_name": "uploaded_files/rag_001_document.pdf",
+      "created_at": "2026-01-30T08:05:24.071676+00:00",
+      "updated_at": "2026-01-30T08:09:13.760415+00:00",
+      "error_message": null,
+      "status": "PROCESSED"
     }
   ]
 }
-```
+\`\`\`
 
 ---
 
-### 3.5 清理后的知识图谱检索
+### 3.6 获取全量文档状态列表
 
-**POST** `/api/query/graph-clean`
+**接口：** `GET /api/documents/doc_status/{rag_id}`
 
-使用关键字检索知识图谱，返回清理后的实体和关系（去除 source_id、file_path、created_at 等元数据）。支持单知识库和多知识库查询。
+**描述：** 获取指定知识库的所有文档详细状态（专门用于数据同步）
 
-**请求体**:
+**请求示例：**
+\`\`\`bash
+curl "http://localhost:8000/api/documents/doc_status/rag_001"
+\`\`\`
 
-**知识库参数（二选一）**:
+**响应示例：**
+\`\`\`json
+{
+  "rag_id": "rag_001",
+  "total": 10,
+  "doc_status_summary": {
+    "PROCESSED": 8,
+    "PENDING": 1,
+    "PROCESSING": 1,
+    "FAILED": 0
+  },
+  "doc_status_list": [
+    {
+      "doc_id": "3749dba1-5520-45ea-b7d7-d2250691fdbd",
+      "file_name": "document.pdf",
+      "status": "processed",
+      "created_at": "2026-01-30T08:05:24.071676+00:00",
+      "updated_at": "2026-01-30T08:09:13.760415+00:00",
+      "error_message": null
+    }
+  ]
+}
+\`\`\`
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 否* | 单知识库模式（向后兼容） |
-| `rag_ids` | list[string] | 否* | 多知识库模式 |
+---
 
-**其他参数**:
+### 3.7 删除文档
 
+**接口：** `DELETE /api/documents/delete/{rag_id}/{doc_id}`
+
+**描述：** 删除指定文档及其所有关联数据
+
+**请求示例：**
+\`\`\`bash
+curl -X DELETE "http://localhost:8000/api/documents/delete/rag_001/3749dba1-5520-45ea-b7d7-d2250691fdbd"
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "doc_id": "3749dba1-5520-45ea-b7d7-d2250691fdbd",
+  "file_path": "uploaded_files/rag_001_document.pdf",
+  "message": "文档及其关联数据已成功删除",
+  "rag_id": "rag_001",
+  "file_deleted": true,
+  "file_delete_message": "原始文件已删除: rag_001_document.pdf"
+}
+\`\`\`
+
+---
+
+## 4. 查询接口
+
+### 4.1 查询知识库
+
+**接口：** `POST /api/query/`
+
+**描述：** 查询知识库并生成回答（⭐ 支持单知识库和多知识库）
+
+**请求参数：**
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `keywords` | list[string] | 否 | None | 关键字列表（可选，为空时使用默认检索） |
-| `top_k` | int | 否 | None | 检索的实体/关系数量 |
-| `chunk_top_k` | int | 否 | None | 检索的文本块数量 |
-| `max_entity_tokens` | int | 否 | None | 实体最大 token 数 |
-| `max_relation_tokens` | int | 否 | None | 关系最大 token 数 |
-| `max_total_tokens` | int | 否 | None | 总最大 token 数 |
-| `enable_rerank` | bool | 否 | None | 是否启用 Rerank |
+| rag_id | string | 选填* | - | 单知识库 ID |
+| rag_ids | string[] | 选填* | - | 多知识库 ID 列表 |
+| question | string | 是 | - | 查询问题 |
+| mode | string | 否 | hybrid | 查询模式 (naive/local/global/hybrid) |
+| only_need_context | boolean | 否 | false | 是否只返回上下文 |
+| top_k | integer | 否 | 60 | 图谱检索数量 |
+| chunk_top_k | integer | 否 | 5 | 文档块检索数量 |
+| max_entity_tokens | integer | 否 | 4000 | 实体token上限 |
+| max_relation_tokens | integer | 否 | 4000 | 关系token上限 |
+| max_total_tokens | integer | 否 | 10000 | 总token上限 |
+| stream | boolean | 否 | false | 是否流式返回 |
+| enable_rerank | boolean | 否 | true | 是否启用重排序 |
+| response_type | string | 否 | - | 响应类型 (simple/full) |
+| hl_keywords | string[] | 否 | - | 高优先级关键字 |
+| ll_keywords | string[] | 否 | - | 低优先级关键字 |
 
-**单知识库示例**:
-```bash
-curl -X POST "http://localhost:8000/api/query/graph-clean" \
-  -H "Content-Type: application/json" \
+\* `rag_id` 和 `rag_ids` 必须提供其一
+
+**单知识库请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/query/" \\
+  -H "Content-Type: application/json" \\
   -d '{
-    "rag_id": "rag_1",
-    "keywords": ["知识图谱", "向量数据库"],
-    "top_k": 20,
-    "enable_rerank": true
+    "rag_id": "rag_001",
+    "question": "什么是人工智能？",
+    "mode": "hybrid"
   }'
-```
+\`\`\`
 
-**单知识库响应示例**:
-```json
+**单知识库响应示例：**
+\`\`\`json
 {
-  "rag_ids": ["rag_1"],
-  "keywords": ["知识图谱", "向量数据库"],
-  "entities": [
-    {
-      "entity_name": "知识图谱",
-      "description": "一种结构化的知识表示方式",
-      "entity_type": "CONCEPT"
-    }
-  ],
-  "relationships": [
-    {
-      "src_id": "知识图谱",
-      "tgt_id": "向量数据库",
-      "description": "知识图谱使用向量数据库存储",
-      "keywords": "存储,使用"
-    }
-  ],
-  "timestamp": "2024-01-15T10:30:00.000000"
+  "rag_ids": ["rag_001"],
+  "question": "什么是人工智能？",
+  "answer": "人工智能（AI）是计算机科学的一个分支...",
+  "mode": "hybrid",
+  "timestamp": "2026-02-01T10:30:00.123456"
 }
-```
+\`\`\`
 
-**多知识库示例**:
-```bash
-curl -X POST "http://localhost:8000/api/query/graph-clean" \
-  -H "Content-Type: application/json" \
+**多知识库请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/query/" \\
+  -H "Content-Type: application/json" \\
   -d '{
-    "rag_ids": ["rag_1", "rag_2"],
-    "keywords": ["知识图谱", "向量数据库"],
-    "top_k": 20
+    "rag_ids": ["rag_001", "rag_002"],
+    "question": "什么是人工智能？",
+    "mode": "hybrid"
   }'
-```
+\`\`\`
 
-**多知识库响应示例**:
-```json
+**多知识库响应示例：**
+\`\`\`json
 {
-  "rag_ids": ["rag_1", "rag_2"],
-  "keywords": ["知识图谱", "向量数据库"],
+  "rag_ids": ["rag_001", "rag_002"],
+  "question": "什么是人工智能？",
+  "answer": "【知识库: rag_001】\\n人工智能（AI）是...\\n\\n【知识库: rag_002】\\n从法律角度看...",
+  "mode": "hybrid",
+  "timestamp": "2026-02-01T10:30:00.123456",
+  "sources": [
+    {"rag_id": "rag_001", "answer_length": 500},
+    {"rag_id": "rag_002", "answer_length": 450}
+  ]
+}
+\`\`\`
+
+**查询模式说明：**
+- `naive`: 仅使用向量检索
+- `local`: 向量检索 + 实体关系
+- `global`: 全局图谱检索
+- `hybrid`: 混合模式（推荐）
+
+---
+
+### 4.2 关键字检索
+
+**接口：** `POST /api/query/keywords`
+
+**描述：** 使用关键字列表检索知识库（⭐ 支持单知识库和多知识库）
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| rag_id | string | 选填* | - | 单知识库 ID |
+| rag_ids | string[] | 选填* | - | 多知识库 ID 列表 |
+| keywords | string[] | 是 | - | 关键字列表 |
+| mode | string | 否 | hybrid | 查询模式 |
+| only_need_context | boolean | 否 | true | 是否只返回上下文 |
+| enable_rerank | boolean | 否 | true | 是否启用重排序 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/query/keywords" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_ids": ["rag_001", "rag_002"],
+    "keywords": ["人工智能", "机器学习"]
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "rag_ids": ["rag_001", "rag_002"],
+  "keywords": ["人工智能", "机器学习"],
+  "context": "【知识库: rag_001】\\n检索到的内容...\\n\\n【知识库: rag_002】\\n检索到的内容...",
+  "mode": "hybrid",
+  "timestamp": "2026-02-01T10:30:00.123456",
+  "sources": [
+    {"rag_id": "rag_001", "context_length": 2500},
+    {"rag_id": "rag_002", "context_length": 1800}
+  ]
+}
+\`\`\`
+
+
+### 4.3 UCD 建模查询
+
+**接口：** `POST /api/query/ucd`
+
+**描述：** 执行查询并进行 UCD（用例图）建模（⭐ 支持单知识库和多知识库）
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| rag_id | string | 选填* | - | 单知识库 ID |
+| rag_ids | string[] | 选填* | - | 多知识库 ID 列表 |
+| question | string | 是 | - | 查询问题 |
+| mode | string | 否 | hybrid | 查询模式 |
+| out_json | string | 否 | - | 输出JSON文件路径 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/query/ucd" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "question": "描述用户登录流程",
+    "mode": "hybrid",
+    "out_json": "ucd_output.json"
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "rag_ids": ["rag_001"],
+  "question": "描述用户登录流程",
+  "context": "检索到的上下文...",
+  "ucd_model": {
+    "use_cases": [...],
+    "actors": [...]
+  },
+  "output_file": "ucd_output.json",
+  "mode": "hybrid",
+  "timestamp": "2026-02-01T10:30:00.123456"
+}
+\`\`\`
+
+---
+
+### 4.4 清除 LLM 缓存
+
+**接口：** `POST /api/query/clear_cache`
+
+**描述：** 清除指定知识库的 LLM 缓存
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| rag_id | string | 是 | 知识库 ID |
+| cache_type | string | 是 | 缓存类型 (llm_cache/all) |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/query/clear_cache" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "cache_type": "llm_cache"
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "RAG 实例 rag_001 的 LLM 缓存已清除",
+  "rag_id": "rag_001",
+  "cache_type": "llm_cache"
+}
+\`\`\`
+
+---
+
+### 4.5 图谱清理检索
+
+**接口：** `POST /api/query/graph-clean`
+
+**描述：** 使用关键字检索知识图谱，返回清理后的实体和关系（⭐ 支持单知识库和多知识库）
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| rag_id | string | 选填* | 单知识库 ID |
+| rag_ids | string[] | 选填* | 多知识库 ID 列表 |
+| keywords | string[] | 否 | 关键字列表（可为空） |
+| enable_rerank | boolean | 否 | 是否启用重排序 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/query/graph-clean" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_ids": ["rag_001"],
+    "keywords": ["人工智能", "深度学习"]
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "rag_ids": ["rag_001"],
+  "keywords": ["人工智能", "深度学习"],
   "entities": [
     {
-      "entity_name": "知识图谱",
-      "description": "一种结构化的知识表示方式",
+      "entity_name": "人工智能",
+      "description": "计算机科学的一个分支",
       "entity_type": "CONCEPT"
     },
     {
-      "entity_name": "Milvus",
-      "description": "开源向量数据库",
+      "entity_name": "深度学习",
+      "description": "机器学习的子领域",
       "entity_type": "TECHNOLOGY"
     }
   ],
   "relationships": [
     {
-      "src_id": "知识图谱",
-      "tgt_id": "向量数据库",
-      "description": "知识图谱使用向量数据库存储",
-      "keywords": "存储,使用"
-    },
-    {
-      "src_id": "Milvus",
-      "tgt_id": "向量数据库",
-      "description": "Milvus是一种向量数据库",
-      "keywords": "类型,实现"
+      "src_id": "深度学习",
+      "tgt_id": "人工智能",
+      "description": "深度学习是人工智能的重要分支",
+      "keywords": "机器学习"
     }
   ],
-  "timestamp": "2024-01-15T10:30:00.000000",
-  "sources": [
-    {
-      "rag_id": "rag_1",
-      "entities_count": 5,
-      "relationships_count": 8
-    },
-    {
-      "rag_id": "rag_2",
-      "entities_count": 3,
-      "relationships_count": 6
-    }
-  ]
+  "timestamp": "2026-02-01T10:30:00.123456"
 }
-```
-
-**返回字段说明**:
-- **实体（entities）**：只包含 `entity_name`、`description`、`entity_type`
-- **关系（relationships）**：只包含 `src_id`、`tgt_id`、`description`、`keywords`
-- **sources**：（多知识库模式）记录每个知识库贡献的实体和关系数量
-- 已去除：`source_id`、`file_path`、`created_at`、`reference_id` 等元数据
+\`\`\`
 
 ---
 
-### 3.6 仅返回文档 Chunks
+### 4.6 仅检索文档块
 
-**POST** `/api/query/chunks-only`
+**接口：** `POST /api/query/chunks-only`
 
-使用关键字检索，只返回文档 chunks（不返回知识图谱），保留顺序和相关性分数。支持单知识库和多知识库查询。
+**描述：** 使用关键字检索，只返回文档 chunks（⭐ 支持单知识库和多知识库）
 
-**请求体**:
-
-**知识库参数（二选一）**:
-
+**请求参数：**
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `rag_id` | string | 否* | 单知识库模式（向后兼容） |
-| `rag_ids` | list[string] | 否* | 多知识库模式 |
+| rag_id | string | 选填* | 单知识库 ID |
+| rag_ids | string[] | 选填* | 多知识库 ID 列表 |
+| keywords | string[] | 否 | 关键字列表（可为空） |
+| chunk_top_k | integer | 否 | 返回文档块数量 |
+| enable_rerank | boolean | 否 | 是否启用重排序 |
 
-**其他参数**:
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `keywords` | list[string] | 否 | None | 关键字列表（可选，为空时使用默认检索） |
-| `chunk_top_k` | int | 否 | None | 检索的文本块数量 |
-| `max_total_tokens` | int | 否 | None | 总最大 token 数 |
-| `enable_rerank` | bool | 否 | None | 是否启用 Rerank |
-
-**单知识库示例**:
-```bash
-curl -X POST "http://localhost:8000/api/query/chunks-only" \
-  -H "Content-Type: application/json" \
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/query/chunks-only" \\
+  -H "Content-Type: application/json" \\
   -d '{
-    "rag_id": "rag_1",
-    "keywords": ["部署", "配置"],
-    "chunk_top_k": 5,
-    "enable_rerank": true
+    "rag_ids": ["rag_001", "rag_002"],
+    "keywords": ["人工智能"],
+    "chunk_top_k": 5
   }'
-```
+\`\`\`
 
-**单知识库响应示例**:
-```json
+**响应示例：**
+\`\`\`json
 {
-  "rag_ids": ["rag_1"],
-  "keywords": ["部署", "配置"],
+  "rag_ids": ["rag_001", "rag_002"],
+  "keywords": ["人工智能"],
   "chunks": [
     {
-      "content": "系统部署需要配置以下环境变量...",
-      "file_path": "deployment_guide.pdf",
-      "chunk_id": "chunk-abc123",
-      "reference_id": "ref-001"
+      "content": "人工智能是计算机科学的一个重要分支...",
+      "file_path": "uploaded_files/rag_001_document.pdf",
+      "chunk_id": "chunk_001",
+      "reference_id": "ref_001"
     }
   ],
-  "timestamp": "2024-01-15T10:30:00.000000"
-}
-```
-
-**多知识库示例**:
-```bash
-curl -X POST "http://localhost:8000/api/query/chunks-only" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_ids": ["rag_1", "rag_2"],
-    "keywords": ["部署", "配置"],
-    "chunk_top_k": 10
-  }'
-```
-
-**多知识库响应示例**:
-```json
-{
-  "rag_ids": ["rag_1", "rag_2"],
-  "keywords": ["部署", "配置"],
-  "chunks": [
-    {
-      "content": "系统部署需要配置以下环境变量...",
-      "file_path": "deployment_guide.pdf",
-      "chunk_id": "chunk-abc123",
-      "reference_id": "ref-001"
-    },
-    {
-      "content": "Docker 部署配置示例...",
-      "file_path": "docker_guide.md",
-      "chunk_id": "chunk-def456",
-      "reference_id": "ref-002"
-    }
-  ],
-  "timestamp": "2024-01-15T10:30:00.000000",
+  "timestamp": "2026-02-01T10:30:00.123456",
   "sources": [
-    {
-      "rag_id": "rag_1",
-      "chunks_count": 6
-    },
-    {
-      "rag_id": "rag_2",
-      "chunks_count": 4
-    }
+    {"rag_id": "rag_001", "chunks_count": 3},
+    {"rag_id": "rag_002", "chunks_count": 2}
   ]
 }
-```
-
-**返回字段说明**:
-- **content**：文本块内容
-- **file_path**：来源文件路径
-- **chunk_id**：文本块唯一标识
-- **reference_id**：引用标识（用于追溯来源和相关性）
-- **sources**：（多知识库模式）记录每个知识库贡献的文本块数量
+\`\`\`
 
 ---
 
-## 4. 图操作接口 (Graph)
+## 5. 图谱管理接口
 
-### 4.1 创建实体
+### 5.1 获取完整图谱（ECharts 格式）
 
-**POST** `/api/graph/entities/create`
+**接口：** `GET /api/graph/echarts`
 
-**请求体**:
+**描述：** 获取知识库的完整知识图谱（⭐ 支持单知识库和多知识库）
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-| `entity_name` | string | 是 | 实体名称 |
-| `entity_type` | string | 是 | 实体类型 |
-| `description` | string | 否 | 实体描述 |
-| `source_id` | string | 否 | 来源 ID |
-| `file_path` | string | 否 | 文件路径 |
+**查询参数：**
+- `rag_ids`: `string[]` (必填) - 知识库 ID 列表（可传入一个或多个）
 
-**请求示例**:
-```bash
-curl -X POST "http://localhost:8000/api/graph/entities/create" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_id": "rag_1",
-    "entity_name": "知识图谱",
-    "entity_type": "CONCEPT",
-    "description": "一种结构化的知识表示方式"
-  }'
-```
+**单知识库请求示例：**
+\`\`\`bash
+curl "http://localhost:8000/api/graph/echarts?rag_ids=rag_001"
+\`\`\`
 
----
-
-### 4.2 编辑实体
-
-**POST** `/api/graph/entities/edit`
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-| `entity_name` | string | 是 | 实体名称 |
-| `updated_data` | object | 是 | 更新的数据 |
-| `allow_rename` | bool | 否 | 是否允许重命名 |
-
----
-
-### 4.3 删除实体
-
-**POST** `/api/graph/entities/delete`
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-| `entity_name` | string | 是 | 实体名称 |
-
----
-
-### 4.4 获取实体信息
-
-**POST** `/api/graph/entities/info`
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `rag_id` | string | 是 | - | RAG 实例 ID |
-| `entity_name` | string | 是 | - | 实体名称 |
-| `include_vector_data` | bool | 否 | false | 是否包含向量数据 |
-
----
-
-### 4.5 合并实体
-
-**POST** `/api/graph/entities/merge`
-
-将多个实体合并为一个。
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-| `source_entities` | list[string] | 是 | 源实体列表 |
-| `target_entity` | string | 是 | 目标实体名称 |
-| `merge_strategy` | string | 否 | 合并策略 |
-| `target_entity_data` | object | 否 | 目标实体数据 |
-
----
-
-### 4.6 创建关系
-
-**POST** `/api/graph/relations/create`
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-| `source_entity` | string | 是 | 源实体名称 |
-| `target_entity` | string | 是 | 目标实体名称 |
-| `description` | string | 否 | 关系描述 |
-| `keywords` | string | 否 | 关键词 |
-| `weight` | float | 否 | 关系权重 |
-| `source_id` | string | 否 | 来源 ID |
-| `file_path` | string | 否 | 文件路径 |
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:8000/api/graph/relations/create" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_id": "rag_1",
-    "source_entity": "知识图谱",
-    "target_entity": "人工智能",
-    "description": "是...的一部分",
-    "weight": 1.0
-  }'
-```
-
----
-
-### 4.7 编辑关系
-
-**POST** `/api/graph/relations/edit`
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-| `source_entity` | string | 是 | 源实体名称 |
-| `target_entity` | string | 是 | 目标实体名称 |
-| `updated_data` | object | 是 | 更新的数据 |
-
----
-
-### 4.8 删除关系
-
-**POST** `/api/graph/relations/delete`
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-| `source_entity` | string | 是 | 源实体名称 |
-| `target_entity` | string | 是 | 目标实体名称 |
-
----
-
-### 4.9 获取关系信息
-
-**POST** `/api/graph/relations/info`
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `rag_id` | string | 是 | - | RAG 实例 ID |
-| `source_entity` | string | 是 | - | 源实体名称 |
-| `target_entity` | string | 是 | - | 目标实体名称 |
-| `include_vector_data` | bool | 否 | false | 是否包含向量数据 |
-
----
-
-### 4.10 导出数据
-
-**POST** `/api/graph/export`
-
-导出知识图谱数据。
-
-**请求体**:
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `rag_id` | string | 是 | - | RAG 实例 ID |
-| `output_path` | string | 是 | - | 输出文件路径 |
-| `file_format` | string | 否 | csv | 文件格式 |
-| `include_vector_data` | bool | 否 | false | 是否包含向量数据 |
-
-**支持的格式**:
-
-| 格式 | 说明 |
-|------|------|
-| `csv` | CSV 格式 |
-| `excel` | Excel 格式（多 sheet） |
-| `md` | Markdown 表格格式 |
-| `txt` | 纯文本格式 |
-| `echarts` | ECharts JSON 格式（用于可视化） |
-
-**ECharts 格式请求示例**:
-```bash
-curl -X POST "http://localhost:8000/api/graph/export" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rag_id": "rag_1",
-    "output_path": "./exports/graph.json",
-    "file_format": "echarts"
-  }'
-```
-
-**ECharts 格式输出示例**:
-```json
-{
-  "nodes": [
-    {
-      "id": "知识图谱",
-      "name": "知识图谱",
-      "value": 15,
-      "category": 0,
-      "entity_type": "CONCEPT",
-      "description": "一种结构化的知识表示方式"
-    }
-  ],
-  "links": [
-    {
-      "source": "知识图谱",
-      "target": "人工智能",
-      "description": "是...的一部分",
-      "weight": 1.0
-    }
-  ],
-  "categories": [
-    {"name": "CONCEPT"},
-    {"name": "TECHNOLOGY"}
-  ]
-}
-```
-
----
-
-### 4.11 获取 ECharts 图谱 JSON（直接返回）
-
-**GET** `/api/graph/echarts/{rag_id}`
-
-直接返回 ECharts 格式的知识图谱 JSON 数据，无需指定输出路径。适用于前端直接获取并可视化。
-
-**路径参数**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `rag_id` | string | 是 | RAG 实例 ID |
-
-**请求示例**:
-```bash
-curl "http://localhost:8000/api/graph/echarts/rag_1"
-```
-
-**JavaScript/Fetch 示例**:
-```javascript
-// 获取并渲染 ECharts 图谱
-fetch('http://localhost:8000/api/graph/echarts/rag_1')
-  .then(response => response.json())
-  .then(result => {
-    const echarts_data = result.data;
-
-    // 使用 ECharts 渲染
-    const chart = echarts.init(document.getElementById('graph'));
-    chart.setOption({
-      series: [{
-        type: 'graph',
-        layout: 'force',
-        data: echarts_data.nodes,
-        links: echarts_data.links,
-        categories: echarts_data.categories,
-        roam: true,
-        label: {
-          show: true,
-          position: 'right'
-        },
-        force: {
-          repulsion: 1000,
-          edgeLength: 150
-        }
-      }]
-    });
-  });
-```
-
-**响应示例**:
-```json
+**单知识库响应示例：**
+\`\`\`json
 {
   "status": "success",
-  "rag_id": "rag_1",
+  "rag_ids": ["rag_001"],
   "data": {
     "nodes": [
       {
-        "id": "知识图谱",
-        "name": "知识图谱",
-        "value": 15,
-        "category": 0,
-        "entity_type": "CONCEPT",
-        "description": "一种结构化的知识表示方式"
-      },
-      {
         "id": "人工智能",
         "name": "人工智能",
-        "value": 8,
-        "category": 1,
-        "entity_type": "TECHNOLOGY"
+        "symbolSize": 50,
+        "category": 0,
+        "description": "计算机科学的一个分支",
+        "degree": 15
       }
     ],
     "links": [
       {
-        "source": "知识图谱",
+        "source": "深度学习",
         "target": "人工智能",
-        "description": "是...的一部分",
-        "weight": 1.0,
-        "keywords": "应用,技术"
+        "description": "深度学习是人工智能的子领域"
       }
     ],
     "categories": [
@@ -1239,308 +902,681 @@ fetch('http://localhost:8000/api/graph/echarts/rag_1')
     ]
   }
 }
-```
+\`\`\`
 
-**数据结构说明**:
+**多知识库请求示例：**
+\`\`\`bash
+curl "http://localhost:8000/api/graph/echarts?rag_ids=rag_001&rag_ids=rag_002"
+\`\`\`
 
-**nodes** (节点数组):
-- `id`: 节点唯一标识（实体名称）
-- `name`: 显示名称
-- `value`: 节点大小值（基于度数计算）
-- `category`: 分类索引
-- `entity_type`: 实体类型
-- `description`: 实体描述（可选）
-
-**links** (边数组):
-- `source`: 源节点 ID
-- `target`: 目标节点 ID
-- `description`: 关系描述（可选）
-- `weight`: 关系权重（可选）
-- `keywords`: 关键词（可选）
-
-**categories** (分类数组):
-- `name`: 分类名称
-
-**完整 ECharts 配置示例**:
-```javascript
-const option = {
-  title: {
-    text: 'Knowledge Graph',
-    top: 'top',
-    left: 'center'
+**多知识库响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "rag_ids": ["rag_001", "rag_002"],
+  "data": {
+    "nodes": [...],
+    "links": [...],
+    "categories": [...]
   },
-  tooltip: {
-    formatter: function(params) {
-      if (params.dataType === 'node') {
-        return `<b>${params.data.name}</b><br/>
-                类型: ${params.data.entity_type}<br/>
-                连接数: ${params.data.value}<br/>
-                ${params.data.description || ''}`;
-      } else {
-        return `${params.data.source} → ${params.data.target}<br/>
-                ${params.data.description || ''}<br/>
-                权重: ${params.data.weight || 'N/A'}`;
-      }
-    }
-  },
-  legend: [{
-    data: echarts_data.categories.map(c => c.name),
-    orient: 'vertical',
-    left: 'left'
-  }],
-  series: [{
-    type: 'graph',
-    layout: 'force',
-    data: echarts_data.nodes,
-    links: echarts_data.links,
-    categories: echarts_data.categories,
-    roam: true,
-    label: {
-      show: true,
-      position: 'right',
-      formatter: '{b}'
-    },
-    labelLayout: {
-      hideOverlap: true
-    },
-    scaleLimit: {
-      min: 0.4,
-      max: 2
-    },
-    lineStyle: {
-      color: 'source',
-      curveness: 0.3
-    },
-    emphasis: {
-      focus: 'adjacency',
-      lineStyle: {
-        width: 10
-      }
-    },
-    force: {
-      repulsion: 1000,
-      gravity: 0.1,
-      edgeLength: [100, 200],
-      layoutAnimation: true
-    }
-  }]
-};
-```
+  "sources": [
+    {"rag_id": "rag_001", "nodes_count": 229, "links_count": 418},
+    {"rag_id": "rag_002", "nodes_count": 150, "links_count": 280}
+  ]
+}
+\`\`\`
 
 ---
 
-## 5. WebSocket 接口
+### 5.2 获取 Top-K 度数子图
 
-**WebSocket** `ws://localhost:8000/ws`
+**接口：** `GET /api/graph/echarts/top-k`
 
-支持实时双向通信。
+**描述：** 获取度数最高的 K 个节点及其子图（⭐ 支持单知识库和多知识库）
 
-### 5.1 查询消息
+**查询参数：**
+- `rag_ids`: `string[]` (必填) - 知识库 ID 列表
+- `k`: `integer` (选填, 默认 50) - 返回节点数量
 
-**发送**:
-```json
+**请求示例：**
+\`\`\`bash
+curl "http://localhost:8000/api/graph/echarts/top-k?rag_ids=rag_001&k=10"
+\`\`\`
+
+**响应示例：**
+\`\`\`json
 {
-  "type": "query",
-  "rag_id": "rag_1",
-  "question": "什么是知识图谱？",
-  "mode": "hybrid"
-}
-```
-
-**接收**:
-```json
-{
-  "type": "answer",
-  "rag_id": "rag_1",
-  "question": "什么是知识图谱？",
-  "context": "...",
-  "mode": "hybrid"
-}
-```
-
-### 5.2 实体操作
-
-**创建实体**:
-```json
-{
-  "type": "entity_operation",
-  "rag_id": "rag_1",
-  "operation": "create",
-  "entity_name": "测试实体",
-  "entity_data": {
-    "entity_type": "CONCEPT",
-    "description": "测试描述"
+  "status": "success",
+  "rag_ids": ["rag_001"],
+  "k": 10,
+  "data": {
+    "nodes": [
+      {
+        "id": "人工智能",
+        "name": "人工智能",
+        "symbolSize": 80,
+        "category": 0,
+        "description": "计算机科学的一个分支",
+        "degree": 25
+      }
+    ],
+    "links": [...],
+    "categories": [...]
   }
 }
-```
-
-**删除实体**:
-```json
-{
-  "type": "entity_operation",
-  "rag_id": "rag_1",
-  "operation": "delete",
-  "entity_name": "测试实体"
-}
-```
-
-### 5.3 UCD 建模查询
-
-```json
-{
-  "type": "query_ucd",
-  "rag_id": "rag_1",
-  "question": "系统需求是什么？",
-  "mode": "hybrid",
-  "out_json": "output_uc.json"
-}
-```
+\`\`\`
 
 ---
 
-## 6. Rerank 配置
+### 5.3 获取节点邻居子图
 
-### 6.1 什么是 Rerank？
+**接口：** `GET /api/graph/echarts/neighbors`
 
-Rerank（重排序）是一种检索优化技术，在初步检索后使用专门的模型对结果进行重新排序，提高相关性最高的文档的排名。
+**描述：** 获取指定节点的邻居子图（⭐ 支持单知识库和多知识库）
 
-**使用场景**：
-- 提高检索准确率
-- 优化搜索结果排序
-- 支持多语言语义匹配
+**查询参数：**
+- `node_id`: `string` (必填) - 中心节点 ID（实体名）
+- `rag_ids`: `string[]` (必填) - 知识库 ID 列表
 
-### 6.2 启动本地 Rerank 服务
+**请求示例：**
+\`\`\`bash
+# URL 编码后的"人工智能"
+curl "http://localhost:8000/api/graph/echarts/neighbors?node_id=%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD&rag_ids=rag_001"
+\`\`\`
 
-使用提供的 CPU rerank 服务器：
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "node_id": "人工智能",
+  "rag_ids": ["rag_001"],
+  "data": {
+    "nodes": [
+      {
+        "id": "人工智能",
+        "name": "人工智能",
+        "symbolSize": 60,
+        "category": 0,
+        "description": "计算机科学的一个分支",
+        "degree": 25
+      },
+      {
+        "id": "机器学习",
+        "name": "机器学习",
+        "symbolSize": 40,
+        "category": 1,
+        "description": "人工智能的子领域",
+        "degree": 15
+      }
+    ],
+    "links": [
+      {
+        "source": "机器学习",
+        "target": "人工智能",
+        "description": "机器学习是人工智能的重要方法"
+      }
+    ],
+    "categories": [...]
+  }
+}
+\`\`\`
 
-```bash
-# 运行 rerank 服务（默认监听 7777 端口）
-python cpu_rerank_server.py
-```
 
-**模型**：Qwen3-Reranker-0.6B（CPU 友好）
+### 5.4 导出图谱数据
 
-### 6.3 环境变量配置
+**接口：** `POST /api/graph/export`
 
-在 `.env` 文件中配置 rerank 相关变量：
+**描述：** 导出知识图谱数据（JSON 或 GraphML 格式）
 
-```bash
-# Rerank 服务配置
-LOCAL_RERANK_URL=http://localhost:7777/v1/rerank
-LOCAL_RERANK_MODEL=local-reranker
-LOCAL_RERANK_API_KEY=  # 本地服务可选
-```
+**请求参数：**
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| rag_id | string | 是 | - | 知识库 ID |
+| format | string | 否 | json | 导出格式 (json/graphml) |
+| output_path | string | 否 | - | 输出文件路径 |
 
-**重要**：配置后需要重启 API 服务器：
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### 6.4 在查询中使用 Rerank
-
-**方法 1：查询时启用**
-```bash
-curl -X POST "http://localhost:8000/api/query/" \
-  -H "Content-Type: application/json" \
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/graph/export" \\
+  -H "Content-Type: application/json" \\
   -d '{
-    "rag_id": "rag_1",
-    "question": "什么是知识图谱？",
-    "enable_rerank": true,
-    "chunk_top_k": 20
+    "rag_id": "rag_001",
+    "format": "json",
+    "output_path": "graph_export.json"
   }'
-```
+\`\`\`
 
-**方法 2：在 RAG 实例创建时配置默认行为**
-
-通过 `addon_params` 或环境变量配置全局 rerank 行为。
-
-### 6.5 Rerank 工作流程
-
-1. **初步检索**：向量检索获取 `chunk_top_k` 个候选文档（如 20 个）
-2. **Rerank 重排**：使用 rerank 模型计算相关性分数
-3. **结果排序**：按相关性分数重新排序
-4. **返回结果**：返回排序后的 top-k 结果
-
-### 6.6 故障排查
-
-**问题 1：WARNING: Rerank is enabled but no rerank model is configured**
-
-**原因**：
-- `.env` 文件未被加载
-- `rerank_model_func` 未配置
-
-**解决方案**：
-1. 确保 `cpu_rerank_server.py` 正在运行
-2. 检查 `.env` 文件中的 `LOCAL_RERANK_URL` 配置
-3. 重启 API 服务器
-
-**问题 2：Cannot handle batch sizes > 1 if no padding token is defined**
-
-**原因**：旧版本 rerank 服务器缺少 padding token 配置
-
-**解决方案**：使用仓库中提供的修复版 `cpu_rerank_server.py`
-
-**问题 3：Rerank API error 500**
-
-**原因**：
-- Rerank 服务未启动
-- 端口被占用
-- 模型加载失败
-
-**解决方案**：
-1. 检查 rerank 服务日志
-2. 确认端口 7777 可用
-3. 确保有足够的内存加载模型
-
----
-
-## 环境变量配置
-
-以下环境变量用于配置 LLM、Embedding 和 Rerank：
-
-### LLM 和 Embedding 配置
-
-| 变量名 | 默认值 | 说明 |
-|--------|--------|------|
-| `LLM_MODEL` | gpt-4 | LLM 模型名称 |
-| `EMBEDDING_MODEL` | sentence-transformers/all-MiniLM-L6-v2 | Embedding 模型 |
-| `EMBEDDING_DIM` | 384 | Embedding 维度 |
-| `EMBEDDING_MAX_TOKEN` | 5000 | 最大 token 数 |
-| `LITELLM_URL` | http://localhost:4000 | LiteLLM 服务地址 |
-| `LITELLM_KEY` | sk-1234 | API 密钥 |
-
-### 存储配置
-
-| 变量名 | 默认值 | 说明 |
-|--------|--------|------|
-| `GRAPH_STORAGE` | NebulaGraphStorage | 图存储类型 |
-| `VECTOR_STORAGE` | MilvusVectorDBStorage | 向量存储类型 |
-
-### Rerank 配置
-
-| 变量名 | 默认值 | 说明 |
-|--------|--------|------|
-| `LOCAL_RERANK_URL` | http://localhost:7777/v1/rerank | Rerank 服务地址 |
-| `LOCAL_RERANK_MODEL` | local-reranker | Rerank 模型名称 |
-| `LOCAL_RERANK_API_KEY` | - | API 密钥（本地服务可选） |
-
----
-
-## 错误响应
-
-所有接口在发生错误时返回统一格式：
-
-```json
+**响应示例：**
+\`\`\`json
 {
-  "detail": "错误描述信息"
+  "status": "success",
+  "message": "图谱数据已导出",
+  "rag_id": "rag_001",
+  "format": "json",
+  "output_path": "graph_export.json",
+  "nodes_count": 229,
+  "edges_count": 418
 }
-```
+\`\`\`
 
-常见 HTTP 状态码：
+---
+
+### 5.5 多知识库图谱合并
+
+**接口：** `POST /api/graph/echarts/multi`
+
+**描述：** 合并多个知识库的图谱数据（POST 方式，支持复杂参数）
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| rag_ids | string[] | 是 | - | 知识库 ID 列表 |
+| merge_strategy | string | 否 | union | 合并策略 (union/intersection) |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/graph/echarts/multi" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_ids": ["rag_001", "rag_002"],
+    "merge_strategy": "union"
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "rag_ids": ["rag_001", "rag_002"],
+  "merge_strategy": "union",
+  "data": {
+    "nodes": [...],
+    "links": [...],
+    "categories": [...]
+  },
+  "sources": [
+    {"rag_id": "rag_001", "nodes_count": 229},
+    {"rag_id": "rag_002", "nodes_count": 150}
+  ]
+}
+\`\`\`
+
+---
+
+### 5.6 创建实体
+
+**接口：** `POST /api/graph/entities/create`
+
+**描述：** 手动创建新实体
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| rag_id | string | 是 | - | 知识库 ID |
+| entity_name | string | 是 | - | 实体名称 |
+| description | string | 否 | - | 实体描述 |
+| entity_type | string | 否 | UNKNOWN | 实体类型 |
+| source_id | string | 否 | manual_creation | 来源ID |
+| file_path | string | 否 | manual_creation | 文件路径 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/graph/entities/create" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "entity_name": "量子计算",
+    "description": "利用量子力学原理进行计算的技术",
+    "entity_type": "TECHNOLOGY"
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "实体 '量子计算' 已创建",
+  "entity_name": "量子计算",
+  "rag_id": "rag_001"
+}
+\`\`\`
+
+---
+
+### 5.7 编辑实体
+
+**接口：** `POST /api/graph/entities/edit`
+
+**描述：** 编辑现有实体信息
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| rag_id | string | 是 | - | 知识库 ID |
+| entity_name | string | 是 | - | 要编辑的实体名称 |
+| updated_data | object | 是 | - | 更新数据 |
+| allow_rename | boolean | 否 | true | 是否允许重命名 |
+
+**updated_data 对象：**
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| entity_name | string | 新名称（重命名） |
+| description | string | 新描述 |
+| entity_type | string | 新类型 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/graph/entities/edit" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "entity_name": "量子计算",
+    "updated_data": {
+      "description": "基于量子力学原理的超高性能计算技术",
+      "entity_type": "ADVANCED_TECHNOLOGY"
+    }
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "实体 '量子计算' 已更新",
+  "entity_name": "量子计算",
+  "rag_id": "rag_001"
+}
+\`\`\`
+
+---
+
+### 5.8 删除实体
+
+**接口：** `POST /api/graph/entities/delete`
+
+**描述：** 删除指定实体及其所有关系
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| rag_id | string | 是 | 知识库 ID |
+| entity_name | string | 是 | 要删除的实体名称 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/graph/entities/delete" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "entity_name": "量子计算"
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "实体 '量子计算' 及其关系已删除",
+  "entity_name": "量子计算",
+  "rag_id": "rag_001"
+}
+\`\`\`
+
+---
+
+### 5.9 获取实体信息
+
+**接口：** `POST /api/graph/entities/info`
+
+**描述：** 获取指定实体的详细信息
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| rag_id | string | 是 | 知识库 ID |
+| entity_name | string | 是 | 实体名称 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/graph/entities/info" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "entity_name": "人工智能"
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "entity": {
+    "entity_name": "人工智能",
+    "description": "计算机科学的一个分支",
+    "entity_type": "CONCEPT",
+    "source_id": "chunk_001",
+    "file_path": "uploaded_files/rag_001_document.pdf",
+    "created_at": "2026-01-30T08:00:00"
+  },
+  "rag_id": "rag_001"
+}
+\`\`\`
+
+---
+
+### 5.10 合并实体
+
+**接口：** `POST /api/graph/entities/merge`
+
+**描述：** 将一个实体合并到另一个实体
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| rag_id | string | 是 | 知识库 ID |
+| source_entity | string | 是 | 被合并的实体 |
+| target_entity | string | 是 | 目标实体 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/graph/entities/merge" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "source_entity": "AI",
+    "target_entity": "人工智能"
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "实体 'AI' 已合并到 '人工智能'",
+  "source_entity": "AI",
+  "target_entity": "人工智能",
+  "rag_id": "rag_001"
+}
+\`\`\`
+
+---
+
+### 5.11 创建关系
+
+**接口：** `POST /api/graph/relations/create`
+
+**描述：** 手动创建两个实体之间的关系
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| rag_id | string | 是 | - | 知识库 ID |
+| source_entity | string | 是 | - | 源实体名称 |
+| target_entity | string | 是 | - | 目标实体名称 |
+| description | string | 否 | - | 关系描述 |
+| keywords | string | 否 | - | 关键字 |
+| source_id | string | 否 | manual_creation | 来源ID |
+| file_path | string | 否 | manual_creation | 文件路径 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/graph/relations/create" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "source_entity": "深度学习",
+    "target_entity": "神经网络",
+    "description": "深度学习基于多层神经网络",
+    "keywords": "机器学习, 人工智能"
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "关系已创建: 深度学习 -> 神经网络",
+  "source_entity": "深度学习",
+  "target_entity": "神经网络",
+  "rag_id": "rag_001"
+}
+\`\`\`
+
+---
+
+### 5.12 编辑关系
+
+**接口：** `POST /api/graph/relations/edit`
+
+**描述：** 编辑现有关系信息
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| rag_id | string | 是 | 知识库 ID |
+| source_entity | string | 是 | 源实体名称 |
+| target_entity | string | 是 | 目标实体名称 |
+| updated_data | object | 是 | 更新数据 |
+
+**updated_data 对象：**
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| description | string | 新描述 |
+| keywords | string | 新关键字 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/graph/relations/edit" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "source_entity": "深度学习",
+    "target_entity": "神经网络",
+    "updated_data": {
+      "description": "深度学习是基于深层神经网络的机器学习方法"
+    }
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "关系已更新: 深度学习 -> 神经网络",
+  "source_entity": "深度学习",
+  "target_entity": "神经网络",
+  "rag_id": "rag_001"
+}
+\`\`\`
+
+---
+
+### 5.13 删除关系
+
+**接口：** `POST /api/graph/relations/delete`
+
+**描述：** 删除指定的关系
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| rag_id | string | 是 | 知识库 ID |
+| source_entity | string | 是 | 源实体名称 |
+| target_entity | string | 是 | 目标实体名称 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/graph/relations/delete" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "source_entity": "深度学习",
+    "target_entity": "神经网络"
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "message": "关系已删除: 深度学习 -> 神经网络",
+  "source_entity": "深度学习",
+  "target_entity": "神经网络",
+  "rag_id": "rag_001"
+}
+\`\`\`
+
+---
+
+### 5.14 获取关系信息
+
+**接口：** `POST /api/graph/relations/info`
+
+**描述：** 获取指定关系的详细信息
+
+**请求参数：**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| rag_id | string | 是 | 知识库 ID |
+| source_entity | string | 是 | 源实体名称 |
+| target_entity | string | 是 | 目标实体名称 |
+
+**请求示例：**
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/graph/relations/info" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "rag_001",
+    "source_entity": "深度学习",
+    "target_entity": "人工智能"
+  }'
+\`\`\`
+
+**响应示例：**
+\`\`\`json
+{
+  "status": "success",
+  "relation": {
+    "source_entity": "深度学习",
+    "target_entity": "人工智能",
+    "description": "深度学习是人工智能的重要分支",
+    "keywords": "机器学习, 神经网络",
+    "source_id": "chunk_001",
+    "file_path": "uploaded_files/rag_001_document.pdf",
+    "created_at": "2026-01-30T08:00:00"
+  },
+  "rag_id": "rag_001"
+}
+\`\`\`
+
+---
+
+## 6. 错误码说明
+
+### HTTP 状态码
 
 | 状态码 | 说明 |
 |--------|------|
-| 200 | 成功 |
+| 200 | 请求成功 |
 | 400 | 请求参数错误 |
-| 404 | 资源不存在（如 RAG 实例不存在） |
+| 404 | 资源不存在（RAG 实例或文档未找到） |
 | 500 | 服务器内部错误 |
+| 207 | 多状态（部分成功） |
+
+### 常见错误示例
+
+**RAG 实例不存在：**
+\`\`\`json
+{
+  "detail": "RAG 实例 'rag_999' 不存在"
+}
+\`\`\`
+
+**文档未找到：**
+\`\`\`json
+{
+  "detail": "文档未找到: doc_id_123"
+}
+\`\`\`
+
+**参数错误：**
+\`\`\`json
+{
+  "detail": "必须提供 rag_id 或 rag_ids 参数之一"
+}
+\`\`\`
+
+**查询失败：**
+\`\`\`json
+{
+  "detail": "所有知识库查询均失败"
+}
+\`\`\`
+
+---
+
+## 附录
+
+### A. 多知识库查询说明
+
+v4.0.0 版本支持所有查询接口使用多知识库模式：
+
+**参数规则：**
+- 提供 \`rag_id\`: 单知识库模式
+- 提供 \`rag_ids\`: 多知识库模式
+- 两者只能提供其一
+
+**并发模式：**
+- 使用 Scatter-Gather 模式并发查询所有知识库
+- 真正的并行处理（asyncio.gather），提升性能
+
+**结果合并：**
+- 答案/上下文：按知识库拼接
+- 图谱数据：合并节点和边
+- Chunks：直接合并
+
+**Source 字段：**
+多知识库响应会包含 \`sources\` 字段，标识每个知识库的贡献：
+\`\`\`json
+{
+  "sources": [
+    {"rag_id": "rag_001", "answer_length": 500},
+    {"rag_id": "rag_002", "answer_length": 450}
+  ]
+}
+\`\`\`
+
+### B. 文档状态流转
+
+\`\`\`
+pending (待处理)
+    ↓
+processing (处理中) → failed (失败)
+    ↓
+processed (已处理)
+\`\`\`
+
+### C. 性能优化建议
+
+1. **实体提取优化：**
+   - 设置 \`entity_extract_max_gleaning: 0\` 可大幅提升处理速度（减少 LLM 调用次数）
+   - 默认值为 1，会进行二次提取以提高准确性
+
+2. **查询优化：**
+   - 使用 \`enable_rerank: true\` 提升检索准确性
+   - 调整 \`top_k\` 和 \`chunk_top_k\` 平衡性能和质量
+
+3. **缓存管理：**
+   - 定期清理 LLM 缓存避免占用过多空间
+   - 使用 \`/api/query/clear_cache\` 接口
+
+---
+
+**文档结束**
+
+**版本历史：**
+- v4.0.0 (2026-02-01): 多知识库支持、全量文档状态接口、NebulaGraph查询优化
+- v3.0.0: 模块化架构、多实例支持
+- v2.0.0: 基础 RAG 功能
+
+**技术支持：** 请提交 Issue 到项目仓库
