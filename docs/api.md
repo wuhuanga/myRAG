@@ -1570,6 +1570,173 @@ processed (已处理)
    - 定期清理 LLM 缓存避免占用过多空间
    - 使用 \`/api/query/clear_cache\` 接口
 
+### D. 运维和示例脚本
+
+#### D.1 NebulaGraph 管理命令
+
+**启动所有 NebulaGraph 服务：**
+\`\`\`bash
+sudo /usr/local/nebula/scripts/nebula.service start all
+\`\`\`
+
+**停止所有 NebulaGraph 服务：**
+\`\`\`bash
+sudo /usr/local/nebula/scripts/nebula.service stop all
+\`\`\`
+
+**查看服务状态：**
+\`\`\`bash
+sudo /usr/local/nebula/scripts/nebula.service status all
+\`\`\`
+
+#### D.2 Milvus 管理命令
+
+**安装 Milvus（Debian/Ubuntu）：**
+\`\`\`bash
+apt install -y ./milvus_2.6.4-1_amd64.deb
+\`\`\`
+
+**启动 Milvus 服务：**
+\`\`\`bash
+systemctl start milvus
+\`\`\`
+
+**查看 Milvus 状态：**
+\`\`\`bash
+systemctl status milvus
+\`\`\`
+
+**停止 Milvus 服务：**
+\`\`\`bash
+systemctl stop milvus
+\`\`\`
+
+#### D.3 API 服务器启动
+
+**使用 tmux 启动并记录日志：**
+\`\`\`bash
+# 创建新的 tmux 会话
+tmux new -s myrag
+
+# 启动 API 服务器并记录日志
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 |& tee log.txt
+
+# 分离会话：按 Ctrl+B，然后按 D
+# 重新连接：tmux attach -t myrag
+\`\`\`
+
+**Docker Compose 启动（推荐）：**
+\`\`\`bash
+# 启动所有服务
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f rag-api
+
+# 停止所有服务
+docker-compose down
+\`\`\`
+
+#### D.4 完整示例工作流
+
+以下是一个完整的端到端工作流脚本示例：
+
+\`\`\`bash
+#!/bin/bash
+
+# myRAG 完整示例工作流
+# 演示如何创建 RAG 实例、上传文档、查询知识库
+
+BASE_URL="http://localhost:8000"
+
+echo "========================================="
+echo "1. 健康检查"
+echo "========================================="
+curl -X GET "${BASE_URL}/api/admin/health" | jq
+sleep 1
+
+echo ""
+echo "========================================="
+echo "2. 创建 RAG 实例"
+echo "========================================="
+curl -X POST "${BASE_URL}/api/admin/rag_instances/create" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "demo_rag",
+    "workspace": "demo_workspace",
+    "working_dir": "demo_storage",
+    "entity_extract_max_gleaning": 0
+  }' | jq
+sleep 2
+
+echo ""
+echo "========================================="
+echo "3. 上传文档"
+echo "========================================="
+curl -X POST "${BASE_URL}/api/documents/upload" \\
+  -F "rag_id=demo_rag" \\
+  -F "file=@test_document.txt" \\
+  -F "custom_id=doc_001" | jq
+sleep 1
+
+echo ""
+echo "========================================="
+echo "4. 查看文档处理状态"
+echo "========================================="
+curl -X GET "${BASE_URL}/api/documents/status/demo_rag" | jq
+sleep 1
+
+echo ""
+echo "========================================="
+echo "5. 查询知识库"
+echo "========================================="
+curl -X POST "${BASE_URL}/api/query/" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "rag_id": "demo_rag",
+    "question": "文档主要内容是什么？",
+    "mode": "hybrid"
+  }' | jq
+sleep 1
+
+echo ""
+echo "========================================="
+echo "6. 获取知识图谱（ECharts 格式）"
+echo "========================================="
+curl -X GET "${BASE_URL}/api/graph/echarts?rag_ids=demo_rag" | jq
+sleep 1
+
+echo ""
+echo "========================================="
+echo "7. 获取 Top-K 度数子图"
+echo "========================================="
+curl -X GET "${BASE_URL}/api/graph/echarts/top-k?rag_ids=demo_rag&k=10" | jq
+sleep 1
+
+echo ""
+echo "========================================="
+echo "8. 列出所有 RAG 实例"
+echo "========================================="
+curl -X GET "${BASE_URL}/api/admin/rag_instances/list" | jq
+sleep 1
+
+echo ""
+echo "========================================="
+echo "工作流执行完成！"
+echo "========================================="
+\`\`\`
+
+**使用方法：**
+1. 将上述脚本保存为 \`test_workflow.sh\`
+2. 准备测试文档 \`test_document.txt\`
+3. 赋予执行权限：\`chmod +x test_workflow.sh\`
+4. 运行：\`./test_workflow.sh\`
+
+**注意事项：**
+- 脚本使用 \`jq\` 格式化 JSON 输出，请确保已安装：\`apt install jq\`
+- 确保 NebulaGraph 和 Milvus 服务已启动
+- 确保 API 服务器正在运行
+
 ---
 
 **文档结束**
