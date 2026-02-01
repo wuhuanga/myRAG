@@ -36,19 +36,19 @@
 ### 1.3 通用响应格式
 
 成功响应：
-\`\`\`json
+```json
 {
   "status": "success",
   "data": { ... }
 }
-\`\`\`
+```
 
 错误响应：
-\`\`\`json
+```json
 {
   "detail": "错误信息"
 }
-\`\`\`
+```
 
 ---
 
@@ -61,19 +61,19 @@
 **描述：** 检查服务健康状态和 RAG 实例数量
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl "http://localhost:8000/api/admin/health"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "healthy",
   "rag_instances_count": 3,
   "ucd_initialized": false,
   "timestamp": "2026-02-01T10:30:00.123456"
 }
-\`\`\`
+```
 
 ---
 
@@ -98,7 +98,7 @@ curl "http://localhost:8000/api/admin/health"
 | entity_extract_max_gleaning | integer | 否 | 实体提取迭代次数（默认1，设为0可提升性能） |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/admin/rag_instances/create" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -107,10 +107,10 @@ curl -X POST "http://localhost:8000/api/admin/rag_instances/create" \\
     "working_dir": "storage_001",
     "entity_extract_max_gleaning": 0
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "RAG 实例 'rag_001' 创建成功",
@@ -120,7 +120,7 @@ curl -X POST "http://localhost:8000/api/admin/rag_instances/create" \\
   "llm_model": "gpt-4o-mini",
   "embedding_model": "text-embedding-3-small"
 }
-\`\`\`
+```
 
 ---
 
@@ -131,12 +131,12 @@ curl -X POST "http://localhost:8000/api/admin/rag_instances/create" \\
 **描述：** 获取所有 RAG 实例列表
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl "http://localhost:8000/api/admin/rag_instances/list"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 [
   {
     "rag_id": "rag_001",
@@ -147,7 +147,7 @@ curl "http://localhost:8000/api/admin/rag_instances/list"
     "embedding_model": "text-embedding-3-small"
   }
 ]
-\`\`\`
+```
 
 ---
 
@@ -158,12 +158,12 @@ curl "http://localhost:8000/api/admin/rag_instances/list"
 **描述：** 获取指定 RAG 实例的详细配置信息
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl "http://localhost:8000/api/admin/rag_instances/rag_001"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "rag_id": "rag_001",
@@ -183,7 +183,7 @@ curl "http://localhost:8000/api/admin/rag_instances/rag_001"
     "max_entity_tokens": 4000
   }
 }
-\`\`\`
+```
 
 
 ### 2.5 删除 RAG 实例（内存）
@@ -193,18 +193,18 @@ curl "http://localhost:8000/api/admin/rag_instances/rag_001"
 **描述：** 删除内存中的 RAG 实例，保留存储数据
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X DELETE "http://localhost:8000/api/admin/rag_instances/rag_001"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "RAG 实例 'rag_001' 已删除（存储数据保留）",
   "rag_id": "rag_001"
 }
-\`\`\`
+```
 
 ---
 
@@ -223,12 +223,12 @@ curl -X DELETE "http://localhost:8000/api/admin/rag_instances/rag_001"
 - 工作目录中的所有文件
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X DELETE "http://localhost:8000/api/admin/rag_instances/rag_001/complete?cleanup_storage=true"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "RAG 实例 'rag_001' 及其所有数据已彻底删除",
@@ -239,7 +239,7 @@ curl -X DELETE "http://localhost:8000/api/admin/rag_instances/rag_001/complete?c
     "工作目录文件"
   ]
 }
-\`\`\`
+```
 
 ---
 
@@ -257,7 +257,7 @@ curl -X DELETE "http://localhost:8000/api/admin/rag_instances/rag_001/complete?c
 | model_name | string | 否 | gpt-4 | 模型名称 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/admin/ucd/init" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -265,10 +265,10 @@ curl -X POST "http://localhost:8000/api/admin/ucd/init" \\
     "api_key": "sk-your-key",
     "model_name": "gpt-4"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "UCD 建模器初始化成功",
@@ -277,7 +277,7 @@ curl -X POST "http://localhost:8000/api/admin/ucd/init" \\
     "model_name": "gpt-4"
   }
 }
-\`\`\`
+```
 
 ---
 
@@ -297,15 +297,15 @@ curl -X POST "http://localhost:8000/api/admin/ucd/init" \\
 - `custom_id`: `string` (选填) - 自定义文档 ID
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/documents/upload" \\
   -F "rag_id=rag_001" \\
   -F "file=@document.pdf" \\
   -F "custom_id=doc_001"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "文档 document.pdf 已成功上传并处理",
@@ -318,7 +318,7 @@ curl -X POST "http://localhost:8000/api/documents/upload" \\
     "insert": 52.17
   }
 }
-\`\`\`
+```
 
 ---
 
@@ -337,7 +337,7 @@ curl -X POST "http://localhost:8000/api/documents/upload" \\
 | doc_id | string | 否 | 自定义文档 ID |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/documents/insert" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -346,10 +346,10 @@ curl -X POST "http://localhost:8000/api/documents/insert" \\
     "file_path": "ai_article.txt",
     "doc_id": "doc_002"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "文档内容已成功插入(文件: ai_article.txt)",
@@ -359,7 +359,7 @@ curl -X POST "http://localhost:8000/api/documents/insert" \\
   "rag_id": "rag_001",
   "time_cost": 45.23
 }
-\`\`\`
+```
 
 ---
 
@@ -370,7 +370,7 @@ curl -X POST "http://localhost:8000/api/documents/insert" \\
 **描述：** 批量插入多个文档内容
 
 **请求参数：**
-\`\`\`json
+```json
 {
   "rag_id": "string (必填)",
   "documents": [
@@ -381,10 +381,10 @@ curl -X POST "http://localhost:8000/api/documents/insert" \\
     }
   ]
 }
-\`\`\`
+```
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/documents/batch_insert" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -394,10 +394,10 @@ curl -X POST "http://localhost:8000/api/documents/batch_insert" \\
       {"content": "第二篇文档...", "file_path": "doc2.txt"}
     ]
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "成功批量插入 2 个文档",
@@ -409,7 +409,7 @@ curl -X POST "http://localhost:8000/api/documents/batch_insert" \\
     "average_per_doc": 47.75
   }
 }
-\`\`\`
+```
 
 ---
 
@@ -420,12 +420,12 @@ curl -X POST "http://localhost:8000/api/documents/batch_insert" \\
 **描述：** 获取指定知识库的文档处理状态统计
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl "http://localhost:8000/api/documents/status/rag_001"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "total": 10,
   "processed": 8,
@@ -439,7 +439,7 @@ curl "http://localhost:8000/api/documents/status/rag_001"
     "failed": 0
   }
 }
-\`\`\`
+```
 
 **状态说明：**
 - `pending`: 待处理 - 文档在队列中等待处理
@@ -459,12 +459,12 @@ curl "http://localhost:8000/api/documents/status/rag_001"
 - `status`: 文档状态 (`PROCESSED` / `PENDING` / `FAILED`)
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl "http://localhost:8000/api/documents/list/rag_001/PROCESSED"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "PROCESSED",
   "count": 8,
@@ -479,7 +479,7 @@ curl "http://localhost:8000/api/documents/list/rag_001/PROCESSED"
     }
   ]
 }
-\`\`\`
+```
 
 ---
 
@@ -490,12 +490,12 @@ curl "http://localhost:8000/api/documents/list/rag_001/PROCESSED"
 **描述：** 获取指定知识库的所有文档详细状态（专门用于数据同步）
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl "http://localhost:8000/api/documents/doc_status/rag_001"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "rag_id": "rag_001",
   "total": 10,
@@ -516,7 +516,7 @@ curl "http://localhost:8000/api/documents/doc_status/rag_001"
     }
   ]
 }
-\`\`\`
+```
 
 ---
 
@@ -527,12 +527,12 @@ curl "http://localhost:8000/api/documents/doc_status/rag_001"
 **描述：** 删除指定文档及其所有关联数据
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X DELETE "http://localhost:8000/api/documents/delete/rag_001/3749dba1-5520-45ea-b7d7-d2250691fdbd"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "doc_id": "3749dba1-5520-45ea-b7d7-d2250691fdbd",
@@ -542,7 +542,7 @@ curl -X DELETE "http://localhost:8000/api/documents/delete/rag_001/3749dba1-5520
   "file_deleted": true,
   "file_delete_message": "原始文件已删除: rag_001_document.pdf"
 }
-\`\`\`
+```
 
 ---
 
@@ -576,7 +576,7 @@ curl -X DELETE "http://localhost:8000/api/documents/delete/rag_001/3749dba1-5520
 \* `rag_id` 和 `rag_ids` 必须提供其一
 
 **单知识库请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/query/" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -584,10 +584,10 @@ curl -X POST "http://localhost:8000/api/query/" \\
     "question": "什么是人工智能？",
     "mode": "hybrid"
   }'
-\`\`\`
+```
 
 **单知识库响应示例：**
-\`\`\`json
+```json
 {
   "rag_ids": ["rag_001"],
   "question": "什么是人工智能？",
@@ -595,10 +595,10 @@ curl -X POST "http://localhost:8000/api/query/" \\
   "mode": "hybrid",
   "timestamp": "2026-02-01T10:30:00.123456"
 }
-\`\`\`
+```
 
 **多知识库请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/query/" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -606,10 +606,10 @@ curl -X POST "http://localhost:8000/api/query/" \\
     "question": "什么是人工智能？",
     "mode": "hybrid"
   }'
-\`\`\`
+```
 
 **多知识库响应示例：**
-\`\`\`json
+```json
 {
   "rag_ids": ["rag_001", "rag_002"],
   "question": "什么是人工智能？",
@@ -621,7 +621,7 @@ curl -X POST "http://localhost:8000/api/query/" \\
     {"rag_id": "rag_002", "answer_length": 450}
   ]
 }
-\`\`\`
+```
 
 **查询模式说明：**
 - `naive`: 仅使用向量检索
@@ -648,17 +648,17 @@ curl -X POST "http://localhost:8000/api/query/" \\
 | enable_rerank | boolean | 否 | true | 是否启用重排序 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/query/keywords" \\
   -H "Content-Type: application/json" \\
   -d '{
     "rag_ids": ["rag_001", "rag_002"],
     "keywords": ["人工智能", "机器学习"]
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "rag_ids": ["rag_001", "rag_002"],
   "keywords": ["人工智能", "机器学习"],
@@ -670,7 +670,7 @@ curl -X POST "http://localhost:8000/api/query/keywords" \\
     {"rag_id": "rag_002", "context_length": 1800}
   ]
 }
-\`\`\`
+```
 
 
 ### 4.3 UCD 建模查询
@@ -689,7 +689,7 @@ curl -X POST "http://localhost:8000/api/query/keywords" \\
 | out_json | string | 否 | - | 输出JSON文件路径 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/query/ucd" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -698,10 +698,10 @@ curl -X POST "http://localhost:8000/api/query/ucd" \\
     "mode": "hybrid",
     "out_json": "ucd_output.json"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "rag_ids": ["rag_001"],
@@ -715,7 +715,7 @@ curl -X POST "http://localhost:8000/api/query/ucd" \\
   "mode": "hybrid",
   "timestamp": "2026-02-01T10:30:00.123456"
 }
-\`\`\`
+```
 
 ---
 
@@ -732,24 +732,24 @@ curl -X POST "http://localhost:8000/api/query/ucd" \\
 | cache_type | string | 是 | 缓存类型 (llm_cache/all) |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/query/clear_cache" \\
   -H "Content-Type: application/json" \\
   -d '{
     "rag_id": "rag_001",
     "cache_type": "llm_cache"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "RAG 实例 rag_001 的 LLM 缓存已清除",
   "rag_id": "rag_001",
   "cache_type": "llm_cache"
 }
-\`\`\`
+```
 
 ---
 
@@ -768,17 +768,17 @@ curl -X POST "http://localhost:8000/api/query/clear_cache" \\
 | enable_rerank | boolean | 否 | 是否启用重排序 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/query/graph-clean" \\
   -H "Content-Type: application/json" \\
   -d '{
     "rag_ids": ["rag_001"],
     "keywords": ["人工智能", "深度学习"]
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "rag_ids": ["rag_001"],
   "keywords": ["人工智能", "深度学习"],
@@ -804,7 +804,7 @@ curl -X POST "http://localhost:8000/api/query/graph-clean" \\
   ],
   "timestamp": "2026-02-01T10:30:00.123456"
 }
-\`\`\`
+```
 
 ---
 
@@ -824,7 +824,7 @@ curl -X POST "http://localhost:8000/api/query/graph-clean" \\
 | enable_rerank | boolean | 否 | 是否启用重排序 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/query/chunks-only" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -832,10 +832,10 @@ curl -X POST "http://localhost:8000/api/query/chunks-only" \\
     "keywords": ["人工智能"],
     "chunk_top_k": 5
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "rag_ids": ["rag_001", "rag_002"],
   "keywords": ["人工智能"],
@@ -853,7 +853,7 @@ curl -X POST "http://localhost:8000/api/query/chunks-only" \\
     {"rag_id": "rag_002", "chunks_count": 2}
   ]
 }
-\`\`\`
+```
 
 ---
 
@@ -869,12 +869,12 @@ curl -X POST "http://localhost:8000/api/query/chunks-only" \\
 - `rag_ids`: `string[]` (必填) - 知识库 ID 列表（可传入一个或多个）
 
 **单知识库请求示例：**
-\`\`\`bash
+```bash
 curl "http://localhost:8000/api/graph/echarts?rag_ids=rag_001"
-\`\`\`
+```
 
 **单知识库响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "rag_ids": ["rag_001"],
@@ -902,15 +902,15 @@ curl "http://localhost:8000/api/graph/echarts?rag_ids=rag_001"
     ]
   }
 }
-\`\`\`
+```
 
 **多知识库请求示例：**
-\`\`\`bash
+```bash
 curl "http://localhost:8000/api/graph/echarts?rag_ids=rag_001&rag_ids=rag_002"
-\`\`\`
+```
 
 **多知识库响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "rag_ids": ["rag_001", "rag_002"],
@@ -924,7 +924,7 @@ curl "http://localhost:8000/api/graph/echarts?rag_ids=rag_001&rag_ids=rag_002"
     {"rag_id": "rag_002", "nodes_count": 150, "links_count": 280}
   ]
 }
-\`\`\`
+```
 
 ---
 
@@ -939,12 +939,12 @@ curl "http://localhost:8000/api/graph/echarts?rag_ids=rag_001&rag_ids=rag_002"
 - `k`: `integer` (选填, 默认 50) - 返回节点数量
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl "http://localhost:8000/api/graph/echarts/top-k?rag_ids=rag_001&k=10"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "rag_ids": ["rag_001"],
@@ -964,7 +964,7 @@ curl "http://localhost:8000/api/graph/echarts/top-k?rag_ids=rag_001&k=10"
     "categories": [...]
   }
 }
-\`\`\`
+```
 
 ---
 
@@ -979,13 +979,13 @@ curl "http://localhost:8000/api/graph/echarts/top-k?rag_ids=rag_001&k=10"
 - `rag_ids`: `string[]` (必填) - 知识库 ID 列表
 
 **请求示例：**
-\`\`\`bash
+```bash
 # URL 编码后的"人工智能"
 curl "http://localhost:8000/api/graph/echarts/neighbors?node_id=%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD&rag_ids=rag_001"
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "node_id": "人工智能",
@@ -1019,7 +1019,7 @@ curl "http://localhost:8000/api/graph/echarts/neighbors?node_id=%E4%BA%BA%E5%B7%
     "categories": [...]
   }
 }
-\`\`\`
+```
 
 
 ### 5.4 导出图谱数据
@@ -1036,7 +1036,7 @@ curl "http://localhost:8000/api/graph/echarts/neighbors?node_id=%E4%BA%BA%E5%B7%
 | output_path | string | 否 | - | 输出文件路径 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/graph/export" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1044,10 +1044,10 @@ curl -X POST "http://localhost:8000/api/graph/export" \\
     "format": "json",
     "output_path": "graph_export.json"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "图谱数据已导出",
@@ -1057,7 +1057,7 @@ curl -X POST "http://localhost:8000/api/graph/export" \\
   "nodes_count": 229,
   "edges_count": 418
 }
-\`\`\`
+```
 
 ---
 
@@ -1074,17 +1074,17 @@ curl -X POST "http://localhost:8000/api/graph/export" \\
 | merge_strategy | string | 否 | union | 合并策略 (union/intersection) |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/graph/echarts/multi" \\
   -H "Content-Type: application/json" \\
   -d '{
     "rag_ids": ["rag_001", "rag_002"],
     "merge_strategy": "union"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "rag_ids": ["rag_001", "rag_002"],
@@ -1099,7 +1099,7 @@ curl -X POST "http://localhost:8000/api/graph/echarts/multi" \\
     {"rag_id": "rag_002", "nodes_count": 150}
   ]
 }
-\`\`\`
+```
 
 ---
 
@@ -1120,7 +1120,7 @@ curl -X POST "http://localhost:8000/api/graph/echarts/multi" \\
 | file_path | string | 否 | manual_creation | 文件路径 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/graph/entities/create" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1129,17 +1129,17 @@ curl -X POST "http://localhost:8000/api/graph/entities/create" \\
     "description": "利用量子力学原理进行计算的技术",
     "entity_type": "TECHNOLOGY"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "实体 '量子计算' 已创建",
   "entity_name": "量子计算",
   "rag_id": "rag_001"
 }
-\`\`\`
+```
 
 ---
 
@@ -1165,7 +1165,7 @@ curl -X POST "http://localhost:8000/api/graph/entities/create" \\
 | entity_type | string | 新类型 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/graph/entities/edit" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1176,17 +1176,17 @@ curl -X POST "http://localhost:8000/api/graph/entities/edit" \\
       "entity_type": "ADVANCED_TECHNOLOGY"
     }
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "实体 '量子计算' 已更新",
   "entity_name": "量子计算",
   "rag_id": "rag_001"
 }
-\`\`\`
+```
 
 ---
 
@@ -1203,24 +1203,24 @@ curl -X POST "http://localhost:8000/api/graph/entities/edit" \\
 | entity_name | string | 是 | 要删除的实体名称 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/graph/entities/delete" \\
   -H "Content-Type: application/json" \\
   -d '{
     "rag_id": "rag_001",
     "entity_name": "量子计算"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "实体 '量子计算' 及其关系已删除",
   "entity_name": "量子计算",
   "rag_id": "rag_001"
 }
-\`\`\`
+```
 
 ---
 
@@ -1237,17 +1237,17 @@ curl -X POST "http://localhost:8000/api/graph/entities/delete" \\
 | entity_name | string | 是 | 实体名称 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/graph/entities/info" \\
   -H "Content-Type: application/json" \\
   -d '{
     "rag_id": "rag_001",
     "entity_name": "人工智能"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "entity": {
@@ -1260,7 +1260,7 @@ curl -X POST "http://localhost:8000/api/graph/entities/info" \\
   },
   "rag_id": "rag_001"
 }
-\`\`\`
+```
 
 ---
 
@@ -1278,7 +1278,7 @@ curl -X POST "http://localhost:8000/api/graph/entities/info" \\
 | target_entity | string | 是 | 目标实体 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/graph/entities/merge" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1286,10 +1286,10 @@ curl -X POST "http://localhost:8000/api/graph/entities/merge" \\
     "source_entity": "AI",
     "target_entity": "人工智能"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "实体 'AI' 已合并到 '人工智能'",
@@ -1297,7 +1297,7 @@ curl -X POST "http://localhost:8000/api/graph/entities/merge" \\
   "target_entity": "人工智能",
   "rag_id": "rag_001"
 }
-\`\`\`
+```
 
 ---
 
@@ -1319,7 +1319,7 @@ curl -X POST "http://localhost:8000/api/graph/entities/merge" \\
 | file_path | string | 否 | manual_creation | 文件路径 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/graph/relations/create" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1329,10 +1329,10 @@ curl -X POST "http://localhost:8000/api/graph/relations/create" \\
     "description": "深度学习基于多层神经网络",
     "keywords": "机器学习, 人工智能"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "关系已创建: 深度学习 -> 神经网络",
@@ -1340,7 +1340,7 @@ curl -X POST "http://localhost:8000/api/graph/relations/create" \\
   "target_entity": "神经网络",
   "rag_id": "rag_001"
 }
-\`\`\`
+```
 
 ---
 
@@ -1365,7 +1365,7 @@ curl -X POST "http://localhost:8000/api/graph/relations/create" \\
 | keywords | string | 新关键字 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/graph/relations/edit" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1376,10 +1376,10 @@ curl -X POST "http://localhost:8000/api/graph/relations/edit" \\
       "description": "深度学习是基于深层神经网络的机器学习方法"
     }
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "关系已更新: 深度学习 -> 神经网络",
@@ -1387,7 +1387,7 @@ curl -X POST "http://localhost:8000/api/graph/relations/edit" \\
   "target_entity": "神经网络",
   "rag_id": "rag_001"
 }
-\`\`\`
+```
 
 ---
 
@@ -1405,7 +1405,7 @@ curl -X POST "http://localhost:8000/api/graph/relations/edit" \\
 | target_entity | string | 是 | 目标实体名称 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/graph/relations/delete" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1413,10 +1413,10 @@ curl -X POST "http://localhost:8000/api/graph/relations/delete" \\
     "source_entity": "深度学习",
     "target_entity": "神经网络"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "message": "关系已删除: 深度学习 -> 神经网络",
@@ -1424,7 +1424,7 @@ curl -X POST "http://localhost:8000/api/graph/relations/delete" \\
   "target_entity": "神经网络",
   "rag_id": "rag_001"
 }
-\`\`\`
+```
 
 ---
 
@@ -1442,7 +1442,7 @@ curl -X POST "http://localhost:8000/api/graph/relations/delete" \\
 | target_entity | string | 是 | 目标实体名称 |
 
 **请求示例：**
-\`\`\`bash
+```bash
 curl -X POST "http://localhost:8000/api/graph/relations/info" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1450,10 +1450,10 @@ curl -X POST "http://localhost:8000/api/graph/relations/info" \\
     "source_entity": "深度学习",
     "target_entity": "人工智能"
   }'
-\`\`\`
+```
 
 **响应示例：**
-\`\`\`json
+```json
 {
   "status": "success",
   "relation": {
@@ -1467,7 +1467,7 @@ curl -X POST "http://localhost:8000/api/graph/relations/info" \\
   },
   "rag_id": "rag_001"
 }
-\`\`\`
+```
 
 ---
 
@@ -1486,32 +1486,32 @@ curl -X POST "http://localhost:8000/api/graph/relations/info" \\
 ### 常见错误示例
 
 **RAG 实例不存在：**
-\`\`\`json
+```json
 {
   "detail": "RAG 实例 'rag_999' 不存在"
 }
-\`\`\`
+```
 
 **文档未找到：**
-\`\`\`json
+```json
 {
   "detail": "文档未找到: doc_id_123"
 }
-\`\`\`
+```
 
 **参数错误：**
-\`\`\`json
+```json
 {
   "detail": "必须提供 rag_id 或 rag_ids 参数之一"
 }
-\`\`\`
+```
 
 **查询失败：**
-\`\`\`json
+```json
 {
   "detail": "所有知识库查询均失败"
 }
-\`\`\`
+```
 
 ---
 
@@ -1522,8 +1522,8 @@ curl -X POST "http://localhost:8000/api/graph/relations/info" \\
 v4.0.0 版本支持所有查询接口使用多知识库模式：
 
 **参数规则：**
-- 提供 \`rag_id\`: 单知识库模式
-- 提供 \`rag_ids\`: 多知识库模式
+- 提供 `rag_id`: 单知识库模式
+- 提供 `rag_ids`: 多知识库模式
 - 两者只能提供其一
 
 **并发模式：**
@@ -1536,85 +1536,85 @@ v4.0.0 版本支持所有查询接口使用多知识库模式：
 - Chunks：直接合并
 
 **Source 字段：**
-多知识库响应会包含 \`sources\` 字段，标识每个知识库的贡献：
-\`\`\`json
+多知识库响应会包含 `sources` 字段，标识每个知识库的贡献：
+```json
 {
   "sources": [
     {"rag_id": "rag_001", "answer_length": 500},
     {"rag_id": "rag_002", "answer_length": 450}
   ]
 }
-\`\`\`
+```
 
 ### B. 文档状态流转
 
-\`\`\`
+```
 pending (待处理)
     ↓
 processing (处理中) → failed (失败)
     ↓
 processed (已处理)
-\`\`\`
+```
 
 ### C. 性能优化建议
 
 1. **实体提取优化：**
-   - 设置 \`entity_extract_max_gleaning: 0\` 可大幅提升处理速度（减少 LLM 调用次数）
+   - 设置 `entity_extract_max_gleaning: 0` 可大幅提升处理速度（减少 LLM 调用次数）
    - 默认值为 1，会进行二次提取以提高准确性
 
 2. **查询优化：**
-   - 使用 \`enable_rerank: true\` 提升检索准确性
-   - 调整 \`top_k\` 和 \`chunk_top_k\` 平衡性能和质量
+   - 使用 `enable_rerank: true` 提升检索准确性
+   - 调整 `top_k` 和 `chunk_top_k` 平衡性能和质量
 
 3. **缓存管理：**
    - 定期清理 LLM 缓存避免占用过多空间
-   - 使用 \`/api/query/clear_cache\` 接口
+   - 使用 `/api/query/clear_cache` 接口
 
 ### D. 运维和示例脚本
 
 #### D.1 NebulaGraph 管理命令
 
 **启动所有 NebulaGraph 服务：**
-\`\`\`bash
+```bash
 sudo /usr/local/nebula/scripts/nebula.service start all
-\`\`\`
+```
 
 **停止所有 NebulaGraph 服务：**
-\`\`\`bash
+```bash
 sudo /usr/local/nebula/scripts/nebula.service stop all
-\`\`\`
+```
 
 **查看服务状态：**
-\`\`\`bash
+```bash
 sudo /usr/local/nebula/scripts/nebula.service status all
-\`\`\`
+```
 
 #### D.2 Milvus 管理命令
 
 **安装 Milvus（Debian/Ubuntu）：**
-\`\`\`bash
+```bash
 apt install -y ./milvus_2.6.4-1_amd64.deb
-\`\`\`
+```
 
 **启动 Milvus 服务：**
-\`\`\`bash
+```bash
 systemctl start milvus
-\`\`\`
+```
 
 **查看 Milvus 状态：**
-\`\`\`bash
+```bash
 systemctl status milvus
-\`\`\`
+```
 
 **停止 Milvus 服务：**
-\`\`\`bash
+```bash
 systemctl stop milvus
-\`\`\`
+```
 
 #### D.3 API 服务器启动
 
 **使用 tmux 启动并记录日志：**
-\`\`\`bash
+```bash
 # 创建新的 tmux 会话
 tmux new -s myrag
 
@@ -1623,10 +1623,10 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 |& tee log.tx
 
 # 分离会话：按 Ctrl+B，然后按 D
 # 重新连接：tmux attach -t myrag
-\`\`\`
+```
 
 **Docker Compose 启动（推荐）：**
-\`\`\`bash
+```bash
 # 启动所有服务
 docker-compose up -d
 
@@ -1635,13 +1635,13 @@ docker-compose logs -f rag-api
 
 # 停止所有服务
 docker-compose down
-\`\`\`
+```
 
 #### D.4 完整示例工作流
 
 以下是一个完整的端到端工作流脚本示例：
 
-\`\`\`bash
+```bash
 #!/bin/bash
 
 # myRAG 完整示例工作流
@@ -1724,16 +1724,16 @@ echo ""
 echo "========================================="
 echo "工作流执行完成！"
 echo "========================================="
-\`\`\`
+```
 
 **使用方法：**
-1. 将上述脚本保存为 \`test_workflow.sh\`
-2. 准备测试文档 \`test_document.txt\`
-3. 赋予执行权限：\`chmod +x test_workflow.sh\`
-4. 运行：\`./test_workflow.sh\`
+1. 将上述脚本保存为 `test_workflow.sh`
+2. 准备测试文档 `test_document.txt`
+3. 赋予执行权限：`chmod +x test_workflow.sh`
+4. 运行：`./test_workflow.sh`
 
 **注意事项：**
-- 脚本使用 \`jq\` 格式化 JSON 输出，请确保已安装：\`apt install jq\`
+- 脚本使用 `jq` 格式化 JSON 输出，请确保已安装：`apt install jq`
 - 确保 NebulaGraph 和 Milvus 服务已启动
 - 确保 API 服务器正在运行
 
