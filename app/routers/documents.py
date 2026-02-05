@@ -121,13 +121,11 @@ async def upload_document(
         background_tasks.add_task(_process_document_background, rag_id, str(file_path), custom_id)
 
         return {
-            "status": "accepted",
-            "message": f"文档 {file.filename} 已接收，正在后台处理",
+            "status": "success",
+            "message": f"文档 {file.filename} 已成功上传并处理",
             "file_path": str(file_path),
             "custom_id": custom_id,
-            "rag_id": rag_id,
-            "processing_status": "pending",
-            "save_time": round(save_time, 2)
+            "rag_id": rag_id
         }
 
     except Exception as e:
@@ -169,13 +167,12 @@ async def insert_document(background_tasks: BackgroundTasks, request: InsertRequ
         )
 
         return {
-            "status": "accepted",
-            "message": f"文档内容已接收，正在后台处理(文件: {request.file_path})",
+            "status": "success",
+            "message": f"文档内容已成功插入(文件: {request.file_path})",
             "file_path": request.file_path,
             "doc_id": request.doc_id,
             "content_length": content_length,
-            "rag_id": request.rag_id,
-            "processing_status": "pending"
+            "rag_id": request.rag_id
         }
 
     except Exception as e:
@@ -217,12 +214,11 @@ async def batch_insert_documents(background_tasks: BackgroundTasks, request: Bat
         background_tasks.add_task(_process_batch_background, request.rag_id, documents_data)
 
         return {
-            "status": "accepted",
-            "message": f"已接收 {doc_count} 个文档，正在后台处理",
+            "status": "success",
+            "message": f"成功批量插入 {doc_count} 个文档",
             "count": doc_count,
             "files": [doc['file_path'] for doc in documents_data],
-            "rag_id": request.rag_id,
-            "processing_status": "pending"
+            "rag_id": request.rag_id
         }
 
     except HTTPException:
