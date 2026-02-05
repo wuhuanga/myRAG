@@ -7,8 +7,9 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, BackgroundTasks
 import aiofiles
+import asyncio
 
 from ..dependencies_concurrent import get_concurrent_rag_manager
 from ..models import (
@@ -32,13 +33,68 @@ UPLOAD_DIR = Path("uploaded_files")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 
+# 后台处理函数
+async def _process_document_background(rag_id: str, file_path: str, custom_id: Optional[str] = None):
+    """后台处理文档"""
+    manager = get_concurrent_rag_manager()
+    try:
+        processor = manager.get_instance(rag_id)
+        start_time = time.time()
+        logger.info(f"🔄 [后台任务] 开始处理文档: {file_path}")
+
+        await processor.insert_document(file_path, custom_id)
+
+        total_time = time.time() - start_time
+        logger.info(f"✅ [后台任务] 文档处理完成: {file_path}, 耗时: {total_time:.2f}秒")
+    except Exception as e:
+        logger.error(f"❌ [后台任务] 文档处理失败: {file_path}, 错误: {str(e)}")
+
+
+async def _process_content_background(rag_id: str, content: str, file_path: str, doc_id: Optional[str] = None):
+    """后台处理文档内容"""
+    manager = get_concurrent_rag_manager()
+    try:
+        processor = manager.get_instance(rag_id)
+        start_time = time.time()
+        logger.info(f"🔄 [后台任务] 开始处理内容: {file_path}, 长度: {len(content)} 字符")
+
+        if doc_id:
+            processor.rag.insert(content, ids=[doc_id], file_paths=[file_path])
+        else:
+            processor.rag.insert(content, file_paths=[file_path])
+
+        total_time = time.time() - start_time
+        logger.info(f"✅ [后台任务] 内容处理完成: {file_path}, 耗时: {total_time:.2f}秒")
+    except Exception as e:
+        logger.error(f"❌ [后台任务] 内容处理失败: {file_path}, 错误: {str(e)}")
+
+
+async def _process_batch_background(rag_id: str, documents_data: list):
+    """后台批量处理文档"""
+    manager = get_concurrent_rag_manager()
+    try:
+        processor = manager.get_instance(rag_id)
+        start_time = time.time()
+        doc_count = len(documents_data)
+        logger.info(f"🔄 [后台批量任务] 开始处理 {doc_count} 个文档")
+
+        await processor.insert_documents_batch(documents_data)
+
+        total_time = time.time() - start_time
+        avg_time = total_time / doc_count if doc_count > 0 else 0
+        logger.info(f"✅ [后台批量任务] 批量处理完成: {doc_count} 个文档, 总耗时: {total_time:.2f}秒, 平均: {avg_time:.2f}秒/文档")
+    except Exception as e:
+        logger.error(f"❌ [后台批量任务] 批量处理失败: {str(e)}")
+
+
 @router.post("/upload")
 async def upload_document(
+    background_tasks: BackgroundTasks,
     rag_id: str = Form(...),
     file: UploadFile = File(...),
     custom_id: Optional[str] = Form(None)
 ):
-    """上传并处理文档"""
+    """上传文档并后台处理"""
     manager = get_concurrent_rag_manager()
 
     try:
@@ -48,40 +104,30 @@ async def upload_document(
 
     try:
         start_time = time.time()
-        logger.info(f"⏱️  [上传文档] 开始处理: {file.filename}")
+        logger.info(f"📤 [上传文档] 接收文件: {file.filename}")
 
         # 保存上传的文件（添加 rag_id 前缀避免文件名冲突）
         safe_filename = f"{rag_id}_{file.filename}"
         file_path = UPLOAD_DIR / safe_filename
-        logger.info(f"⏱️  [上传文档] 正在保存文件: {file_path}")
 
-        save_start = time.time()
         async with aiofiles.open(file_path, 'wb') as f:
             content = await file.read()
             await f.write(content)
-        save_time = time.time() - save_start
 
-        logger.info(f"⏱️  [上传文档] 文件保存完成，耗时: {save_time:.2f}秒")
+        save_time = time.time() - start_time
+        logger.info(f"💾 [上传文档] 文件已保存: {file_path}, 耗时: {save_time:.2f}秒")
 
-        # 插入到知识图谱
-        insert_start = time.time()
-        await processor.insert_document(str(file_path), custom_id)
-        insert_time = time.time() - insert_start
-
-        total_time = time.time() - start_time
-        logger.info(f"⏱️  [上传文档] ✅ 完成! 总耗时: {total_time:.2f}秒 (保存: {save_time:.2f}秒, 插入: {insert_time:.2f}秒)")
+        # 添加后台任务处理文档
+        background_tasks.add_task(_process_document_background, rag_id, str(file_path), custom_id)
 
         return {
-            "status": "success",
-            "message": f"文档 {file.filename} 已成功上传并处理",
+            "status": "accepted",
+            "message": f"文档 {file.filename} 已接收，正在后台处理",
             "file_path": str(file_path),
             "custom_id": custom_id,
             "rag_id": rag_id,
-            "time_cost": {
-                "total": round(total_time, 2),
-                "save": round(save_time, 2),
-                "insert": round(insert_time, 2)
-            }
+            "processing_status": "pending",
+            "save_time": round(save_time, 2)
         }
 
     except Exception as e:
@@ -90,8 +136,8 @@ async def upload_document(
 
 
 @router.post("/insert")
-async def insert_document(request: InsertRequest):
-    """直接插入文档内容"""
+async def insert_document(background_tasks: BackgroundTasks, request: InsertRequest):
+    """直接插入文档内容（后台处理）"""
     manager = get_concurrent_rag_manager()
 
     try:
@@ -110,31 +156,26 @@ async def insert_document(request: InsertRequest):
         )
 
     try:
-        start_time = time.time()
         content_length = len(request.content)
-        logger.info(f"⏱️  [插入文档] 开始处理: {request.file_path}, 长度: {content_length} 字符")
+        logger.info(f"📝 [插入文档] 接收内容: {request.file_path}, 长度: {content_length} 字符")
 
-        # 插入文档
-        if request.doc_id:
-            processor.rag.insert(
-                request.content,
-                ids=[request.doc_id],
-                file_paths=[request.file_path]
-            )
-        else:
-            processor.rag.insert(request.content, file_paths=[request.file_path])
-
-        total_time = time.time() - start_time
-        logger.info(f"⏱️  [插入文档] ✅ 完成! 耗时: {total_time:.2f}秒, 文件: {request.file_path}")
+        # 添加后台任务处理内容
+        background_tasks.add_task(
+            _process_content_background,
+            request.rag_id,
+            request.content,
+            request.file_path,
+            request.doc_id
+        )
 
         return {
-            "status": "success",
-            "message": f"文档内容已成功插入(文件: {request.file_path})",
+            "status": "accepted",
+            "message": f"文档内容已接收，正在后台处理(文件: {request.file_path})",
             "file_path": request.file_path,
             "doc_id": request.doc_id,
             "content_length": content_length,
             "rag_id": request.rag_id,
-            "time_cost": round(total_time, 2)
+            "processing_status": "pending"
         }
 
     except Exception as e:
@@ -143,8 +184,8 @@ async def insert_document(request: InsertRequest):
 
 
 @router.post("/batch_insert")
-async def batch_insert_documents(request: BatchInsertRequest):
-    """批量插入文档"""
+async def batch_insert_documents(background_tasks: BackgroundTasks, request: BatchInsertRequest):
+    """批量插入文档（后台处理）"""
     manager = get_concurrent_rag_manager()
 
     try:
@@ -168,28 +209,20 @@ async def batch_insert_documents(request: BatchInsertRequest):
                 'doc_id': doc.get('doc_id')
             })
 
-        start_time = time.time()
         doc_count = len(documents_data)
         total_chars = sum(len(doc['content']) for doc in documents_data)
-        logger.info(f"⏱️  [批量插入] 开始处理 {doc_count} 个文档, 总字符数: {total_chars}")
+        logger.info(f"📦 [批量插入] 接收 {doc_count} 个文档, 总字符数: {total_chars}")
 
-        # 批量插入
-        await processor.insert_documents_batch(documents_data)
-
-        total_time = time.time() - start_time
-        avg_time = total_time / doc_count if doc_count > 0 else 0
-        logger.info(f"⏱️  [批量插入] ✅ 完成! 总耗时: {total_time:.2f}秒, 平均: {avg_time:.2f}秒/文档")
+        # 添加后台批量处理任务
+        background_tasks.add_task(_process_batch_background, request.rag_id, documents_data)
 
         return {
-            "status": "success",
-            "message": f"成功批量插入 {doc_count} 个文档",
+            "status": "accepted",
+            "message": f"已接收 {doc_count} 个文档，正在后台处理",
             "count": doc_count,
             "files": [doc['file_path'] for doc in documents_data],
             "rag_id": request.rag_id,
-            "time_cost": {
-                "total": round(total_time, 2),
-                "average_per_doc": round(avg_time, 2)
-            }
+            "processing_status": "pending"
         }
 
     except HTTPException:

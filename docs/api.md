@@ -287,7 +287,9 @@ curl -X POST "http://localhost:8000/api/admin/ucd/init" \\
 
 **接口：** `POST /api/documents/upload`
 
-**描述：** 上传文件并自动处理（提取实体和关系）
+**描述：** 上传文件并后台异步处理（提取实体和关系）
+
+**⚡ 异步处理：** 文件上传后立即返回 `202 Accepted`，后台异步处理文档。通过 `/api/documents/status/{rag_id}` 查询处理进度。
 
 **请求类型：** `multipart/form-data`
 
@@ -307,16 +309,13 @@ curl -X POST "http://localhost:8000/api/documents/upload" \\
 **响应示例：**
 ```json
 {
-  "status": "success",
-  "message": "文档 document.pdf 已成功上传并处理",
+  "status": "accepted",
+  "message": "文档 document.pdf 已接收，正在后台处理",
   "file_path": "uploaded_files/rag_001_document.pdf",
   "custom_id": "doc_001",
   "rag_id": "rag_001",
-  "time_cost": {
-    "total": 52.32,
-    "save": 0.15,
-    "insert": 52.17
-  }
+  "processing_status": "pending",
+  "save_time": 0.15
 }
 ```
 
@@ -326,7 +325,9 @@ curl -X POST "http://localhost:8000/api/documents/upload" \\
 
 **接口：** `POST /api/documents/insert`
 
-**描述：** 直接插入文本内容作为文档
+**描述：** 直接插入文本内容作为文档（后台异步处理）
+
+**⚡ 异步处理：** 内容接收后立即返回 `202 Accepted`，后台异步处理。通过 `/api/documents/status/{rag_id}` 查询处理进度。
 
 **请求参数：**
 | 参数 | 类型 | 必填 | 说明 |
@@ -351,13 +352,13 @@ curl -X POST "http://localhost:8000/api/documents/insert" \\
 **响应示例：**
 ```json
 {
-  "status": "success",
-  "message": "文档内容已成功插入(文件: ai_article.txt)",
+  "status": "accepted",
+  "message": "文档内容已接收，正在后台处理(文件: ai_article.txt)",
   "file_path": "ai_article.txt",
   "doc_id": "doc_002",
   "content_length": 1500,
   "rag_id": "rag_001",
-  "time_cost": 45.23
+  "processing_status": "pending"
 }
 ```
 
@@ -367,7 +368,9 @@ curl -X POST "http://localhost:8000/api/documents/insert" \\
 
 **接口：** `POST /api/documents/batch_insert`
 
-**描述：** 批量插入多个文档内容
+**描述：** 批量插入多个文档内容（后台异步处理）
+
+**⚡ 异步处理：** 文档接收后立即返回 `202 Accepted`，后台异步批量处理。通过 `/api/documents/status/{rag_id}` 查询处理进度。
 
 **请求参数：**
 ```json
@@ -399,15 +402,12 @@ curl -X POST "http://localhost:8000/api/documents/batch_insert" \\
 **响应示例：**
 ```json
 {
-  "status": "success",
-  "message": "成功批量插入 2 个文档",
+  "status": "accepted",
+  "message": "已接收 2 个文档，正在后台处理",
   "count": 2,
   "files": ["doc1.txt", "doc2.txt"],
   "rag_id": "rag_001",
-  "time_cost": {
-    "total": 95.50,
-    "average_per_doc": 47.75
-  }
+  "processing_status": "pending"
 }
 ```
 
