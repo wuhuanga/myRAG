@@ -856,8 +856,11 @@ EXTERNAL_API_HOST = os.environ.get("EXTERNAL_API_HOST", "http://47.109.179.200")
 # 刷新知识库的接口路径（固定路径）
 EXTERNAL_REFRESH_PATH = "/admin-api/admin/know/data/type/refresh"
 
-# 自动刷新等待时间（秒）
+# 自动刷新等待时间（秒）- 最大等待时间
 AUTO_REFRESH_WAIT_TIME = int(os.environ.get("AUTO_REFRESH_WAIT_TIME", "20"))
+
+# 轮询间隔时间（秒）- 每隔多久检查一次知识库是否创建成功
+AUTO_REFRESH_POLL_INTERVAL = int(os.environ.get("AUTO_REFRESH_POLL_INTERVAL", "2"))
 
 # 是否启用自动刷新功能
 AUTO_REFRESH_ENABLED = os.environ.get("AUTO_REFRESH_ENABLED", "true").lower() == "true"
@@ -946,23 +949,31 @@ async def get_instance_with_auto_refresh(
     refresh_success = await trigger_external_refresh(rag_id)
 
     if not refresh_success:
-        logger.warning(f"[AutoRefresh] 外部刷新接口调用失败，仍将等待 {wait_time} 秒后重试获取实例")
+        logger.warning(f"[AutoRefresh] 外部刷新接口调用失败，仍将轮询等待实例创建")
 
-    # 等待指定时间
-    logger.info(f"[AutoRefresh] 等待 {wait_time} 秒后重新获取实例...")
-    await asyncio.sleep(wait_time)
+    # 轮询等待实例创建（每隔 poll_interval 秒检查一次，最多等待 wait_time 秒）
+    poll_interval = AUTO_REFRESH_POLL_INTERVAL
+    elapsed_time = 0
 
-    # 第二次尝试获取实例
-    try:
-        processor = manager.get_instance(rag_id)
-        logger.info(f"[AutoRefresh] 成功获取 RAG 实例 '{rag_id}'")
-        return processor, True  # 实例是新创建的
-    except ValueError:
-        logger.error(f"[AutoRefresh] 等待 {wait_time} 秒后仍无法获取 RAG 实例 '{rag_id}'")
-        raise ValueError(
-            f"RAG 实例 '{rag_id}' 不存在，已尝试自动刷新但仍未创建成功。"
-            f"请检查外部系统是否正常或手动创建知识库。"
-        )
+    logger.info(f"[AutoRefresh] 开始轮询等待实例创建（间隔 {poll_interval}s，最大 {wait_time}s）...")
+
+    while elapsed_time < wait_time:
+        await asyncio.sleep(poll_interval)
+        elapsed_time += poll_interval
+
+        try:
+            processor = manager.get_instance(rag_id)
+            logger.info(f"[AutoRefresh] 实例 '{rag_id}' 创建成功（等待 {elapsed_time}s）")
+            return processor, True  # 实例是新创建的
+        except ValueError:
+            logger.debug(f"[AutoRefresh] 实例 '{rag_id}' 尚未创建，继续等待...（已等待 {elapsed_time}s）")
+
+    # 超时仍未创建成功
+    logger.error(f"[AutoRefresh] 等待 {wait_time} 秒后仍无法获取 RAG 实例 '{rag_id}'")
+    raise ValueError(
+        f"RAG 实例 '{rag_id}' 不存在，已尝试自动刷新但仍未创建成功。"
+        f"请检查外部系统是否正常或手动创建知识库。"
+    )
 
 
 # 导入 UCD_RAG 建模器
