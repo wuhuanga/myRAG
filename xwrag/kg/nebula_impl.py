@@ -207,31 +207,26 @@ class NebulaGraphStorage(BaseGraphStorage):
                             logger.info(f"[{self.workspace}] Space already exists (concurrent creation)")
                     else:
                         logger.info(f"[{self.workspace}] ✅ Successfully created Space: {self._space_name}")
-                    
-                    # 等待 Space 传播到集群(新建的 space 需要更长时间)
-                    logger.info(f"[{self.workspace}] ⏳ Waiting for Space to be ready...")
-                    await asyncio.sleep(5)
 
-                # 切换到该 workspace 的 Space,带重试机制
-                max_retries = 3
-                retry_delay = 2
+                # 智能探测：USE space 是否可用（代替固定等待）
+                max_retries = 10
+                retry_delay = 1  # 每次等待 1 秒
                 use_success = False
-                
+
                 for retry in range(max_retries):
                     use_res = init_session.execute(f"USE {self._space_name}")
                     if use_res.is_succeeded():
                         use_success = True
-                        logger.info(f"[{self.workspace}] ✅ Successfully switched to Space: {self._space_name}")
+                        logger.info(f"[{self.workspace}] ✅ Successfully switched to Space: {self._space_name} (attempt {retry + 1})")
                         break
                     else:
                         error_msg = use_res.error_msg()
                         if retry < max_retries - 1:
-                            logger.warning(
-                                f"[{self.workspace}] Failed to USE space (attempt {retry + 1}/{max_retries}): "
+                            logger.debug(
+                                f"[{self.workspace}] Space not ready yet (attempt {retry + 1}/{max_retries}): "
                                 f"{error_msg}, retrying in {retry_delay}s..."
                             )
                             await asyncio.sleep(retry_delay)
-                            retry_delay *= 2  # 指数退避
                         else:
                             raise RuntimeError(
                                 f"[{self.workspace}] Failed to USE space {self._space_name} after "
@@ -295,11 +290,34 @@ class NebulaGraphStorage(BaseGraphStorage):
                 except Exception as e:
                     logger.warning(f"[{self.workspace}] Index creation warning: {e}")
 
-                # 等待 schema 传播（Tag和Edge需要2个心跳周期才能完全传播，每个周期默认10秒）
-                # 对于新创建的space，需要等待更长时间确保schema可用
-                wait_time = 15 if not space_exists else 10
-                logger.info(f"[{self.workspace}] ⏳ Waiting {wait_time}s for schema propagation...")
-                await asyncio.sleep(wait_time)
+                # 智能探测：Schema 是否可用（代替固定等待 10-15 秒）
+                max_schema_retries = 20  # 最多等待 20 秒
+                schema_retry_delay = 1  # 每次等待 1 秒
+                schema_ready = False
+
+                logger.info(f"[{self.workspace}] ⏳ Waiting for schema to be ready (smart probe)...")
+
+                for retry in range(max_schema_retries):
+                    # 尝试执行一个简单查询来验证 Schema 是否可用
+                    # 使用 DESCRIBE TAG 来检查 Tag 是否可查询
+                    verify_res = init_session.execute(f"DESCRIBE TAG {tag_name}")
+                    if verify_res.is_succeeded():
+                        schema_ready = True
+                        logger.info(f"[{self.workspace}] ✅ Schema ready after {retry + 1} attempts ({retry + 1}s)")
+                        break
+                    else:
+                        if retry < max_schema_retries - 1:
+                            logger.debug(
+                                f"[{self.workspace}] Schema not ready yet (attempt {retry + 1}/{max_schema_retries}), "
+                                f"retrying in {schema_retry_delay}s..."
+                            )
+                            await asyncio.sleep(schema_retry_delay)
+                        else:
+                            # 最后一次尝试失败，记录警告但不抛异常（可能仍然可用）
+                            logger.warning(
+                                f"[{self.workspace}] Schema verification timed out after {max_schema_retries}s, "
+                                f"proceeding anyway..."
+                            )
 
                 logger.info(
                     f"[{self.workspace}] ✅ NebulaGraph initialized successfully:\n"
