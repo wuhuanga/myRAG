@@ -7,7 +7,7 @@ from typing import Literal, List
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..dependencies_concurrent import get_concurrent_rag_manager
+from ..dependencies_concurrent import get_concurrent_rag_manager, get_instance_with_auto_refresh
 from ..models import (
     EntityCreateRequest,
     EntityEditRequest,
@@ -378,7 +378,8 @@ async def get_top_k_degree_subgraph(
 
     for rag_id in rag_ids:
         try:
-            processor = manager.get_instance(rag_id)
+            # 使用自动刷新获取实例（不存在时会触发外部刷新并等待）
+            processor, is_new = await get_instance_with_auto_refresh(rag_id, manager)
         except ValueError as e:
             logger.warning(f"知识库 {rag_id} 不存在: {str(e)}")
             continue
@@ -479,7 +480,8 @@ async def get_node_neighbors_subgraph(
 
     for rag_id in rag_ids:
         try:
-            processor = manager.get_instance(rag_id)
+            # 使用自动刷新获取实例（不存在时会触发外部刷新并等待）
+            processor, is_new = await get_instance_with_auto_refresh(rag_id, manager)
         except ValueError as e:
             logger.warning(f"知识库 {rag_id} 不存在: {str(e)}")
             continue
@@ -577,7 +579,8 @@ async def get_echarts_graph(
 
     for rag_id in rag_ids:
         try:
-            processor = manager.get_instance(rag_id)
+            # 使用自动刷新获取实例（不存在时会触发外部刷新并等待）
+            processor, is_new = await get_instance_with_auto_refresh(rag_id, manager)
         except ValueError as e:
             logger.warning(f"知识库 {rag_id} 不存在: {str(e)}")
             continue
@@ -796,7 +799,8 @@ async def get_multi_knowledge_graph(request: MultiKnowledgeGraphRequest):
 
     for rag_id in request.rag_ids:
         try:
-            processor = manager.get_instance(rag_id)
+            # 使用自动刷新获取实例（不存在时会触发外部刷新并等待）
+            processor, is_new = await get_instance_with_auto_refresh(rag_id, manager)
         except ValueError:
             logger.warning(f"知识库 {rag_id} 不存在，跳过")
             continue

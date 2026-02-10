@@ -6,8 +6,10 @@ import os
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 from datetime import datetime
+
+import httpx
 
 from dotenv import load_dotenv
 import nest_asyncio
@@ -844,6 +846,120 @@ concurrent_rag_manager = ConcurrentRAGInstanceManager()
 def get_concurrent_rag_manager() -> ConcurrentRAGInstanceManager:
     """获取并发安全的 RAG 实例管理器"""
     return concurrent_rag_manager
+
+
+# ==================== 自动刷新知识库配置 ====================
+
+# 外部系统刷新接口地址（用于自动创建知识库）
+EXTERNAL_REFRESH_URL = os.environ.get(
+    "EXTERNAL_REFRESH_URL",
+    "http://47.109.179.200/admin-api/admin/know/data/type/refresh"
+)
+
+# 自动刷新等待时间（秒）
+AUTO_REFRESH_WAIT_TIME = int(os.environ.get("AUTO_REFRESH_WAIT_TIME", "20"))
+
+# 是否启用自动刷新功能
+AUTO_REFRESH_ENABLED = os.environ.get("AUTO_REFRESH_ENABLED", "true").lower() == "true"
+
+
+async def trigger_external_refresh(rag_id: str) -> bool:
+    """
+    调用外部系统接口触发知识库创建
+
+    Args:
+        rag_id: 知识库 ID
+
+    Returns:
+        bool: 是否调用成功
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                EXTERNAL_REFRESH_URL,
+                json={"id": int(rag_id) if rag_id.isdigit() else rag_id},
+                headers={"Content-Type": "application/json"}
+            )
+
+            if response.status_code == 200:
+                logger.info(f"[AutoRefresh] 成功触发外部刷新接口 (rag_id={rag_id})")
+                return True
+            else:
+                logger.warning(
+                    f"[AutoRefresh] 外部刷新接口返回非200状态码: {response.status_code}, "
+                    f"响应: {response.text[:200]}"
+                )
+                return False
+
+    except Exception as e:
+        logger.error(f"[AutoRefresh] 调用外部刷新接口失败: {str(e)}")
+        return False
+
+
+async def get_instance_with_auto_refresh(
+    rag_id: str,
+    manager: ConcurrentRAGInstanceManager = None,
+    wait_time: int = None,
+    enable_refresh: bool = None
+) -> Tuple["xwragProcessor", bool]:
+    """
+    获取 RAG 实例，如果不存在则触发外部刷新并等待
+
+    Args:
+        rag_id: 知识库 ID
+        manager: RAG 实例管理器（可选，默认使用全局管理器）
+        wait_time: 刷新后等待时间（可选，默认使用环境变量配置）
+        enable_refresh: 是否启用自动刷新（可选，默认使用环境变量配置）
+
+    Returns:
+        Tuple[xwragProcessor, bool]: (处理器实例, 是否是新创建的)
+
+    Raises:
+        ValueError: 如果实例不存在且自动刷新后仍然不存在
+    """
+    if manager is None:
+        manager = concurrent_rag_manager
+
+    if wait_time is None:
+        wait_time = AUTO_REFRESH_WAIT_TIME
+
+    if enable_refresh is None:
+        enable_refresh = AUTO_REFRESH_ENABLED
+
+    # 第一次尝试获取实例
+    try:
+        processor = manager.get_instance(rag_id)
+        return processor, False  # 实例已存在
+    except ValueError:
+        pass  # 实例不存在，继续处理
+
+    # 如果未启用自动刷新，直接抛出异常
+    if not enable_refresh:
+        raise ValueError(f"RAG 实例 '{rag_id}' 不存在")
+
+    logger.info(f"[AutoRefresh] RAG 实例 '{rag_id}' 不存在，触发外部刷新...")
+
+    # 调用外部刷新接口
+    refresh_success = await trigger_external_refresh(rag_id)
+
+    if not refresh_success:
+        logger.warning(f"[AutoRefresh] 外部刷新接口调用失败，仍将等待 {wait_time} 秒后重试获取实例")
+
+    # 等待指定时间
+    logger.info(f"[AutoRefresh] 等待 {wait_time} 秒后重新获取实例...")
+    await asyncio.sleep(wait_time)
+
+    # 第二次尝试获取实例
+    try:
+        processor = manager.get_instance(rag_id)
+        logger.info(f"[AutoRefresh] 成功获取 RAG 实例 '{rag_id}'")
+        return processor, True  # 实例是新创建的
+    except ValueError:
+        logger.error(f"[AutoRefresh] 等待 {wait_time} 秒后仍无法获取 RAG 实例 '{rag_id}'")
+        raise ValueError(
+            f"RAG 实例 '{rag_id}' 不存在，已尝试自动刷新但仍未创建成功。"
+            f"请检查外部系统是否正常或手动创建知识库。"
+        )
 
 
 # 导入 UCD_RAG 建模器
