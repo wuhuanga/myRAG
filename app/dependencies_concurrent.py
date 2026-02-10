@@ -850,11 +850,11 @@ def get_concurrent_rag_manager() -> ConcurrentRAGInstanceManager:
 
 # ==================== 自动刷新知识库配置 ====================
 
-# 外部系统刷新接口地址（用于自动创建知识库）
-EXTERNAL_REFRESH_URL = os.environ.get(
-    "EXTERNAL_REFRESH_URL",
-    "http://47.109.179.200/admin-api/admin/know/data/type/refresh"
-)
+# 外部系统 API 地址（只配置 IP/域名，不含路径）
+EXTERNAL_API_HOST = os.environ.get("EXTERNAL_API_HOST", "http://47.109.179.200")
+
+# 刷新知识库的接口路径（固定路径）
+EXTERNAL_REFRESH_PATH = "/admin-api/admin/know/data/type/refresh"
 
 # 自动刷新等待时间（秒）
 AUTO_REFRESH_WAIT_TIME = int(os.environ.get("AUTO_REFRESH_WAIT_TIME", "20"))
@@ -874,9 +874,12 @@ async def trigger_external_refresh(rag_id: str) -> bool:
         bool: 是否调用成功
     """
     try:
+        # 拼接完整 URL
+        refresh_url = f"{EXTERNAL_API_HOST.rstrip('/')}{EXTERNAL_REFRESH_PATH}"
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                EXTERNAL_REFRESH_URL,
+                refresh_url,
                 json={"id": int(rag_id) if rag_id.isdigit() else rag_id},
                 headers={"Content-Type": "application/json"}
             )
