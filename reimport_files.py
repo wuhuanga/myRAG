@@ -18,6 +18,30 @@ from pathlib import Path
 DEFAULT_UPLOADED_FILES_DIR = os.environ.get("UPLOADED_FILES_DIR", "./uploaded_files")
 DEFAULT_API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
+
+def get_active_rag_ids(api_base_url):
+    """
+    获取当前使用队列中的所有 rag_id
+
+    Returns:
+        set: 活跃的 rag_id 集合，如果请求失败返回 None
+    """
+    try:
+        response = requests.get(
+            f"{api_base_url}/api/admin/rag_instances/list",
+            timeout=30
+        )
+        if response.status_code == 200:
+            instances = response.json()
+            return {str(inst.get("rag_id")) for inst in instances}
+        else:
+            print(f"警告: 获取 RAG 实例列表失败 - {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"警告: 无法连接到 API 服务 - {str(e)}")
+        return None
+
+
 def reimport_files(target_rag_id=None, files_dir=None, api_base_url=None):
     """
     重新导入文件
@@ -52,7 +76,28 @@ def reimport_files(target_rag_id=None, files_dir=None, api_base_url=None):
     print(f"找到 {sum(len(v) for v in rag_files.values())} 个文件，分布在 {len(rag_files)} 个知识库中")
     print()
 
+    # 获取当前活跃的 RAG 实例
+    print("正在检查使用队列中的 RAG 实例...")
+    active_rag_ids = get_active_rag_ids(api_base_url)
+
+    if active_rag_ids is None:
+        print("无法获取使用队列，终止操作")
+        return
+
+    print(f"使用队列中有 {len(active_rag_ids)} 个实例: {sorted(active_rag_ids)}")
+    print()
+
+    skipped_count = 0
+    imported_count = 0
+
     for rag_id, files_list in sorted(rag_files.items()):
+        # 检查 rag_id 是否在使用队列中
+        if rag_id not in active_rag_ids:
+            print(f"=== RAG ID: {rag_id} - 跳过（不在使用队列中）===")
+            skipped_count += len(files_list)
+            print()
+            continue
+
         print(f"=== RAG ID: {rag_id} ({len(files_list)} 个文件) ===")
 
         for file_path in files_list:
@@ -72,6 +117,7 @@ def reimport_files(target_rag_id=None, files_dir=None, api_base_url=None):
 
                     if response.status_code == 200:
                         print(f"    ✅ 成功")
+                        imported_count += 1
                     else:
                         print(f"    ❌ 失败: {response.text[:100]}")
 
@@ -79,6 +125,13 @@ def reimport_files(target_rag_id=None, files_dir=None, api_base_url=None):
                 print(f"    ❌ 错误: {str(e)}")
 
         print()
+
+    # 输出统计
+    print("=" * 40)
+    print(f"导入完成: {imported_count} 个文件成功")
+    if skipped_count > 0:
+        print(f"跳过: {skipped_count} 个文件（对应的知识库不在使用队列中）")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="批量重新导入文件到知识库")
