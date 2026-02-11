@@ -7,6 +7,7 @@
     python3 reimport_files.py 56                       # 只导入 rag_id=56 的文件
     python3 reimport_files.py --dir /path/to/files     # 指定文件目录
     python3 reimport_files.py --api http://host:port   # 指定 API 地址
+    python3 reimport_files.py --force                  # 强制模式：先删除已有文档再重新导入
 """
 import os
 import sys
@@ -42,7 +43,49 @@ def get_active_rag_ids(api_base_url):
         return None
 
 
-def reimport_files(target_rag_id=None, files_dir=None, api_base_url=None):
+def get_existing_docs(rag_id, api_base_url):
+    """
+    获取指定 rag_id 的所有文档状态
+
+    Returns:
+        dict: {file_name: doc_id} 映射，如果失败返回空字典
+    """
+    try:
+        response = requests.get(
+            f"{api_base_url}/api/documents/doc_status/{rag_id}",
+            timeout=30
+        )
+        if response.status_code == 200:
+            data = response.json()
+            docs = data.get("documents", [])
+            # 构建 file_name -> doc_id 的映射
+            return {doc.get("file_path", ""): doc.get("doc_id") for doc in docs if doc.get("doc_id")}
+        else:
+            return {}
+    except Exception as e:
+        print(f"    警告: 获取文档状态失败 - {str(e)}")
+        return {}
+
+
+def delete_document(rag_id, doc_id, api_base_url):
+    """
+    删除指定的文档
+
+    Returns:
+        bool: 是否删除成功
+    """
+    try:
+        response = requests.delete(
+            f"{api_base_url}/api/documents/delete/{rag_id}/{doc_id}",
+            timeout=60
+        )
+        return response.status_code == 200
+    except Exception as e:
+        print(f"    警告: 删除文档失败 - {str(e)}")
+        return False
+
+
+def reimport_files(target_rag_id=None, files_dir=None, api_base_url=None, force=False):
     """
     重新导入文件
 
@@ -50,6 +93,7 @@ def reimport_files(target_rag_id=None, files_dir=None, api_base_url=None):
         target_rag_id: 指定只导入某个 rag_id 的文件，None 表示导入所有
         files_dir: 文件目录路径
         api_base_url: API 基础地址
+        force: 是否强制模式，先删除已有文档再重新导入
     """
     files_dir = files_dir or DEFAULT_UPLOADED_FILES_DIR
     api_base_url = api_base_url or DEFAULT_API_BASE_URL
@@ -100,8 +144,25 @@ def reimport_files(target_rag_id=None, files_dir=None, api_base_url=None):
 
         print(f"=== RAG ID: {rag_id} ({len(files_list)} 个文件) ===")
 
+        # 如果是强制模式，先获取已有文档列表
+        existing_docs = {}
+        if force:
+            print(f"  [强制模式] 获取已有文档列表...")
+            existing_docs = get_existing_docs(rag_id, api_base_url)
+            if existing_docs:
+                print(f"  [强制模式] 找到 {len(existing_docs)} 个已有文档")
+
         for file_path in files_list:
             print(f"  正在导入: {file_path.name}")
+
+            # 强制模式：先删除已有的同名文档
+            if force and file_path.name in existing_docs:
+                doc_id = existing_docs[file_path.name]
+                print(f"    [强制模式] 删除已有文档: {doc_id}")
+                if delete_document(rag_id, doc_id, api_base_url):
+                    print(f"    [强制模式] ✅ 删除成功")
+                else:
+                    print(f"    [强制模式] ⚠️ 删除失败，继续尝试上传")
 
             try:
                 with open(file_path, "rb") as f:
@@ -140,11 +201,15 @@ if __name__ == "__main__":
                         help=f"文件目录路径 (默认: {DEFAULT_UPLOADED_FILES_DIR})")
     parser.add_argument("--api", "-a", dest="api_base_url", default=DEFAULT_API_BASE_URL,
                         help=f"API 基础地址 (默认: {DEFAULT_API_BASE_URL})")
+    parser.add_argument("--force", "-f", action="store_true",
+                        help="强制模式：先删除已有文档再重新导入")
 
     args = parser.parse_args()
 
     print(f"文件目录: {args.files_dir}")
     print(f"API 地址: {args.api_base_url}")
+    if args.force:
+        print("模式: 强制重新导入（会删除已有文档）")
     print()
 
     if args.rag_id:
@@ -152,4 +217,4 @@ if __name__ == "__main__":
     else:
         print("导入所有文件\n")
 
-    reimport_files(args.rag_id, args.files_dir, args.api_base_url)
+    reimport_files(args.rag_id, args.files_dir, args.api_base_url, args.force)
