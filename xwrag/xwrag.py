@@ -93,6 +93,7 @@ from xwrag.utils import (
     priority_limit_async_func_call,
     get_content_summary,
     sanitize_text_for_encoding,
+    clean_document_content,
     check_storage_env_vars,
     generate_track_id,
     convert_to_user_format,
@@ -1065,6 +1066,7 @@ class xwrag:
             unique_contents = {}
             for id_, doc, path in zip(ids, input, file_paths):
                 cleaned_content = sanitize_text_for_encoding(doc)
+                cleaned_content = clean_document_content(cleaned_content)
                 if cleaned_content not in unique_contents:
                     unique_contents[cleaned_content] = (id_, path)
 
@@ -1078,6 +1080,7 @@ class xwrag:
             unique_content_with_paths = {}
             for doc, path in zip(input, file_paths):
                 cleaned_content = sanitize_text_for_encoding(doc)
+                cleaned_content = clean_document_content(cleaned_content)
                 if cleaned_content not in unique_content_with_paths:
                     unique_content_with_paths[cleaned_content] = path
 

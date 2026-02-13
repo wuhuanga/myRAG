@@ -1990,12 +1990,110 @@ def normalize_extracted_info(name: str, remove_inner_quotes=False) -> str:
         return all(c.isdigit() or c == "." for c in text) and "." in text
 
     if len(name) < 6 and should_filter_by_dots(name):
-        # Filter out mixed numeric and dot content with length < 6
-        return ""
         # Filter out mixed numeric and dot content with length < 6, requiring at least one dot
         return ""
 
     return name
+
+
+def clean_document_content(text: str) -> str:
+    """
+    文档入库前的内容清洗
+
+    清洗规则：
+    1. HTML 转义符还原：&nbsp; → 空格, &gt; → >, &amp; → & 等
+    2. 不可见字符剔除：删除 ASCII 控制字符，保留换行符和制表符
+    3. 乱码符号清除：删除 Unicode 替换字符 (U+FFFD)
+    4. 全角转半角：全角英文字母、数字、空格转半角
+    5. 连续空格压缩：2个以上连续空格 → 1个空格（行内）
+    6. 空行压缩：3个以上连续换行 → 1个换行
+    7. Markdown 格式净化：图片保留描述，链接保留文本
+    8. 列表符号归一化：●, ◆, ▪, ➢ 等 → -
+    9. 页码删除：删除仅包含数字的独立行，包括 "第X页"、"Page X"
+    10. 分割线删除：删除由 ---, ===, ___ 组成的独立行
+
+    Args:
+        text: 待清洗的文本
+
+    Returns:
+        清洗后的文本
+    """
+    if not text:
+        return text
+
+    # 1. HTML 转义符还原
+    text = html.unescape(text)
+    # 额外处理一些常见的 HTML 实体
+    text = text.replace("&nbsp;", " ")
+
+    # 2. 不可见字符剔除（保留 \t, \n, \r）
+    # 删除 ASCII 控制字符 0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F, 0x7F
+    text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", text)
+
+    # 3. 乱码符号清除（U+FFFD 替换字符）
+    text = text.replace("\uFFFD", "")
+
+    # 4. 全角转半角
+    # 全角英文字母 A-Z
+    text = text.translate(
+        str.maketrans(
+            "ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ",
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        )
+    )
+    # 全角英文字母 a-z
+    text = text.translate(
+        str.maketrans(
+            "ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ",
+            "abcdefghijklmnopqrstuvwxyz",
+        )
+    )
+    # 全角数字 0-9
+    text = text.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
+    # 全角空格
+    text = text.replace("\u3000", " ")
+
+    # 5. 连续空格压缩（行内，不跨行）
+    # 将每行中 2 个以上的连续空格替换为 1 个空格
+    lines = text.split("\n")
+    lines = [re.sub(r"[ \t]{2,}", " ", line) for line in lines]
+    text = "\n".join(lines)
+
+    # 6. 空行压缩：3 个以上连续换行 → 1 个换行
+    text = re.sub(r"\n{3,}", "\n", text)
+
+    # 7. Markdown 格式净化
+    # 图片：![描述](链接) → 描述
+    text = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", text)
+    # 链接：[文本](链接) → 文本
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+
+    # 8. 列表符号归一化
+    # 将各种列表符号替换为标准减号 -
+    list_symbols = ["●", "◆", "▪", "➢", "○", "■", "□", "▶", "►", "▷", "◇", "★", "☆", "•", "‣", "⁃", "⦿", "⦾"]
+    for symbol in list_symbols:
+        text = text.replace(symbol, "-")
+
+    # 9. 页码删除
+    # 删除仅包含数字的独立行
+    text = re.sub(r"^\s*\d+\s*$", "", text, flags=re.MULTILINE)
+    # 删除 "第X页" 格式
+    text = re.sub(r"^\s*第\s*\d+\s*页\s*$", "", text, flags=re.MULTILINE)
+    # 删除 "Page X" 或 "page X" 格式
+    text = re.sub(r"^\s*[Pp]age\s*\d+\s*$", "", text, flags=re.MULTILINE)
+    # 删除 "- X -" 格式的页码（如 "- 1 -", "- 12 -"）
+    text = re.sub(r"^\s*-\s*\d+\s*-\s*$", "", text, flags=re.MULTILINE)
+
+    # 10. 分割线删除
+    # 删除由连续 - 或 = 或 _ 组成的独立行（至少 3 个字符）
+    text = re.sub(r"^\s*[-]{3,}\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*[=]{3,}\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*[_]{3,}\s*$", "", text, flags=re.MULTILINE)
+
+    # 最后再次压缩可能产生的多余空行
+    text = re.sub(r"\n{3,}", "\n", text)
+
+    return text.strip()
 
 
 def sanitize_text_for_encoding(text: str, replacement_char: str = "") -> str:
