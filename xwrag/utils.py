@@ -2006,7 +2006,7 @@ def clean_document_content(text: str) -> str:
     3. 乱码符号清除：删除 Unicode 替换字符 (U+FFFD)
     4. 全角转半角：全角英文字母、数字、空格转半角
     5. 连续空格压缩：2个以上连续空格 → 1个空格（行内）
-    6. 空行压缩：3个以上连续换行 → 1个换行
+    6. 空行压缩：2个以上连续换行 → 1个换行
     7. Markdown 格式净化：图片保留描述，链接保留文本
     8. 列表符号归一化：●, ◆, ▪, ➢ 等 → -
     9. 页码删除：删除仅包含数字的独立行，包括 "第X页"、"Page X"
@@ -2059,8 +2059,8 @@ def clean_document_content(text: str) -> str:
     lines = [re.sub(r"[ \t]{2,}", " ", line) for line in lines]
     text = "\n".join(lines)
 
-    # 6. 空行压缩：3 个以上连续换行 → 1 个换行
-    text = re.sub(r"\n{3,}", "\n", text)
+    # 6. 空行压缩：2 个以上连续换行 → 1 个换行
+    text = re.sub(r"\n{2,}", "\n", text)
 
     # 7. Markdown 格式净化
     # 图片：![描述](链接) → 描述
@@ -2091,7 +2091,7 @@ def clean_document_content(text: str) -> str:
     text = re.sub(r"^\s*[_]{3,}\s*$", "", text, flags=re.MULTILINE)
 
     # 最后再次压缩可能产生的多余空行
-    text = re.sub(r"\n{3,}", "\n", text)
+    text = re.sub(r"\n{2,}", "\n", text)
 
     return text.strip()
 
