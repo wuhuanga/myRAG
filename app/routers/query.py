@@ -957,16 +957,25 @@ async def retrieve_documents(request: RetrieveRequest):
                     "error": "RAG 系统未初始化"
                 }
 
-            param = QueryParam(
-                mode=request.mode,
-                only_need_context=True,
-                top_k=request.top_k,
-                chunk_top_k=request.chunk_top_k,
-                max_entity_tokens=request.max_entity_tokens,
-                max_relation_tokens=request.max_relation_tokens,
-                max_total_tokens=request.max_total_tokens,
-                enable_rerank=request.enable_rerank,
-            )
+            # 构建 QueryParam，过滤掉 None 值
+            param_kwargs = {
+                "mode": request.mode,
+                "only_need_context": True,
+            }
+            if request.top_k is not None:
+                param_kwargs["top_k"] = request.top_k
+            if request.chunk_top_k is not None:
+                param_kwargs["chunk_top_k"] = request.chunk_top_k
+            if request.max_entity_tokens is not None:
+                param_kwargs["max_entity_tokens"] = request.max_entity_tokens
+            if request.max_relation_tokens is not None:
+                param_kwargs["max_relation_tokens"] = request.max_relation_tokens
+            if request.max_total_tokens is not None:
+                param_kwargs["max_total_tokens"] = request.max_total_tokens
+            if request.enable_rerank is not None:
+                param_kwargs["enable_rerank"] = request.enable_rerank
+
+            param = QueryParam(**param_kwargs)
 
             result = await processor.rag.aquery_data(request.question, param)
 
