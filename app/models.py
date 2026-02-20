@@ -263,6 +263,61 @@ class ChunksOnlyResponse(BaseModel):
     sources: Optional[List[Dict[str, Any]]] = None
 
 
+class RetrieveRequest(BaseModel):
+    """
+    自然语言检索请求模型（支持单知识库和多知识库查询）
+
+    只返回检索到的文档片段，不调用 LLM 总结
+    """
+    # 知识库标识（二选一）
+    rag_id: Optional[str] = None  # 单知识库模式（向后兼容）
+    rag_ids: Optional[List[str]] = None  # 多知识库模式
+
+    question: str  # 自然语言问题
+    mode: str = "hybrid"  # 查询模式：naive, local, global, hybrid
+
+    # 检索参数（可选）
+    top_k: Optional[int] = None  # 限制实体数量
+    chunk_top_k: Optional[int] = None
+    max_entity_tokens: Optional[int] = None
+    max_relation_tokens: Optional[int] = None
+    max_total_tokens: Optional[int] = None
+    enable_rerank: Optional[bool] = None
+
+    def get_rag_ids(self) -> List[str]:
+        """获取知识库 ID 列表（统一处理单库和多库）"""
+        if self.rag_ids:
+            return self.rag_ids
+        elif self.rag_id:
+            return [self.rag_id]
+        else:
+            raise ValueError("必须提供 rag_id 或 rag_ids")
+
+
+class RetrieveChunkItem(BaseModel):
+    """检索结果中的文档片段"""
+    answer: str  # 检索到的文档片段内容
+    source: str  # 文档名称
+
+
+class RetrieveResponse(BaseModel):
+    """
+    自然语言检索响应模型
+
+    返回格式：
+    {
+        "62": [
+            {"answer": "文档片段内容", "source": "文档名称"},
+            ...
+        ],
+        "56": [...]
+    }
+    """
+    results: Dict[str, List[RetrieveChunkItem]]  # rag_id -> chunks 列表
+    question: str  # 原始问题
+    timestamp: str
+
+
 # ==================== 文档管理相关模型 ====================
 
 class InsertRequest(BaseModel):

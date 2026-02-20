@@ -24,6 +24,9 @@ from ..models import (
     ChunksOnlyRequest,
     ChunksOnlyResponse,
     ChunkItem,
+    RetrieveRequest,
+    RetrieveResponse,
+    RetrieveChunkItem,
 )
 
 logger = logging.getLogger(__name__)
@@ -906,3 +909,145 @@ async def query_chunks_only(request: ChunksOnlyRequest):
         except Exception as e:
             logger.error(f"多知识库仅Chunks检索失败: {str(e)}")
             raise HTTPException(status_code=500, detail=f"多知识库仅Chunks检索失败: {str(e)}")
+
+
+@router.post("/retrieve", response_model=RetrieveResponse)
+async def retrieve_documents(request: RetrieveRequest):
+    """
+    自然语言检索接口：接受自然语言问题，返回检索到的文档片段（不调用 LLM 总结）
+
+    流程：
+    1. 从自然语言问题中提取关键字
+    2. 用关键字检索实体（top_k 限制实体数量）
+    3. 获取相关的文档片段
+    4. 按知识库分组返回
+
+    返回格式：
+    {
+        "results": {
+            "62": [
+                {"answer": "文档片段内容", "source": "文档名称"},
+                ...
+            ],
+            "56": [...]
+        },
+        "question": "原始问题",
+        "timestamp": "2024-..."
+    }
+    """
+    manager = get_concurrent_rag_manager()
+
+    try:
+        rag_ids = request.get_rag_ids()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    async def retrieve_single_kb(rag_id: str) -> Dict[str, Any]:
+        """检索单个知识库"""
+        try:
+            from xwrag.base import QueryParam
+            processor = manager.get_instance(rag_id)
+
+            if processor.rag is None:
+                logger.warning(f"知识库 {rag_id} 的 RAG 系统未初始化")
+                return {
+                    "rag_id": rag_id,
+                    "chunks": [],
+                    "status": "error",
+                    "error": "RAG 系统未初始化"
+                }
+
+            param = QueryParam(
+                mode=request.mode,
+                only_need_context=True,
+                top_k=request.top_k,
+                chunk_top_k=request.chunk_top_k,
+                max_entity_tokens=request.max_entity_tokens,
+                max_relation_tokens=request.max_relation_tokens,
+                max_total_tokens=request.max_total_tokens,
+                enable_rerank=request.enable_rerank,
+            )
+
+            result = await processor.rag.aquery_data(request.question, param)
+
+            if result is None:
+                logger.warning(f"知识库 {rag_id} 查询返回 None")
+                return {
+                    "rag_id": rag_id,
+                    "chunks": [],
+                    "status": "success"
+                }
+
+            if result.get("status") != "success":
+                logger.warning(f"知识库 {rag_id} 查询失败: {result.get('message', '未知错误')}")
+                return {
+                    "rag_id": rag_id,
+                    "chunks": [],
+                    "status": "error",
+                    "error": result.get("message", "查询失败")
+                }
+
+            data = result.get("data", {})
+            if data is None:
+                data = {}
+
+            # 提取 chunks，转换为目标格式
+            chunks = []
+            for chunk in data.get("chunks", []):
+                file_path = chunk.get("file_path", "")
+                # 从 file_path 提取文件名作为 source
+                source = file_path.split("/")[-1] if file_path else "未知来源"
+                chunks.append({
+                    "answer": chunk.get("content", ""),
+                    "source": source
+                })
+
+            return {
+                "rag_id": rag_id,
+                "chunks": chunks,
+                "status": "success"
+            }
+
+        except Exception as e:
+            logger.warning(f"检索知识库 {rag_id} 异常: {str(e)}")
+            return {
+                "rag_id": rag_id,
+                "chunks": [],
+                "status": "error",
+                "error": str(e)
+            }
+
+    try:
+        logger.info(f"自然语言检索: {request.question} (模式: {request.mode}, RAG IDs: {rag_ids})")
+
+        # 并发查询所有知识库
+        tasks = [retrieve_single_kb(rag_id) for rag_id in rag_ids]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 按 rag_id 分组结果
+        grouped_results: Dict[str, List[RetrieveChunkItem]] = {}
+
+        for result in results:
+            if isinstance(result, Exception):
+                logger.warning(f"检索异常: {result}")
+                continue
+
+            rag_id = result.get("rag_id")
+            if rag_id and result.get("status") == "success":
+                chunks = result.get("chunks", [])
+                grouped_results[rag_id] = [
+                    RetrieveChunkItem(answer=c["answer"], source=c["source"])
+                    for c in chunks
+                ]
+
+        return RetrieveResponse(
+            results=grouped_results,
+            question=request.question,
+            timestamp=datetime.now().isoformat()
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"自然语言检索失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"自然语言检索失败: {str(e)}")
