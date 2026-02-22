@@ -3499,7 +3499,8 @@ async def _get_node_data(
     logger.info(f"⏱️      [VectorDB] Entity similarity search: {vdb_query_time:.3f}s ({total_raw} raw results, {len(keywords)} keywords)")
 
     # Round-robin merge: each keyword contributes its top results in turns,
-    # ensuring no single keyword monopolises the token budget downstream
+    # ensuring no single keyword monopolises the token budget downstream.
+    # Cap at top_k to keep graph DB query cost the same as before.
     seen_names: set[str] = set()
     results = []
     max_len = max((len(r) for r in all_results), default=0)
@@ -3511,6 +3512,10 @@ async def _get_node_data(
                 if name not in seen_names:
                     seen_names.add(name)
                     results.append(r)
+            if len(results) >= query_param.top_k:
+                break
+        if len(results) >= query_param.top_k:
+            break
 
     if not len(results):
         return [], []
