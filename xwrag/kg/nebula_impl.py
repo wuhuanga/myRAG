@@ -1220,7 +1220,7 @@ class NebulaGraphStorage(BaseGraphStorage):
             safe_workspace = self._escape_string(self.workspace)
             # 使用模式匹配语法以避免索引依赖
             query = (
-                f'MATCH (a:{tag} {{workspace: "{safe_workspace}"}})-[r:relationship {{workspace: "{safe_workspace}"}}]-(b:{tag} {{workspace: "{safe_workspace}"}}) '
+                f'MATCH (a:{tag} {{workspace: "{safe_workspace}"}})-[r:relationship {{workspace: "{safe_workspace}"}}]->(b:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
             )
             result = await self._execute_query(query)
@@ -1292,7 +1292,7 @@ class NebulaGraphStorage(BaseGraphStorage):
 
             # 使用模式匹配语法以避免索引依赖
             query = (
-                f'MATCH (a:{tag} {{workspace: "{safe_workspace}"}})-[r:relationship {{workspace: "{safe_workspace}"}}]-(b:{tag} {{workspace: "{safe_workspace}"}}) '
+                f'MATCH (a:{tag} {{workspace: "{safe_workspace}"}})-[r:relationship {{workspace: "{safe_workspace}"}}]->(b:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'WHERE r.source_id IN [{chunk_ids_str}] '
                 f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
             )
