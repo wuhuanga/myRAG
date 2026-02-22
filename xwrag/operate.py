@@ -3475,23 +3475,42 @@ async def _get_node_data(
     entities_vdb: BaseVectorStorage,
     query_param: QueryParam,
 ):
-    # get similar entities
+    # Split comma-separated keywords into individual terms
+    keywords = [k.strip() for k in query.split(",") if k.strip()] or [query]
+
     logger.info(
-        f"Query nodes: {query} (top_k:{query_param.top_k}, cosine:{entities_vdb.cosine_better_than_threshold})"
+        f"Query nodes: {query} ({len(keywords)} keywords, top_k:{query_param.top_k}, cosine:{entities_vdb.cosine_better_than_threshold})"
     )
 
-    # Time embedding generation separately
+    # Batch embed all keywords in a single API call
     embedding_start_time = time.time()
-    query_embedding = await entities_vdb.embedding_func([query], _priority=5)
-    query_embedding = query_embedding[0]  # Extract single embedding
+    all_embeddings = await entities_vdb.embedding_func(keywords, _priority=5)
     embedding_time = time.time() - embedding_start_time
-    logger.info(f"⏱️      [Embedding] Entity query embedding: {embedding_time:.3f}s")
+    logger.info(f"⏱️      [Embedding] Entity query embedding: {embedding_time:.3f}s ({len(keywords)} keywords batched)")
 
-    # Time vector search (without embedding generation)
+    # Query VDB for each keyword in parallel
     vdb_start_time = time.time()
-    results = await entities_vdb.query(query, top_k=query_param.top_k, query_embedding=query_embedding)
+    all_results = await asyncio.gather(*[
+        entities_vdb.query(kw, top_k=query_param.top_k, query_embedding=emb)
+        for kw, emb in zip(keywords, all_embeddings)
+    ])
     vdb_query_time = time.time() - vdb_start_time
-    logger.info(f"⏱️      [VectorDB] Entity similarity search: {vdb_query_time:.3f}s ({len(results)} results)")
+    total_raw = sum(len(r) for r in all_results)
+    logger.info(f"⏱️      [VectorDB] Entity similarity search: {vdb_query_time:.3f}s ({total_raw} raw results, {len(keywords)} keywords)")
+
+    # Round-robin merge: each keyword contributes its top results in turns,
+    # ensuring no single keyword monopolises the token budget downstream
+    seen_names: set[str] = set()
+    results = []
+    max_len = max((len(r) for r in all_results), default=0)
+    for i in range(max_len):
+        for kw_results in all_results:
+            if i < len(kw_results):
+                r = kw_results[i]
+                name = r["entity_name"]
+                if name not in seen_names:
+                    seen_names.add(name)
+                    results.append(r)
 
     if not len(results):
         return [], []
