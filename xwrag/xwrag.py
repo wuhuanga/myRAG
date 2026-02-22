@@ -80,6 +80,7 @@ from xwrag.operate import (
     merge_nodes_and_edges,
     kg_query,
     naive_query,
+    get_keywords_from_query,
     _rebuild_knowledge_from_chunks,
 )
 from xwrag.constants import GRAPH_FIELD_SEP
@@ -2146,6 +2147,29 @@ class xwrag:
         loop = always_get_an_event_loop()
         return loop.run_until_complete(self.aquery_data(query, param))
 
+    async def aextract_keywords(
+        self,
+        query: str,
+        param: QueryParam = QueryParam(),
+    ) -> tuple[list[str], list[str]]:
+        """
+        Extract high-level and low-level keywords from query text.
+
+        Designed for multi-KB retrieval: extract keywords once, then reuse
+        across multiple KB queries by passing them via param.hl_keywords/ll_keywords.
+
+        Args:
+            query: The user's query text.
+            param: Query parameters (hl_keywords/ll_keywords will be used if already set).
+
+        Returns:
+            A tuple of (high_level_keywords, low_level_keywords).
+        """
+        global_config = asdict(self)
+        return await get_keywords_from_query(
+            query, param, global_config, hashing_kv=self.llm_response_cache
+        )
+
     async def aquery_data(
         self,
         query: str,
@@ -2262,7 +2286,7 @@ class xwrag:
         # Create a copy of param to avoid modifying the original
         data_param = QueryParam(
             mode=param.mode,
-            only_need_context=False,  # Skip LLM generation, only get context and data
+            only_need_context=True,  # Skip LLM generation, only get context and data
             only_need_prompt=False,
             response_type=param.response_type,
             stream=False,  # Data retrieval doesn't need streaming

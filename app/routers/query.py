@@ -942,10 +942,56 @@ async def retrieve_documents(request: RetrieveRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    from xwrag.base import QueryParam
+
+    # 构建共享的 QueryParam 参数
+    param_kwargs: Dict[str, Any] = {
+        "mode": request.mode,
+        "only_need_context": True,
+    }
+    if request.top_k is not None:
+        param_kwargs["top_k"] = request.top_k
+    if request.chunk_top_k is not None:
+        param_kwargs["chunk_top_k"] = request.chunk_top_k
+    if request.max_entity_tokens is not None:
+        param_kwargs["max_entity_tokens"] = request.max_entity_tokens
+    if request.max_relation_tokens is not None:
+        param_kwargs["max_relation_tokens"] = request.max_relation_tokens
+    if request.max_total_tokens is not None:
+        param_kwargs["max_total_tokens"] = request.max_total_tokens
+    if request.enable_rerank is not None:
+        param_kwargs["enable_rerank"] = request.enable_rerank
+
+    # 多知识库优化：提前提取关键字，避免 N 个 KB 各自重复调用 LLM
+    if len(rag_ids) > 1:
+        # 用第一个可用的 KB 实例提取关键字（所有 KB 共享同一个 LLM，结果一致）
+        first_processor = None
+        for rid in rag_ids:
+            try:
+                proc = manager.get_instance(rid)
+                if proc.rag is not None:
+                    first_processor = proc
+                    break
+            except ValueError:
+                continue
+
+        if first_processor is not None:
+            hl_keywords, ll_keywords = await first_processor.rag.aextract_keywords(
+                request.question,
+                QueryParam(**param_kwargs),
+            )
+            param_kwargs["hl_keywords"] = hl_keywords
+            param_kwargs["ll_keywords"] = ll_keywords
+            logger.info(
+                f"关键字提取完成（复用于 {len(rag_ids)} 个知识库）: "
+                f"hl={hl_keywords}, ll={ll_keywords}"
+            )
+
+    shared_param = QueryParam(**param_kwargs)
+
     async def retrieve_single_kb(rag_id: str) -> Dict[str, Any]:
-        """检索单个知识库"""
+        """检索单个知识库（使用共享的 QueryParam，跳过重复的关键字提取）"""
         try:
-            from xwrag.base import QueryParam
             processor = manager.get_instance(rag_id)
 
             if processor.rag is None:
@@ -957,27 +1003,7 @@ async def retrieve_documents(request: RetrieveRequest):
                     "error": "RAG 系统未初始化"
                 }
 
-            # 构建 QueryParam，过滤掉 None 值
-            param_kwargs = {
-                "mode": request.mode,
-                "only_need_context": True,
-            }
-            if request.top_k is not None:
-                param_kwargs["top_k"] = request.top_k
-            if request.chunk_top_k is not None:
-                param_kwargs["chunk_top_k"] = request.chunk_top_k
-            if request.max_entity_tokens is not None:
-                param_kwargs["max_entity_tokens"] = request.max_entity_tokens
-            if request.max_relation_tokens is not None:
-                param_kwargs["max_relation_tokens"] = request.max_relation_tokens
-            if request.max_total_tokens is not None:
-                param_kwargs["max_total_tokens"] = request.max_total_tokens
-            if request.enable_rerank is not None:
-                param_kwargs["enable_rerank"] = request.enable_rerank
-
-            param = QueryParam(**param_kwargs)
-
-            result = await processor.rag.aquery_data(request.question, param)
+            result = await processor.rag.aquery_data(request.question, shared_param)
 
             if result is None:
                 logger.warning(f"知识库 {rag_id} 查询返回 None")
@@ -1029,7 +1055,7 @@ async def retrieve_documents(request: RetrieveRequest):
     try:
         logger.info(f"自然语言检索: {request.question} (模式: {request.mode}, RAG IDs: {rag_ids})")
 
-        # 并发查询所有知识库
+        # 并发查询所有知识库（关键字已预提取，每个 KB 只做数据检索）
         tasks = [retrieve_single_kb(rag_id) for rag_id in rag_ids]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
