@@ -291,19 +291,24 @@ class NebulaGraphStorage(BaseGraphStorage):
                     # 4. relationship edge workspace 索引
                     # MATCH 查询对边属性过滤（r.workspace）必须有 Edge Index，否则报 IndexNotFound
                     # 导致 batch 查询降级为顺序查询
-                    edge_ws_index_q = f"CREATE EDGE INDEX IF NOT EXISTS idx_relationship_workspace ON {edge_type}(workspace(64))"
-                    edge_ws_index_res = init_session.execute(edge_ws_index_q)
-                    if edge_ws_index_res.is_succeeded():
-                        logger.info(f"[{self.workspace}] Created edge index on {edge_type}.workspace")
-                        # 异步重建索引以覆盖存量数据（非阻塞，后台执行）
-                        rebuild_q = f"REBUILD EDGE INDEX idx_relationship_workspace"
-                        rebuild_res = init_session.execute(rebuild_q)
-                        if rebuild_res.is_succeeded():
-                            logger.info(f"[{self.workspace}] Edge index rebuild triggered (async, runs in background)")
-                        else:
-                            logger.warning(f"[{self.workspace}] Edge index rebuild: {rebuild_res.error_msg()}")
+                    # 先探测索引是否已存在，只有新建时才触发 REBUILD（存量图不重复重建）
+                    describe_idx_res = init_session.execute("DESCRIBE EDGE INDEX idx_relationship_workspace")
+                    if describe_idx_res.is_succeeded():
+                        logger.info(f"[{self.workspace}] Edge index idx_relationship_workspace already exists, skipping rebuild")
                     else:
-                        logger.warning(f"[{self.workspace}] Edge workspace index: {edge_ws_index_res.error_msg()}")
+                        # 索引不存在，新建并重建
+                        edge_ws_index_q = f"CREATE EDGE INDEX idx_relationship_workspace ON {edge_type}(workspace(64))"
+                        edge_ws_index_res = init_session.execute(edge_ws_index_q)
+                        if edge_ws_index_res.is_succeeded():
+                            logger.info(f"[{self.workspace}] Created edge index on {edge_type}.workspace")
+                            # 新建索引后必须 REBUILD 才能覆盖存量数据（异步，非阻塞）
+                            rebuild_res = init_session.execute("REBUILD EDGE INDEX idx_relationship_workspace")
+                            if rebuild_res.is_succeeded():
+                                logger.info(f"[{self.workspace}] Edge index rebuild triggered (async, runs in background)")
+                            else:
+                                logger.warning(f"[{self.workspace}] Edge index rebuild: {rebuild_res.error_msg()}")
+                        else:
+                            logger.warning(f"[{self.workspace}] Edge workspace index creation: {edge_ws_index_res.error_msg()}")
                 except Exception as e:
                     logger.warning(f"[{self.workspace}] Index creation warning: {e}")
 
