@@ -616,6 +616,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 f'WHERE id(n) == "{safe_id}" '
                 f'RETURN properties(n) LIMIT 1'
             )
+            logger.debug(f"[{self.workspace}] NQL get_node: {query}")
             result = await self._execute_query(query)
 
             if result.row_size() == 0:
@@ -661,7 +662,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 f'WHERE id(n) IN [{ids_str}] '
                 f'RETURN id(n) AS node_id, properties(n)'
             )
-
+            logger.debug(f"[{self.workspace}] NQL get_nodes_batch({len(node_ids)}): {query[:400]}{'...' if len(query) > 400 else ''}")
             result = await self._execute_query(query)
             nodes = {}
 
@@ -717,6 +718,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN properties(r) LIMIT 1'
             )
+            logger.debug(f"[{self.workspace}] NQL get_edge: {query}")
             result = await self._execute_query(query)
             if result.row_size() == 0:
                 return None
@@ -769,6 +771,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 f'AND r.workspace == "{safe_workspace}" '
                 f'RETURN id(a) AS src, id(b) AS tgt'
             )
+            logger.debug(f"[{self.workspace}] NQL get_node_edges: {query}")
             result = await self._execute_query(query)
             if result.row_size() == 0:
                 return []
@@ -1262,6 +1265,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 f'WHERE n.source_id IN [{chunk_ids_str}] '
                 f'RETURN properties(n) AS props'
             )
+            logger.debug(f"[{self.workspace}] NQL get_nodes_by_chunk_ids({len(chunk_ids)}): {query[:400]}{'...' if len(query) > 400 else ''}")
             result = await self._execute_query(query)
 
             nodes = []
@@ -1296,6 +1300,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 f'WHERE r.source_id IN [{chunk_ids_str}] '
                 f'RETURN id(a) AS src, id(b) AS tgt, properties(r)'
             )
+            logger.debug(f"[{self.workspace}] NQL get_edges_by_chunk_ids({len(chunk_ids)}): {query[:400]}{'...' if len(query) > 400 else ''}")
             result = await self._execute_query(query)
 
             edges = []
@@ -1329,6 +1334,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 f'RETURN id(n) AS label, count(r) AS degree '
                 f'ORDER BY degree DESC LIMIT {limit}'
             )
+            logger.debug(f"[{self.workspace}] NQL get_popular_labels: {query}")
             result = await self._execute_query(query)
             labels: List[str] = []
             for i in range(result.row_size()):
@@ -1357,6 +1363,7 @@ class NebulaGraphStorage(BaseGraphStorage):
                 f'MATCH (n:{tag} {{workspace: "{safe_workspace}"}}) '
                 f'RETURN id(n) AS label LIMIT 1000'
             )
+            logger.debug(f"[{self.workspace}] NQL search_labels(q={query_strip!r}): {nql}")
             result = await self._execute_query(nql)
 
             all_labels = []
