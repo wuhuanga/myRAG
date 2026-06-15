@@ -1883,6 +1883,8 @@ async def merge_nodes_and_edges(
     # Execute relationship tasks with error handling
     processed_edges = []
     all_added_entities = []
+    batch_edge_vdb_data = {}
+    batch_added_entities_vdb_data = {}
 
     if edge_tasks:
         done, pending = await asyncio.wait(
@@ -1917,8 +1919,6 @@ async def merge_nodes_and_edges(
             raise first_exception
 
         # If all tasks completed successfully, collect results
-        batch_edge_vdb_data = {}
-        batch_added_entities_vdb_data = {}
         for task in edge_tasks:
             edge_data, added_entities, edge_vdb_data, added_entities_vdb_data = task.result()
             if edge_data is not None:
